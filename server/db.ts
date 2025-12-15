@@ -30,6 +30,32 @@ function debouncedSave() {
   }, SAVE_DEBOUNCE_MS)
 }
 
+// 立即保存数据库（用于关闭时）
+export function saveNow() {
+  if (saveTimer) {
+    clearTimeout(saveTimer)
+    saveTimer = null
+  }
+  if (db) {
+    const data = db.export()
+    fs.writeFileSync(dbPath, Buffer.from(data))
+    console.log('💾 数据库已保存')
+  }
+}
+
+// 优雅关闭处理
+function setupGracefulShutdown() {
+  const shutdown = () => {
+    console.log('\n🛑 正在关闭...')
+    saveNow()
+    process.exit(0)
+  }
+  process.on('SIGTERM', shutdown)
+  process.on('SIGINT', shutdown)
+}
+
+setupGracefulShutdown()
+
 export async function initDatabase(): Promise<Database> {
   const SQL = await initSqlJs()
 

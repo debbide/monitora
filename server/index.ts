@@ -20,6 +20,17 @@ app.use(express.json())
 // 静态文件服务
 app.use(express.static(path.join(__dirname, '../public')))
 
+// 健康检查端点
+const startTime = Date.now()
+app.get('/health', (req, res) => {
+  res.json({
+    status: 'ok',
+    uptime: Math.floor((Date.now() - startTime) / 1000),
+    timestamp: new Date().toISOString(),
+    memory: process.memoryUsage().heapUsed
+  })
+})
+
 // API 路由
 app.get('/api/monitors', (req, res) => {
   try {
