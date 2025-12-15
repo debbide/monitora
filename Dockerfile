@@ -18,19 +18,18 @@ COPY . .
 # 构建前端和后端
 RUN npm run build
 
-# 生产阶段
+# 生产阶段 - 使用更小的基础镜像
 FROM node:20-alpine
 
 WORKDIR /app
 
-# 安装运行时依赖
-RUN apk add --no-cache python3 make g++
-
 # 复制 package 文件
 COPY package*.json ./
 
-# 只安装生产依赖
-RUN npm ci --omit=dev
+# 只安装生产依赖并清理缓存
+RUN npm ci --omit=dev && \
+    npm cache clean --force && \
+    rm -rf /tmp/* /root/.npm
 
 # 复制构建产物
 COPY --from=builder /app/dist ./dist
