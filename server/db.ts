@@ -15,6 +15,21 @@ const dbPath = path.join(dataDir, 'monitor.db')
 
 let db: Database
 
+// 防抖保存机制：减少频繁的磁盘写入
+let saveTimer: ReturnType<typeof setTimeout> | null = null
+const SAVE_DEBOUNCE_MS = 1000
+
+function debouncedSave() {
+  if (saveTimer) clearTimeout(saveTimer)
+  saveTimer = setTimeout(() => {
+    if (db) {
+      const data = db.export()
+      const buffer = Buffer.from(data)
+      fs.writeFileSync(dbPath, buffer)
+    }
+  }, SAVE_DEBOUNCE_MS)
+}
+
 export async function initDatabase(): Promise<Database> {
   const SQL = await initSqlJs()
 
@@ -179,5 +194,5 @@ export function queryFirst(sql: string, params: any[] = []): any | null {
 // 辅助函数：执行语句（INSERT/UPDATE/DELETE）
 export function run(sql: string, params: any[] = []) {
   db.run(sql, params)
-  saveDatabase()
+  debouncedSave() // 使用防抖保存，减少磁盘 I/O
 }

@@ -6,7 +6,7 @@ import { fileURLToPath } from 'url'
 import crypto from 'crypto'
 import { initDatabase, queryAll, queryFirst, run } from './db.js'
 import { Monitor, MonitorCheck } from './types.js'
-import { checkAllMonitors, checkMonitor, hashPassword, verifyPassword } from './monitor.js'
+import { checkAllMonitors, checkMonitor, hashPassword, verifyPassword, processWebhookBody } from './monitor.js'
 import { initTelegramBot, getTelegramBotStatus, stopTelegramBot, setTgBotToken, getTgBotToken, testChatConnection, sendTgMessage } from './telegram.js'
 import { addClient, broadcastRefresh, getClientCount, getClients, pollRefresh } from './sse.js'
 
@@ -345,23 +345,7 @@ app.post('/api/test-webhook', async (req, res) => {
   }
 })
 
-function processWebhookBody(body: Record<string, any>, variables: Record<string, any>): Record<string, any> {
-  const processed: Record<string, any> = {}
-  for (const [key, value] of Object.entries(body)) {
-    if (typeof value === 'string') {
-      let result = value
-      for (const [k, v] of Object.entries(variables)) {
-        result = result.replace(new RegExp(`{{${k}}}`, 'g'), String(v))
-      }
-      processed[key] = result
-    } else if (typeof value === 'object' && value !== null) {
-      processed[key] = processWebhookBody(value, variables)
-    } else {
-      processed[key] = value
-    }
-  }
-  return processed
-}
+// processWebhookBody 已从 monitor.js 导入
 
 app.post('/api/check-now', async (req, res) => {
   try {

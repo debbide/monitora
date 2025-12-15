@@ -431,7 +431,7 @@ function replaceVariables(template: string, variables: Record<string, any>): str
   return result
 }
 
-function processWebhookBody(body: Record<string, any>, variables: Record<string, any>): Record<string, any> {
+export function processWebhookBody(body: Record<string, any>, variables: Record<string, any>): Record<string, any> {
   const processed: Record<string, any> = {}
 
   for (const [key, value] of Object.entries(body)) {
