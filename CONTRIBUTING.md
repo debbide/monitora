@@ -113,7 +113,7 @@ npm run preview
 
 ```bash
 # 拉取最新版本
-docker pull ghcr.io/debbide/monitor:latest
+docker pull ghcr.io/debbide/monitora:latest
 
 # 运行容器
 docker run -d \
@@ -121,7 +121,7 @@ docker run -d \
   -p 3000:3000 \
   -v ./data:/app/data \
   --restart unless-stopped \
-  ghcr.io/debbide/monitor:latest
+  ghcr.io/debbide/monitora:latest
 ```
 
 ### 配置 Docker Hub（可选）
@@ -301,8 +301,8 @@ docker system prune -a
 
 ## 获取帮助
 
-- 📝 提交 [Issue](https://github.com/debbide/monitor/issues)
-- 💬 参与 [Discussions](https://github.com/debbide/monitor/discussions)
+- 📝 提交 [Issue](https://github.com/debbide/monitora/issues)
+- 💬 参与 [Discussions](https://github.com/debbide/monitora/discussions)
 - 📧 查看现有的 Pull Requests
 
 感谢你的贡献！🎉

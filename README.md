@@ -1,7 +1,7 @@
 # CloudEye 监控面板
 
-[![Docker Build](https://github.com/debbide/monitor/actions/workflows/docker-build.yml/badge.svg)](https://github.com/debbide/monitor/actions/workflows/docker-build.yml)
-[![Code Quality](https://github.com/debbide/monitor/actions/workflows/code-quality.yml/badge.svg)](https://github.com/debbide/monitor/actions/workflows/code-quality.yml)
+[![Docker Build](https://github.com/debbide/monitora/actions/workflows/docker-build.yml/badge.svg)](https://github.com/debbide/monitora/actions/workflows/docker-build.yml)
+[![Code Quality](https://github.com/debbide/monitora/actions/workflows/code-quality.yml/badge.svg)](https://github.com/debbide/monitora/actions/workflows/code-quality.yml)
 
 一个现代化的服务监控面板，支持 HTTP/TCP/Komari/Telegram 监控，基于 Docker 快速部署。
 
@@ -27,7 +27,7 @@ version: '3.8'
 
 services:
   uptime-monitor:
-    image: ghcr.io/debbide/monitor:latest
+    image: ghcr.io/debbide/monitora:latest
     container_name: uptime-monitor
     restart: unless-stopped
     ports:
@@ -52,7 +52,7 @@ docker-compose up -d
 
 ```bash
 # 克隆仓库
-git clone https://github.com/debbide/monitor.git
+git clone https://github.com/debbide/monitora.git
 cd monitor
 
 # 使用 Docker Compose 构建并启动
