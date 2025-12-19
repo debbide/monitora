@@ -964,6 +964,18 @@ app.get('*', (req, res) => {
 async function start() {
   await initDatabase()
 
+  // 检查是否需要重置密码（通过环境变量）
+  const resetPassword = process.env.RESET_PASSWORD
+  if (resetPassword) {
+    const newHash = await hashPassword(resetPassword)
+    run(
+      'UPDATE admin_credentials SET password_hash = ?, updated_at = ? WHERE id = 1',
+      [newHash, new Date().toISOString()]
+    )
+    console.log('🔐 密码已通过环境变量 RESET_PASSWORD 重置')
+    console.log('⚠️  请移除 RESET_PASSWORD 环境变量后重启容器以确保安全')
+  }
+
   // 初始化 Telegram Bot（如果配置了 Token）
   initTelegramBot()
 
