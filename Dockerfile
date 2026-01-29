@@ -1,10 +1,10 @@
 # 构建阶段
-FROM node:20-alpine AS builder
+FROM node:20-slim AS builder
 
 WORKDIR /app
 
 # 安装构建依赖
-RUN apk add --no-cache python3 make g++
+RUN apt-get update && apt-get install -y python3 make g++ && rm -rf /var/lib/apt/lists/*
 
 # 复制 package 文件
 COPY package*.json ./
@@ -19,7 +19,7 @@ COPY . .
 RUN npm run build
 
 # 生产阶段 - 使用更小的基础镜像
-FROM node:20-alpine
+FROM node:20-slim
 
 WORKDIR /app
 
