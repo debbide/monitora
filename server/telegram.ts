@@ -5,7 +5,8 @@
 
 import TelegramBot from 'node-telegram-bot-api'
 import { queryAll, queryFirst, run, saveDatabase } from './db.js'
-import { Monitor } from './types.js'
+import { Monitor, MonitorCheck } from './types.js'
+import { sendWebhookNotification } from './webhook-sender.js'
 
 // Bot 实例
 let bot: TelegramBot | null = null
@@ -115,6 +116,9 @@ export function initTelegramBot(): boolean {
 
         // 监听所有消息
         bot.on('message', handleMessage)
+
+        // 监听 Callback Query (按钮点击)
+        bot.on('callback_query', handleCallbackQuery)
 
         // 错误处理
         bot.on('polling_error', (error) => {
@@ -341,88 +345,71 @@ async function sendWebhook(
     message: string,
     timestamp: string
 ) {
-    if (!monitor.webhook_url) return
-
-    try {
-        const variables = {
-            monitor_name: monitor.name,
-            monitor_url: monitor.url || '',
-            status,
-            error: message.substring(0, 200),
-            timestamp,
-            response_time: '0',
-            status_code: '0'
-        }
-
-        let payload: any
-
-        // 如果配置了自定义 body，使用模板替换
-        if (monitor.webhook_body) {
-            try {
-                const bodyTemplate = JSON.parse(monitor.webhook_body)
-                payload = processWebhookBody(bodyTemplate, variables)
-            } catch {
-                // 解析失败，使用默认格式
-                payload = {
-                    monitor: monitor.name,
-                    url: monitor.url,
-                    status,
-                    timestamp,
-                    message: status === 'down'
-                        ? `🚨 ${monitor.name} is DOWN! ${message.substring(0, 100)}`
-                        : `✅ ${monitor.name} is back UP!`
-                }
-            }
-        } else {
-            payload = {
-                monitor: monitor.name,
-                url: monitor.url,
-                status,
-                timestamp,
-                message: status === 'down'
-                    ? `🚨 ${monitor.name} is DOWN! ${message.substring(0, 100)}`
-                    : `✅ ${monitor.name} is back UP!`
-            }
-        }
-
-        let headers: Record<string, string> = {
-            'Content-Type': monitor.webhook_content_type || 'application/json'
-        }
-
-        if (monitor.webhook_headers) {
-            try {
-                const customHeaders = JSON.parse(monitor.webhook_headers)
-                headers = { ...headers, ...customHeaders }
-            } catch { }
-        }
-
-        await fetch(monitor.webhook_url, {
-            method: 'POST',
-            headers,
-            body: JSON.stringify(payload)
-        })
-    } catch (error) {
-        console.error('❌ Webhook 发送失败:', error)
+    const dummyCheck: MonitorCheck = {
+        monitor_id: monitor.id,
+        status,
+        response_time: 0,
+        status_code: 0,
+        error_message: message,
+        checked_at: timestamp
     }
+
+    await sendWebhookNotification(
+        monitor,
+        dummyCheck,
+        status === 'down' ? 'down' : 'recovered'
+    )
 }
 
-// 辅助函数：处理 Webhook Body 模板变量替换
-function processWebhookBody(body: Record<string, any>, variables: Record<string, any>): Record<string, any> {
-    const processed: Record<string, any> = {}
-    for (const [key, value] of Object.entries(body)) {
-        if (typeof value === 'string') {
-            let result = value
-            for (const [k, v] of Object.entries(variables)) {
-                result = result.replace(new RegExp(`{{${k}}}`, 'g'), String(v))
-            }
-            processed[key] = result
-        } else if (typeof value === 'object' && value !== null) {
-            processed[key] = processWebhookBody(value, variables)
+/**
+ * 处理 Callback Query (按钮点击)
+ */
+async function handleCallbackQuery(query: TelegramBot.CallbackQuery) {
+    if (!query.data || !query.message) return
+
+    if (query.data.startsWith('retry_webhook:')) {
+        const monitorId = query.data.split(':')[1]
+
+        // Anti-spam / Debounce could be added here if needed
+
+        const monitor = queryFirst('SELECT * FROM monitors WHERE id = ?', [monitorId]) as Monitor | undefined
+
+        if (!monitor) {
+            bot?.answerCallbackQuery(query.id, { text: '❌ 监控项不存在' })
+            return
+        }
+
+        if (!monitor.webhook_url) {
+            bot?.answerCallbackQuery(query.id, { text: '⚠️ 该监控项未配置 Webhook' })
+            return
+        }
+
+        // Get latest check to populate the webhook payload
+        const latestCheck = queryFirst(
+            'SELECT * FROM monitor_checks WHERE monitor_id = ? ORDER BY checked_at DESC LIMIT 1',
+            [monitor.id]
+        ) as MonitorCheck | undefined
+
+        if (!latestCheck) {
+            bot?.answerCallbackQuery(query.id, { text: '❌ 找不到最近的检查记录' })
+            return
+        }
+
+        bot?.answerCallbackQuery(query.id, { text: '🔄 正在重发 Webhook...' })
+
+        const type = latestCheck.status === 'down' ? 'down' : 'recovered'
+
+        // Log the manual retry
+        console.log(`🔄 Manual webhook retry for ${monitor.name} (initiated by user in TG)`)
+
+        const result = await sendWebhookNotification(monitor, latestCheck, type)
+
+        if (result.success) {
+            bot?.sendMessage(query.message.chat.id, `✅ <b>Webhook 重发成功</b>\n📊 监控: ${monitor.name}\n🔗 URL: ${monitor.webhook_url}`, { parse_mode: 'HTML' })
         } else {
-            processed[key] = value
+            bot?.sendMessage(query.message.chat.id, `❌ <b>Webhook 重发失败</b>\n📊 监控: ${monitor.name}\n⚠️ 原因: ${result.error}`, { parse_mode: 'HTML' })
         }
     }
-    return processed
 }
 
 /**
@@ -451,13 +438,17 @@ export function stopTelegramBot() {
 /**
  * 发送自定义消息到群组
  */
-export async function sendTgMessage(chatId: string, message: string): Promise<{ success: boolean; message: string }> {
+export async function sendTgMessage(
+    chatId: string,
+    message: string,
+    options?: TelegramBot.SendMessageOptions
+): Promise<{ success: boolean; message: string }> {
     if (!bot) {
         return { success: false, message: 'Bot 未启动' }
     }
 
     try {
-        await bot.sendMessage(chatId, message, { parse_mode: 'Markdown' })
+        await bot.sendMessage(chatId, message, { parse_mode: 'Markdown', ...options })
         return { success: true, message: '消息已发送' }
     } catch (error: any) {
         return { success: false, message: error.message }

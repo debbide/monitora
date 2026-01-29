@@ -1,6 +1,7 @@
 import { queryAll, queryFirst, run, saveDatabase } from './db.js'
 import { Monitor, MonitorCheck, KomariApiResponse } from './types.js'
 import { sendTgMessage } from './telegram.js'
+import { sendWebhookNotification } from './webhook-sender.js'
 import crypto from 'crypto'
 
 // 缓存最新检查结果
@@ -374,7 +375,13 @@ async function handleDownStatus(monitor: Monitor, check: MonitorCheck) {
         ``,
         `\`⏰ ${timeStr}\``
       ].join('\n')
-      await sendTgMessage(monitor.tg_notify_chat_id, msg)
+      await sendTgMessage(monitor.tg_notify_chat_id, msg, {
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: '🔄 重发 Webhook', callback_data: `retry_webhook:${monitor.id}` }]
+          ]
+        }
+      })
     }
   }
 }
@@ -422,91 +429,7 @@ async function handleUpStatus(monitor: Monitor, check: MonitorCheck) {
   }
 }
 
-function replaceVariables(template: string, variables: Record<string, any>): string {
-  let result = template
-  for (const [key, value] of Object.entries(variables)) {
-    const regex = new RegExp(`{{${key}}}`, 'g')
-    result = result.replace(regex, String(value))
-  }
-  return result
-}
-
-export function processWebhookBody(body: Record<string, any>, variables: Record<string, any>): Record<string, any> {
-  const processed: Record<string, any> = {}
-
-  for (const [key, value] of Object.entries(body)) {
-    if (typeof value === 'string') {
-      processed[key] = replaceVariables(value, variables)
-    } else if (typeof value === 'object' && value !== null) {
-      processed[key] = processWebhookBody(value, variables)
-    } else {
-      processed[key] = value
-    }
-  }
-
-  return processed
-}
-
-async function sendWebhookNotification(
-  monitor: Monitor,
-  check: MonitorCheck,
-  type: 'down' | 'recovered'
-) {
-  if (!monitor.webhook_url) return
-
-  const variables = {
-    monitor_name: monitor.name,
-    monitor_url: monitor.url,
-    status: type,
-    error: check.error_message,
-    timestamp: check.checked_at,
-    response_time: check.response_time.toString(),
-    status_code: check.status_code.toString()
-  }
-
-  let payload: any
-  let headers: Record<string, string> = {}
-
-  if (monitor.webhook_body) {
-    const body = JSON.parse(monitor.webhook_body)
-    payload = processWebhookBody(body, variables)
-  } else {
-    payload = {
-      monitor: monitor.name,
-      url: monitor.url,
-      status: type,
-      timestamp: check.checked_at,
-      response_time: check.response_time,
-      status_code: check.status_code,
-      error: check.error_message,
-      message: type === 'down'
-        ? `🚨 ${monitor.name} is DOWN! ${check.error_message}`
-        : `✅ ${monitor.name} is back UP!`
-    }
-  }
-
-  headers['Content-Type'] = monitor.webhook_content_type || 'application/json'
-
-  if (monitor.webhook_headers) {
-    const customHeaders = JSON.parse(monitor.webhook_headers)
-    headers = { ...headers, ...customHeaders }
-  }
-
-  if (monitor.webhook_username) {
-    const encodedAuth = Buffer.from(`${monitor.webhook_username}:`).toString('base64')
-    headers['Authorization'] = `Basic ${encodedAuth}`
-  }
-
-  try {
-    await fetch(monitor.webhook_url, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify(payload)
-    })
-  } catch (error) {
-    console.error('Failed to send webhook:', error)
-  }
-}
+// Webhook Logic moved to ./webhook-sender.ts
 
 // 密码相关函数
 export async function hashPassword(password: string): Promise<string> {
