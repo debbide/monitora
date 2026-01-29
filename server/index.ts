@@ -324,7 +324,13 @@ app.post('/api/test-webhook', async (req, res) => {
           `🔗 Webhook 已发送测试通知`,
           `⏰ ${new Date().toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' })}`
         ].join('\n')
-        await sendTgMessage(monitor.tg_chat_id, webhookConfirmMsg)
+        await sendTgMessage(monitor.tg_chat_id, webhookConfirmMsg, {
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: '🔄 重发 Webhook', callback_data: `retry_webhook:${monitor.id}` }]
+            ]
+          }
+        })
       } catch (err) {
         console.error('发送 TG 确认消息失败:', err)
       }
@@ -344,7 +350,13 @@ app.post('/api/test-webhook', async (req, res) => {
             ``,
             `\`⏰ ${new Date().toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' })}\``
           ].join('\n')
-          await sendTgMessage(chatId, webhookConfirmMsg)
+          await sendTgMessage(chatId, webhookConfirmMsg, {
+            reply_markup: {
+              inline_keyboard: [
+                [{ text: '🔄 重发 Webhook', callback_data: `retry_webhook:${monitor.id}` }]
+              ]
+            }
+          })
         }
       } catch (err) {
         console.error('发送 Komari Webhook TG 确认消息失败:', err)
@@ -623,7 +635,13 @@ app.post('/api/komari-notify', async (req, res) => {
           ``,
           `\`⏰ ${timeStr}\``
         ].join('\n')
-        await sendTgMessage(chatId, offlineMsg)
+        await sendTgMessage(chatId, offlineMsg, matchedMonitor ? {
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: '🔄 重发 Webhook', callback_data: `retry_webhook:${matchedMonitor.id}` }]
+            ]
+          }
+        } : undefined)
       }
 
       // 1.5 如果匹配到监控项，保存检查记录（更新面板状态）
