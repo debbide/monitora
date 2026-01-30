@@ -114,6 +114,7 @@ export async function initDatabase(): Promise<Database> {
       check_content_type TEXT DEFAULT 'application/json',
       check_headers TEXT,
       check_body TEXT,
+      next_check_at TEXT,
       is_active INTEGER NOT NULL DEFAULT 1,
       sort_order INTEGER DEFAULT 0,
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
@@ -124,6 +125,13 @@ export async function initDatabase(): Promise<Database> {
   // 迁移：为旧数据库添加 check_interval_max 字段
   try {
     db.run(`ALTER TABLE monitors ADD COLUMN check_interval_max INTEGER`)
+  } catch (e) {
+    // 字段已存在，忽略错误
+  }
+
+  // 迁移：为旧数据库添加 next_check_at 字段
+  try {
+    db.run(`ALTER TABLE monitors ADD COLUMN next_check_at TEXT`)
   } catch (e) {
     // 字段已存在，忽略错误
   }

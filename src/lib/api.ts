@@ -26,6 +26,7 @@ export interface Monitor {
   webhook_headers: string | null
   webhook_body: string | null
   webhook_username: string | null
+  next_check_at?: string
   is_active: number
   sort_order: number
   created_at: string

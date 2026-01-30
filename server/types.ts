@@ -14,6 +14,7 @@ export interface Monitor {
   check_content_type?: string | null
   check_headers?: string | null
   check_body?: string | null
+  next_check_at?: string
   // Telegram 相关字段
   tg_chat_id: string | null
   tg_server_name: string | null  // 用于消息匹配的服务器名称

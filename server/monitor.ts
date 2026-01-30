@@ -6,8 +6,6 @@ import crypto from 'crypto'
 
 // 缓存最新检查结果
 const latestChecks = new Map<string, MonitorCheck>()
-// 缓存每个监控的下次检查间隔（用于随机间隔）
-const nextCheckIntervals = new Map<string, number>()
 
 export function getLatestCheck(monitorId: string): MonitorCheck | undefined {
   return latestChecks.get(monitorId)
@@ -27,48 +25,41 @@ export async function checkAllMonitors() {
     const now = Date.now()
 
     for (const monitor of monitors) {
-      // 获取上次检查时间
-      const lastCheck = queryFirst(
-        'SELECT checked_at FROM monitor_checks WHERE monitor_id = ? ORDER BY checked_at DESC LIMIT 1',
-        [monitor.id]
-      ) as { checked_at: string } | undefined
+      // 1. 如果没有 next_check_at (遗留数据或新创建)，初始化它
+      if (!monitor.next_check_at) {
+        // 如果有上次检查，下一次 = 上次 + 间隔
+        // 如果没有上次检查（新监控），下一次 = 现在
+        // 为了安全起见，我们先初始化为 "现在"，让它立即跑一次，或者根据逻辑推迟
 
-      // 确定本次使用的检查间隔
-      let checkIntervalMinutes: number
+        let nextCheck = now
+        const lastCheck = queryFirst(
+          'SELECT checked_at FROM monitor_checks WHERE monitor_id = ? ORDER BY checked_at DESC LIMIT 1',
+          [monitor.id]
+        ) as { checked_at: string } | undefined
 
-      // 只有 HTTP 或 Scheduled Webhook 模式且设置了 check_interval_max 才使用随机间隔
-      if ((monitor.check_type === 'http' || monitor.check_type === 'scheduled_webhook') && monitor.check_interval_max && monitor.check_interval_max > monitor.check_interval) {
-        // 使用缓存的间隔，如果没有则生成新的
-        if (nextCheckIntervals.has(monitor.id)) {
-          checkIntervalMinutes = nextCheckIntervals.get(monitor.id)!
-        } else {
-          checkIntervalMinutes = getRandomInterval(monitor.check_interval, monitor.check_interval_max)
-          nextCheckIntervals.set(monitor.id, checkIntervalMinutes)
+        if (lastCheck) {
+          // 基础间隔（分钟）
+          let intervalMinutes = monitor.check_interval || 5
+          // 如果是随机间隔模式，取个随机值
+          if ((monitor.check_type === 'http' || monitor.check_type === 'scheduled_webhook') && monitor.check_interval_max && monitor.check_interval_max > monitor.check_interval) {
+            intervalMinutes = getRandomInterval(monitor.check_interval, monitor.check_interval_max)
+          }
+          nextCheck = new Date(lastCheck.checked_at).getTime() + (intervalMinutes * 60 * 1000)
         }
+
+        // 立即保存到 DB，防止重复计算
+        const nextCheckStr = new Date(nextCheck).toISOString()
+        run("UPDATE monitors SET next_check_at = ? WHERE id = ?", [nextCheckStr, monitor.id])
+        console.log(`Initialized next_check_at for ${monitor.name} to ${nextCheckStr}`)
+
+        // 如果时间未到，跳过本次
+        if (nextCheck > now) continue
       } else {
-        checkIntervalMinutes = monitor.check_interval || 5
-      }
-
-      const checkInterval = checkIntervalMinutes * 60 * 1000 // 转换为毫秒
-
-      // 如果有上次检查记录，检查是否超过间隔
-      // 如果没有记录，使用 created_at 作为起点（避免保存后立即执行）
-      const referenceTime = lastCheck
-        ? new Date(lastCheck.checked_at).getTime()
-        : new Date(monitor.created_at).getTime()
-
-      const timeSinceReference = now - referenceTime
-
-      if (timeSinceReference < checkInterval) {
-        // 还没到检查时间，跳过
-        continue
-      }
-
-      // 执行检查前，为下次生成新的随机间隔
-      if ((monitor.check_type === 'http' || monitor.check_type === 'scheduled_webhook') && monitor.check_interval_max && monitor.check_interval_max > monitor.check_interval) {
-        const newInterval = getRandomInterval(monitor.check_interval, monitor.check_interval_max)
-        nextCheckIntervals.set(monitor.id, newInterval)
-        console.log(`Monitor ${monitor.name}: next check in ${newInterval} minutes (random ${monitor.check_interval}-${monitor.check_interval_max})`)
+        // 2. 如果有 next_check_at，判断时间是否已到
+        const nextCheckTime = new Date(monitor.next_check_at).getTime()
+        if (now < nextCheckTime) {
+          continue
+        }
       }
 
       // 执行检查
@@ -190,6 +181,19 @@ export async function checkMonitor(monitor: Monitor) {
       }
     })
   }
+
+  // ---------------------------------------------------------
+  // 关键改动：检查完成后，立即计算并持久化 下一次检查时间
+  // ---------------------------------------------------------
+  let nextIntervalMinutes = monitor.check_interval || 5
+  if ((monitor.check_type === 'http' || monitor.check_type === 'scheduled_webhook') && monitor.check_interval_max && monitor.check_interval_max > monitor.check_interval) {
+    nextIntervalMinutes = getRandomInterval(monitor.check_interval, monitor.check_interval_max)
+    console.log(`Monitor ${monitor.name}: Random interval generated for next run: ${nextIntervalMinutes}m`)
+  }
+
+  const nextCheckTime = new Date(Date.now() + (nextIntervalMinutes * 60 * 1000)).toISOString()
+  run("UPDATE monitors SET next_check_at = ? WHERE id = ?", [nextCheckTime, monitor.id])
+  console.log(`Monitor ${monitor.name}: Scheduled next check at ${nextCheckTime}`)
 }
 
 async function checkHTTP(monitor: Monitor, timeout: number): Promise<{

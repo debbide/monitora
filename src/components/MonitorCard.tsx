@@ -273,6 +273,11 @@ export default function MonitorCard({ monitor, onUpdate, onEdit }: MonitorCardPr
           <span className="last-check">
             最后检查: {new Date(monitor.latestCheck.checked_at).toLocaleString('zh-CN')}
           </span>
+          {monitor.next_check_at && (
+            <span className="next-check" style={{ display: 'block', marginTop: '4px', fontSize: '0.9em', color: '#888' }}>
+              下次执行: {new Date(monitor.next_check_at).toLocaleString('zh-CN')}
+            </span>
+          )}
         </div>
       )}
 

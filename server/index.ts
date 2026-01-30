@@ -47,15 +47,26 @@ app.post('/api/monitors', async (req, res) => {
     const body = req.body
     const id = crypto.randomUUID()
 
+    // 计算初始 next_check_at (延迟首次执行)
+    const now = Date.now()
+    const checkInterval = parseInt(body.check_interval) || 5
+    const checkIntervalMax = body.check_interval_max ? parseInt(body.check_interval_max) : null
+    let nextInterval = checkInterval
+
+    if ((body.check_type === 'http' || body.check_type === 'scheduled_webhook') && checkIntervalMax && checkIntervalMax > checkInterval) {
+      nextInterval = Math.floor(Math.random() * (checkIntervalMax - checkInterval + 1)) + checkInterval
+    }
+    const initialNextCheck = new Date(now + (nextInterval * 60 * 1000)).toISOString()
+
     run(
-      `INSERT INTO monitors (id, name, url, check_interval, check_interval_max, check_type, check_method, check_timeout, expected_status_codes, expected_keyword, forbidden_keyword, komari_offline_threshold, tg_chat_id, tg_server_name, tg_offline_keywords, tg_online_keywords, tg_notify_chat_id, webhook_url, webhook_content_type, webhook_headers, webhook_body, webhook_username, check_content_type, check_headers, check_body, is_active)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`,
+      `INSERT INTO monitors (id, name, url, check_interval, check_interval_max, check_type, check_method, check_timeout, expected_status_codes, expected_keyword, forbidden_keyword, komari_offline_threshold, tg_chat_id, tg_server_name, tg_offline_keywords, tg_online_keywords, tg_notify_chat_id, webhook_url, webhook_content_type, webhook_headers, webhook_body, webhook_username, check_content_type, check_headers, check_body, next_check_at, is_active)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`,
       [
         id,
         body.name,
         body.url || '',
-        parseInt(body.check_interval) || 5,
-        body.check_interval_max ? parseInt(body.check_interval_max) : null,
+        checkInterval,
+        checkIntervalMax,
         body.check_type || 'http',
         body.check_method || 'GET',
         parseInt(body.check_timeout) || 30,
@@ -75,23 +86,22 @@ app.post('/api/monitors', async (req, res) => {
         body.webhook_username || null,
         body.check_content_type || 'application/json',
         body.check_headers && typeof body.check_headers === 'object' ? JSON.stringify(body.check_headers) : (body.check_headers || null),
-        body.check_body && typeof body.check_body === 'object' ? JSON.stringify(body.check_body) : (body.check_body || null)
+        body.check_body && typeof body.check_body === 'object' ? JSON.stringify(body.check_body) : (body.check_body || null),
+        initialNextCheck
       ]
     )
 
     const monitor = queryFirst('SELECT * FROM monitors WHERE id = ?', [id]) as Monitor
 
-    // 创建后立即检查一次（Telegram 和 Komari Webhook 类型插入默认正常状态）
+    // 不再立即执行 checkMonitor(monitor)，而是等待 next_check_at
     if (monitor) {
       if (monitor.check_type === 'telegram' || monitor.check_type === 'komari_webhook') {
-        // 被动接收类型：插入一条默认正常状态的记录
+        // ... (保持不变) ...
         run(
           `INSERT INTO monitor_checks (monitor_id, status, response_time, status_code, error_message, checked_at)
            VALUES (?, 'up', 0, 0, NULL, datetime('now'))`,
           [id]
         )
-      } else {
-        await checkMonitor(monitor)
       }
     }
 
@@ -125,6 +135,17 @@ app.put('/api/monitors/:id', (req, res) => {
     const { id } = req.params
     const body = req.body
 
+    // 计算新的 next_check_at (修改后重置计时)
+    const now = Date.now()
+    const checkInterval = parseInt(body.check_interval) || 5
+    const checkIntervalMax = body.check_interval_max ? parseInt(body.check_interval_max) : null
+    let nextInterval = checkInterval
+
+    if ((body.check_type === 'http' || body.check_type === 'scheduled_webhook') && checkIntervalMax && checkIntervalMax > checkInterval) {
+      nextInterval = Math.floor(Math.random() * (checkIntervalMax - checkInterval + 1)) + checkInterval
+    }
+    const resetNextCheck = new Date(now + (nextInterval * 60 * 1000)).toISOString()
+
     run(
       `UPDATE monitors SET
         name = ?,
@@ -152,13 +173,14 @@ app.put('/api/monitors/:id', (req, res) => {
         check_headers = ?,
         check_body = ?,
         is_active = ?,
-        updated_at = ?
+        updated_at = ?,
+        next_check_at = ?
       WHERE id = ?`,
       [
         body.name,
         body.url || '',
-        parseInt(body.check_interval) || 5,
-        body.check_interval_max ? parseInt(body.check_interval_max) : null,
+        checkInterval,
+        checkIntervalMax,
         body.check_type || 'http',
         body.check_method || 'GET',
         parseInt(body.check_timeout) || 30,
@@ -181,6 +203,7 @@ app.put('/api/monitors/:id', (req, res) => {
         body.check_body && typeof body.check_body === 'object' ? JSON.stringify(body.check_body) : (body.check_body || null),
         body.is_active !== undefined ? body.is_active : 1,
         new Date().toISOString(),
+        resetNextCheck,
         id
       ]
     )
