@@ -442,7 +442,7 @@ export default function AddMonitorForm({ onSuccess, onCancel, editMonitor }: Add
           </div>
         </div>
 
-        {checkType === 'http' && (
+        {(checkType === 'http' || checkType === 'scheduled_webhook') && (
           <div className="form-group" style={{ marginBottom: '16px', padding: '12px', background: 'var(--bg-tertiary)', borderRadius: '8px' }}>
             <label className="checkbox-label" style={{ marginBottom: '8px' }}>
               <input
@@ -506,6 +506,7 @@ export default function AddMonitorForm({ onSuccess, onCancel, editMonitor }: Add
                   onChange={(e) => setUrl(e.target.value)}
                   placeholder="https://api.github.com/repos/..."
                   required
+                  style={{ width: '100%' }}
                 />
                 <span className="form-hint">填写需要触发的 Webhook 地址 (如 GitHub Dispatch URL)</span>
               </div>
