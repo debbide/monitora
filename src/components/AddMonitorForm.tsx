@@ -467,6 +467,46 @@ export default function AddMonitorForm({ onSuccess, onCancel, editMonitor }: Add
             </div>
           </div>
         )}
+
+        {checkType === 'scheduled_webhook' && (
+          <div className="form-section">
+            <h4>通知配置 (Telegram)</h4>
+            <div className="form-group">
+              <label htmlFor="tgNotifyChatId">TG 通知群组 ID</label>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <input
+                  id="tgNotifyChatId"
+                  type="text"
+                  value={tgNotifyChatId}
+                  onChange={(e) => setTgNotifyChatId(e.target.value)}
+                  placeholder="例如: -1001234567890"
+                  style={{ flex: 1 }}
+                />
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  onClick={async () => {
+                    if (!tgNotifyChatId.trim()) {
+                      alert('请先输入群组 ID')
+                      return
+                    }
+                    try {
+                      const result = await testTelegramChat(tgNotifyChatId.trim())
+                      alert(result.message)
+                    } catch (err: any) {
+                      alert('测试失败: ' + err.message)
+                    }
+                  }}
+                  style={{ whiteSpace: 'nowrap' }}
+                >
+                  📡 测试连接
+                </button>
+              </div>
+              <span className="form-hint">每次执行任务都会向此群组发送通知（包含重试按钮）</span>
+            </div>
+          </div>
+        )}
+
         {(checkType === 'http' || checkType === 'scheduled_webhook') && (
           <>
             <div className="form-group">
