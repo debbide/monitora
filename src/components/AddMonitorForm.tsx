@@ -10,22 +10,34 @@ interface AddMonitorFormProps {
 export default function AddMonitorForm({ onSuccess, onCancel, editMonitor }: AddMonitorFormProps) {
   const [name, setName] = useState('')
   const [url, setUrl] = useState('')
-  const [interval, setInterval] = useState('5')
-  const [intervalMax, setIntervalMax] = useState('')
+  // Advanced Scheduling State
+  const [schedDays, setSchedDays] = useState('0')
+  const [schedHours, setSchedHours] = useState('0')
+  const [schedMinutes, setSchedMinutes] = useState('5')
   const [enableRandomInterval, setEnableRandomInterval] = useState(false)
-  const [checkType, setCheckType] = useState<'http' | 'tcp' | 'komari' | 'komari_webhook' | 'telegram'>('http')
-  const [checkMethod, setCheckMethod] = useState<'GET' | 'HEAD' | 'POST'>('GET')
+  const [randomMin, setRandomMin] = useState('5')
+  const [randomMax, setRandomMax] = useState('10')
+  const [randomUnit, setRandomUnit] = useState<'minutes' | 'hours' | 'days'>('minutes')
+
+  const [checkType, setCheckType] = useState<'http' | 'tcp' | 'komari' | 'komari_webhook' | 'telegram' | 'scheduled_webhook'>('http')
+  const [checkMethod, setCheckMethod] = useState<'GET' | 'HEAD' | 'POST' | 'PUT' | 'PATCH'>('GET')
   const [checkTimeout, setCheckTimeout] = useState('30')
   const [expectedStatusCodes, setExpectedStatusCodes] = useState('200,201,204,301,302')
   const [expectedKeyword, setExpectedKeyword] = useState('')
   const [forbiddenKeyword, setForbiddenKeyword] = useState('')
   const [komariOfflineThreshold, setKomariOfflineThreshold] = useState('3')
+
+  // Request Configuration (HTTP & Scheduled Webhook)
+  const [checkContentType, setCheckContentType] = useState('application/json')
+  const [checkHeaders, setCheckHeaders] = useState('')
+  const [checkBody, setCheckBody] = useState('')
+
   // Telegram 相关状态
   const [tgChatId, setTgChatId] = useState('')
   const [tgServerName, setTgServerName] = useState('')
   const [tgOfflineKeywords, setTgOfflineKeywords] = useState('离线,offline,down,掉线')
   const [tgOnlineKeywords, setTgOnlineKeywords] = useState('上线,online,up,恢复')
-  const [tgNotifyChatId, setTgNotifyChatId] = useState('')  // Komari 监控用的 TG 通知群组
+  const [tgNotifyChatId, setTgNotifyChatId] = useState('')  // Komari & Scheduled Webhook 用的 TG 通知群组
   const [webhookUrl, setWebhookUrl] = useState('')
   const [contentType, setContentType] = useState('application/json')
   const [headers, setHeaders] = useState('')
@@ -39,9 +51,42 @@ export default function AddMonitorForm({ onSuccess, onCancel, editMonitor }: Add
     if (editMonitor) {
       setName(editMonitor.name)
       setUrl(editMonitor.url)
-      setInterval(String(editMonitor.check_interval))
-      setIntervalMax(editMonitor.check_interval_max ? String(editMonitor.check_interval_max) : '')
-      setEnableRandomInterval(!!editMonitor.check_interval_max)
+
+      // Parse interval into Days/Hours/Minutes
+      const totalMinutes = editMonitor.check_interval || 5
+      const days = Math.floor(totalMinutes / 1440)
+      const hours = Math.floor((totalMinutes % 1440) / 60)
+      const minutes = totalMinutes % 60
+      setSchedDays(String(days))
+      setSchedHours(String(hours))
+      setSchedMinutes(String(minutes))
+
+      // Parse Random Interval
+      if (editMonitor.check_interval_max) {
+        setEnableRandomInterval(true)
+        const min = editMonitor.check_interval
+        const max = editMonitor.check_interval_max
+        // Heuristic to detect unit
+        if (min % 1440 === 0 && max % 1440 === 0) {
+          setRandomUnit('days')
+          setRandomMin(String(min / 1440))
+          setRandomMax(String(max / 1440))
+        } else if (min % 60 === 0 && max % 60 === 0) {
+          setRandomUnit('hours')
+          setRandomMin(String(min / 60))
+          setRandomMax(String(max / 60))
+        } else {
+          setRandomUnit('minutes')
+          setRandomMin(String(min))
+          setRandomMax(String(max))
+        }
+      } else {
+        setEnableRandomInterval(false)
+        setRandomMin(String(totalMinutes))
+        setRandomMax(String(totalMinutes + 5))
+        setRandomUnit('minutes')
+      }
+
       setCheckType(editMonitor.check_type || 'http')
       setCheckMethod(editMonitor.check_method || 'GET')
       setCheckTimeout(String(editMonitor.check_timeout || 30))
@@ -49,6 +94,11 @@ export default function AddMonitorForm({ onSuccess, onCancel, editMonitor }: Add
       setExpectedKeyword(editMonitor.expected_keyword || '')
       setForbiddenKeyword(editMonitor.forbidden_keyword || '')
       setKomariOfflineThreshold(String(editMonitor.komari_offline_threshold || 3))
+
+      setCheckContentType(editMonitor.check_content_type || 'application/json')
+      setCheckHeaders(editMonitor.check_headers || '')
+      setCheckBody(editMonitor.check_body || '')
+
       setTgChatId(editMonitor.tg_chat_id || '')
       setTgServerName(editMonitor.tg_server_name || '')
       setTgOfflineKeywords(editMonitor.tg_offline_keywords || '离线,offline,down,掉线')
@@ -80,6 +130,8 @@ export default function AddMonitorForm({ onSuccess, onCancel, editMonitor }: Add
         alert('请填写监控目标服务器（用于匹配 Komari 通知）')
         return
       }
+    } else if (checkType === 'scheduled_webhook') {
+      // Scheduled Webhook check
     } else {
       if (!url.trim()) {
         alert('请填写 URL')
@@ -89,12 +141,15 @@ export default function AddMonitorForm({ onSuccess, onCancel, editMonitor }: Add
 
     let parsedHeaders = {}
     let parsedBody = {}
+    let parsedCheckHeaders = {}
+    let parsedCheckBody = {}
 
+    // Parse Webhook Config Headers/Body
     if (headers.trim()) {
       try {
         parsedHeaders = JSON.parse(headers)
       } catch (error) {
-        alert('Headers格式错误，请输入有效的JSON')
+        alert('Webhook Headers格式错误，请输入有效的JSON')
         return
       }
     }
@@ -103,23 +158,79 @@ export default function AddMonitorForm({ onSuccess, onCancel, editMonitor }: Add
       try {
         parsedBody = JSON.parse(body)
       } catch (error) {
-        alert('Body格式错误，请输入有效的JSON')
+        alert('Webhook Body格式错误，请输入有效的JSON')
+        return
+      }
+    }
+
+    // Parse Request Config Headers/Body (for HTTP & Scheduled Webhook)
+    if (checkHeaders.trim()) {
+      try {
+        parsedCheckHeaders = JSON.parse(checkHeaders)
+      } catch (error) {
+        alert('请求 Headers格式错误，请输入有效的JSON')
+        return
+      }
+    }
+
+    if (checkBody.trim()) {
+      try {
+        parsedCheckBody = JSON.parse(checkBody)
+      } catch (error) {
+        alert('请求 Body格式错误，请输入有效的JSON')
         return
       }
     }
 
     setIsSubmitting(true)
     try {
-      const intervalNum = parseInt(interval) || 5
-      const intervalMaxNum = intervalMax ? parseInt(intervalMax) : null
+      // Calculate total minutes from Days/Hours/Minutes
+      const days = parseInt(schedDays) || 0
+      const hours = parseInt(schedHours) || 0
+      const minutes = parseInt(schedMinutes) || 0
+      const totalMinutes = (days * 1440) + (hours * 60) + minutes
+
+      const intervalNum = totalMinutes > 0 ? totalMinutes : 5
+
+      // Calculate max interval if random enabled
+      let intervalMaxNum = null
+      if (enableRandomInterval) {
+        const rMin = parseFloat(randomMin) || 0
+        const rMax = parseFloat(randomMax) || 0
+        const multiplier = randomUnit === 'days' ? 1440 : (randomUnit === 'hours' ? 60 : 1)
+
+        // We only care about Max for the DB field `check_interval_max`
+        // The logic in monitor.ts expects `check_interval` to be min, and `check_interval_max` to be max
+        // So we override intervalNum if random is enabled to be rMin * multiplier
+        // And intervalMaxNum to be rMax * multiplier
+
+        const minTime = Math.floor(rMin * multiplier)
+        const maxTime = Math.floor(rMax * multiplier)
+
+        if (maxTime > minTime) {
+          // intervalNum is used as MIN in random mode by backend logic
+          // But wait, the backend logic says:
+          // if (monitor.check_interval_max && monitor.check_interval_max > monitor.check_interval)
+          // So we should set checking_interval to minTime
+          // But usually checking_interval is the fixed interval.
+          // Let's ensure consistency:
+          // If random enabled, check_interval = minTime, check_interval_max = maxTime
+        }
+        intervalMaxNum = maxTime
+      }
+
+      const finalInterval = enableRandomInterval
+        ? Math.floor((parseFloat(randomMin) || 0) * (randomUnit === 'days' ? 1440 : (randomUnit === 'hours' ? 60 : 1)))
+        : intervalNum
+
       const timeoutNum = parseInt(checkTimeout) || 30
       const thresholdNum = parseInt(komariOfflineThreshold) || 3
 
       const monitorData = {
         name: name.trim(),
         url: checkType === 'telegram' ? '' : url.trim(),
-        check_interval: intervalNum,
-        check_interval_max: (checkType === 'http' && enableRandomInterval && intervalMaxNum && intervalMaxNum > intervalNum) ? intervalMaxNum : null,
+        check_interval: finalInterval > 0 ? finalInterval : 5,
+        check_interval_max: (enableRandomInterval && intervalMaxNum && intervalMaxNum > finalInterval) ? intervalMaxNum : null,
         check_type: checkType,
         check_method: checkMethod,
         check_timeout: timeoutNum,
@@ -136,8 +247,11 @@ export default function AddMonitorForm({ onSuccess, onCancel, editMonitor }: Add
         webhook_content_type: contentType,
         webhook_headers: Object.keys(parsedHeaders).length > 0 ? parsedHeaders : undefined,
         webhook_body: Object.keys(parsedBody).length > 0 ? parsedBody : undefined,
-        webhook_username: username.trim() || undefined
-      }
+        webhook_username: username.trim() || undefined,
+        check_content_type: checkContentType,
+        check_headers: Object.keys(parsedCheckHeaders).length > 0 ? parsedCheckHeaders : undefined,
+        check_body: Object.keys(parsedCheckBody).length > 0 ? parsedCheckBody : undefined,
+      } as any // Use any to bypass strict type check for now if interface mismatch (but we updated api.ts)
 
       if (isEditMode && editMonitor) {
         await updateMonitor(editMonitor.id, monitorData)
@@ -159,9 +273,13 @@ export default function AddMonitorForm({ onSuccess, onCancel, editMonitor }: Add
   function resetForm() {
     setName('')
     setUrl('')
-    setInterval('5')
-    setIntervalMax('')
+    setSchedDays('0')
+    setSchedHours('0')
+    setSchedMinutes('5')
     setEnableRandomInterval(false)
+    setRandomMin('5')
+    setRandomMax('10')
+    setRandomUnit('minutes')
     setCheckType('http')
     setCheckMethod('GET')
     setCheckTimeout('30')
@@ -169,6 +287,11 @@ export default function AddMonitorForm({ onSuccess, onCancel, editMonitor }: Add
     setExpectedKeyword('')
     setForbiddenKeyword('')
     setKomariOfflineThreshold('3')
+
+    setCheckContentType('application/json')
+    setCheckHeaders('')
+    setCheckBody('')
+
     setTgChatId('')
     setTgServerName('')
     setTgOfflineKeywords('离线,offline,down,掉线')
@@ -198,7 +321,7 @@ export default function AddMonitorForm({ onSuccess, onCancel, editMonitor }: Add
           />
         </div>
 
-        {checkType !== 'telegram' && checkType !== 'komari_webhook' && (
+        {checkType !== 'telegram' && checkType !== 'komari_webhook' && checkType !== 'scheduled_webhook' && (
           <div className="form-group">
             <label htmlFor="url">
               {checkType === 'komari' ? 'Komari API 地址' : '网站URL'}
@@ -226,13 +349,14 @@ export default function AddMonitorForm({ onSuccess, onCancel, editMonitor }: Add
             <select
               id="checkType"
               value={checkType}
-              onChange={(e) => setCheckType(e.target.value as 'http' | 'tcp' | 'komari' | 'komari_webhook' | 'telegram')}
+              onChange={(e) => setCheckType(e.target.value as 'http' | 'tcp' | 'komari' | 'komari_webhook' | 'telegram' | 'scheduled_webhook')}
             >
               <option value="http">HTTP 检测</option>
               <option value="tcp">TCP 连通性检测 (Ping)</option>
               <option value="komari">Komari 轮询监控</option>
               <option value="komari_webhook">Komari Webhook 监控</option>
               <option value="telegram">Telegram 群组监控</option>
+              <option value="scheduled_webhook">定时触发 (Webhook/Cron)</option>
             </select>
           </div>
 
@@ -253,33 +377,57 @@ export default function AddMonitorForm({ onSuccess, onCancel, editMonitor }: Add
         </div>
 
         <div className="form-row">
-          <div className="form-group">
-            <label htmlFor="interval">
-              {enableRandomInterval ? '最小间隔（分钟）' : '检查间隔（分钟）'}
+          <div className="form-group" style={{ flex: 2 }}>
+            <label>
+              {checkType === 'scheduled_webhook' ? '触发周期' : '检查间隔'}
             </label>
-            <input
-              id="interval"
-              type="number"
-              min="1"
-              max="1440"
-              value={interval}
-              onChange={(e) => setInterval(e.target.value)}
-            />
-          </div>
-
-          {checkType === 'http' && enableRandomInterval && (
-            <div className="form-group">
-              <label htmlFor="intervalMax">最大间隔（分钟）</label>
-              <input
-                id="intervalMax"
-                type="number"
-                min={(parseInt(interval) || 1) + 1}
-                max="1440"
-                value={intervalMax || (parseInt(interval) + 5)}
-                onChange={(e) => setIntervalMax(e.target.value)}
-              />
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+              <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <input
+                    type="number"
+                    min="0"
+                    value={schedDays}
+                    onChange={(e) => setSchedDays(e.target.value)}
+                    style={{ width: '100%' }}
+                  />
+                  <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>天</span>
+                </div>
+              </div>
+              <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <input
+                    type="number"
+                    min="0"
+                    max="23"
+                    value={schedHours}
+                    onChange={(e) => setSchedHours(e.target.value)}
+                    style={{ width: '100%' }}
+                  />
+                  <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>时</span>
+                </div>
+              </div>
+              <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <input
+                    type="number"
+                    min="0"
+                    max="59"
+                    value={schedMinutes}
+                    onChange={(e) => setSchedMinutes(e.target.value)}
+                    style={{ width: '100%' }}
+                  />
+                  <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>分</span>
+                </div>
+              </div>
             </div>
-          )}
+            {/* 提示信息 */}
+            <span className="form-hint">
+              {checkType === 'komari_webhook'
+                ? '此项对此类型不生效，但已保留配置'
+                : `每 ${parseInt(schedDays) || 0}天 ${parseInt(schedHours) || 0}小时 ${parseInt(schedMinutes) || 0}分 执行一次`}
+            </span>
+          </div>
 
           <div className="form-group">
             <label htmlFor="checkTimeout">超时时间（秒）</label>
@@ -295,218 +443,364 @@ export default function AddMonitorForm({ onSuccess, onCancel, editMonitor }: Add
         </div>
 
         {checkType === 'http' && (
-          <div className="form-group" style={{ marginBottom: '16px' }}>
-            <label className="checkbox-label">
+          <div className="form-group" style={{ marginBottom: '16px', padding: '12px', background: 'var(--bg-tertiary)', borderRadius: '8px' }}>
+            <label className="checkbox-label" style={{ marginBottom: '8px' }}>
               <input
                 type="checkbox"
                 checked={enableRandomInterval}
-                onChange={(e) => {
-                  setEnableRandomInterval(e.target.checked)
-                  if (e.target.checked && !intervalMax) {
-                    setIntervalMax(String((parseInt(interval) || 5) + 5))
-                  }
-                }}
+                onChange={(e) => setEnableRandomInterval(e.target.checked)}
               />
-              启用随机间隔
+              启用随机波动（防风控）
             </label>
-            <span className="form-hint">每次检查后在设定范围内随机选择下次检查时间，让访问更自然</span>
+
+            {enableRandomInterval && (
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginTop: '8px' }}>
+                <span style={{ fontSize: '14px' }}>波动范围:</span>
+                <input
+                  type="number"
+                  value={randomMin}
+                  onChange={(e) => setRandomMin(e.target.value)}
+                  style={{ width: '70px' }}
+                  placeholder="Min"
+                />
+                <span style={{ fontSize: '14px' }}>-</span>
+                <input
+                  type="number"
+                  value={randomMax}
+                  onChange={(e) => setRandomMax(e.target.value)}
+                  style={{ width: '70px' }}
+                  placeholder="Max"
+                />
+                <select
+                  value={randomUnit}
+                  onChange={(e) => setRandomUnit(e.target.value as any)}
+                  style={{ width: '80px' }}
+                >
+                  <option value="minutes">分钟</option>
+                  <option value="hours">小时</option>
+                  <option value="days">天</option>
+                </select>
+              </div>
+            )}
+            <span className="form-hint" style={{ marginTop: '8px', display: 'block' }}>
+              启用后，实际检查间隔将在设定范围内随机浮动，模拟真实用户行为
+            </span>
           </div>
         )}
+      </div>
 
-        {checkType === 'http' && (
-          <>
+      {(checkType === 'http' || checkType === 'scheduled_webhook') && (
+        <div className="form-section">
+          <h4>Request Configuration</h4>
+
+          {checkType === 'scheduled_webhook' && (
+            <div className="form-row">
+              <div className="form-group">
+                <label htmlFor="url">
+                  Webhook URL (触发地址)
+                </label>
+                <input
+                  id="url"
+                  type="text"
+                  value={url}
+                  onChange={(e) => setUrl(e.target.value)}
+                  placeholder="https://api.github.com/repos/..."
+                  required
+                />
+                <span className="form-hint">填写需要触发的 Webhook 地址 (如 GitHub Dispatch URL)</span>
+              </div>
+            </div>
+          )}
+
+          <div className="form-row">
             <div className="form-group">
-              <label htmlFor="expectedStatusCodes">期望状态码（逗号分隔）</label>
+              <label htmlFor="checkContentType">Content-Type</label>
               <input
-                id="expectedStatusCodes"
+                id="checkContentType"
                 type="text"
-                value={expectedStatusCodes}
-                onChange={(e) => setExpectedStatusCodes(e.target.value)}
-                placeholder="200,201,204,301,302"
+                value={checkContentType}
+                onChange={(e) => setCheckContentType(e.target.value)}
+                placeholder="application/json"
               />
-              <span className="form-hint">返回这些状态码视为正常</span>
             </div>
 
-            <div className="form-group">
-              <label htmlFor="expectedKeyword">期望关键词（可选）</label>
-              <input
-                id="expectedKeyword"
-                type="text"
-                value={expectedKeyword}
-                onChange={(e) => setExpectedKeyword(e.target.value)}
-                placeholder="例如: success 或 OK"
-              />
-              <span className="form-hint">响应内容必须包含此关键词才视为正常</span>
-            </div>
+            {(checkType === 'scheduled_webhook' || checkType === 'http') && (
+              <div className="form-group">
+                <label htmlFor="checkMethod">Request Method</label>
+                <select
+                  id="checkMethod"
+                  value={checkMethod}
+                  onChange={(e) => setCheckMethod(e.target.value as any)}
+                >
+                  <option value="GET">GET</option>
+                  <option value="POST">POST</option>
+                  <option value="PUT">PUT</option>
+                  <option value="PATCH">PATCH</option>
+                  <option value="HEAD">HEAD</option>
+                </select>
+              </div>
+            )}
+          </div>
 
-            <div className="form-group">
-              <label htmlFor="forbiddenKeyword">禁止关键词（可选）</label>
-              <input
-                id="forbiddenKeyword"
-                type="text"
-                value={forbiddenKeyword}
-                onChange={(e) => setForbiddenKeyword(e.target.value)}
-                placeholder="例如: 离线 或 offline"
-              />
-              <span className="form-hint">响应内容包含此关键词则判定为故障（用于监控探针页面）</span>
-            </div>
-          </>
-        )}
+          <div className="form-group">
+            <label htmlFor="checkHeaders">Custom Headers (JSON)</label>
+            <textarea
+              id="checkHeaders"
+              value={checkHeaders}
+              onChange={(e) => setCheckHeaders(e.target.value)}
+              placeholder='{"Authorization": "Bearer token", "Accept": "application/vnd.github+json"}'
+              rows={3}
+            />
+          </div>
 
-        {checkType === 'komari' && (
-          <>
-            <div className="form-group">
-              <label htmlFor="komariOfflineThreshold">离线判断阈值（分钟）</label>
-              <input
-                id="komariOfflineThreshold"
-                type="number"
-                min="1"
-                max="60"
-                value={komariOfflineThreshold}
-                onChange={(e) => setKomariOfflineThreshold(e.target.value)}
-              />
-              <span className="form-hint">服务器超过此时间未更新状态则判定为离线</span>
-            </div>
-            <div className="form-group">
-              <label htmlFor="expectedKeyword">监控目标服务器（可选）</label>
-              <input
-                id="expectedKeyword"
-                type="text"
-                value={expectedKeyword}
-                onChange={(e) => setExpectedKeyword(e.target.value)}
-                placeholder="例如: FR①,HK-①,oracle"
-              />
-              <span className="form-hint">填写完整服务器名称，多个用逗号分隔；留空则监控所有服务器</span>
-            </div>
-            <div className="form-group">
-              <span className="form-hint" style={{ display: 'block', marginTop: '8px', padding: '12px', background: 'var(--bg-tertiary)', borderRadius: '8px' }}>
-                <strong>URL 格式：</strong>填写 Komari 面板的 API 地址，例如：<br />
-                <code style={{ background: 'var(--bg-secondary)', padding: '2px 6px', borderRadius: '4px' }}>https://your-domain.com/api/client</code>
-              </span>
-            </div>
-            <div className="form-group">
-              <label htmlFor="tgNotifyChatId">TG 通知群组 ID（可选）</label>
+          <div className="form-group">
+            <label htmlFor="checkBody">Request Body (JSON)</label>
+            <textarea
+              id="checkBody"
+              value={checkBody}
+              onChange={(e) => setCheckBody(e.target.value)}
+              placeholder='{"event_type": "trigger", "client_payload": {}}'
+              rows={4}
+            />
+          </div>
+
+          {checkType === 'http' && (
+            <>
+              <div className="form-group">
+                <label htmlFor="expectedStatusCodes">期望状态码（逗号分隔）</label>
+                <input
+                  id="expectedStatusCodes"
+                  type="text"
+                  value={expectedStatusCodes}
+                  onChange={(e) => setExpectedStatusCodes(e.target.value)}
+                  placeholder="200,201,204,301,302"
+                />
+                <span className="form-hint">返回这些状态码视为正常</span>
+              </div>
+
+              <div className="form-group">
+                <label htmlFor="expectedKeyword">期望关键词（可选）</label>
+                <input
+                  id="expectedKeyword"
+                  type="text"
+                  value={expectedKeyword}
+                  onChange={(e) => setExpectedKeyword(e.target.value)}
+                  placeholder="例如: success 或 OK"
+                />
+                <span className="form-hint">响应内容必须包含此关键词才视为正常</span>
+              </div>
+
+              <div className="form-group">
+                <label htmlFor="forbiddenKeyword">禁止关键词（可选）</label>
+                <input
+                  id="forbiddenKeyword"
+                  type="text"
+                  value={forbiddenKeyword}
+                  onChange={(e) => setForbiddenKeyword(e.target.value)}
+                  placeholder="例如: 离线 或 offline"
+                />
+                <span className="form-hint">响应内容包含此关键词则判定为故障（用于监控探针页面）</span>
+              </div>
+            </>
+          )}
+        </div>
+      )}
+
+      {checkType === 'komari' && (
+        <div className="form-section">
+          <h4>Komari Configuration</h4>
+          <div className="form-group">
+            <label htmlFor="komariOfflineThreshold">离线判断阈值（分钟）</label>
+            <input
+              id="komariOfflineThreshold"
+              type="number"
+              min="1"
+              max="60"
+              value={komariOfflineThreshold}
+              onChange={(e) => setKomariOfflineThreshold(e.target.value)}
+            />
+            <span className="form-hint">服务器超过此时间未更新状态则判定为离线</span>
+          </div>
+          <div className="form-group">
+            <label htmlFor="expectedKeyword">监控目标服务器（可选）</label>
+            <input
+              id="expectedKeyword"
+              type="text"
+              value={expectedKeyword}
+              onChange={(e) => setExpectedKeyword(e.target.value)}
+              placeholder="例如: FR①,HK-①,oracle"
+            />
+            <span className="form-hint">填写完整服务器名称，多个用逗号分隔；留空则监控所有服务器</span>
+          </div>
+          <div className="form-group">
+            <span className="form-hint" style={{ display: 'block', marginTop: '8px', padding: '12px', background: 'var(--bg-tertiary)', borderRadius: '8px' }}>
+              <strong>URL 格式：</strong>填写 Komari 面板的 API 地址，例如：<br />
+              <code style={{ background: 'var(--bg-secondary)', padding: '2px 6px', borderRadius: '4px' }}>https://your-domain.com/api/client</code>
+            </span>
+          </div>
+          <div className="form-group">
+            <label htmlFor="tgNotifyChatId">TG 通知群组 ID（可选）</label>
+            <input
+              id="tgNotifyChatId"
+              type="text"
+              value={tgNotifyChatId}
+              onChange={(e) => setTgNotifyChatId(e.target.value)}
+              placeholder="例如: -1001234567890"
+            />
+            <span className="form-hint">触发告警时同步发送消息到此 TG 群组，便于观察误报情况（需先在顶栏配置 Bot Token）</span>
+          </div>
+        </div>
+      )}
+
+      {checkType === 'komari_webhook' && (
+        <div className="form-section">
+          <h4>Komari Webhook Configuration</h4>
+          <div className="form-group">
+            <label htmlFor="expectedKeyword">监控目标服务器（用于匹配 Komari 通知）</label>
+            <input
+              id="expectedKeyword"
+              type="text"
+              value={expectedKeyword}
+              onChange={(e) => setExpectedKeyword(e.target.value)}
+              placeholder="服务器名称（多个用逗号分隔）"
+              required
+            />
+            <span className="form-hint">
+              当收到 Komari 通知时，会匹配此名称触发告警和 Webhook（需先在 📡 设置启用接收）
+            </span>
+          </div>
+          <div className="form-group">
+            <span className="form-hint" style={{ display: 'block', marginTop: '8px', padding: '12px', background: 'var(--bg-tertiary)', borderRadius: '8px' }}>
+              <strong>📡 Komari Webhook 监控说明：</strong><br />
+              1. 在顶栏 📡 按钮中启用 Komari 通知接收并填写 TG 群组 ID<br />
+              2. 在 Komari 面板设置 Webhook 指向：<code style={{ background: 'var(--bg-secondary)', padding: '2px 6px', borderRadius: '4px' }}>https://你的域名/api/komari-notify</code><br />
+              3. 收到离线通知时会匹配此监控项并触发下方配置的 Webhook
+            </span>
+          </div>
+        </div>
+      )}
+
+      {checkType === 'scheduled_webhook' && (
+        <div className="form-section">
+          <h4>Notification Config (Telegram)</h4>
+          <div className="form-group">
+            <label htmlFor="tgNotifyChatId">TG Chat ID (for Notifications)</label>
+            <div style={{ display: 'flex', gap: '8px' }}>
               <input
                 id="tgNotifyChatId"
                 type="text"
                 value={tgNotifyChatId}
                 onChange={(e) => setTgNotifyChatId(e.target.value)}
                 placeholder="例如: -1001234567890"
+                style={{ flex: 1 }}
               />
-              <span className="form-hint">触发告警时同步发送消息到此 TG 群组，便于观察误报情况（需先在顶栏配置 Bot Token）</span>
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={async () => {
+                  if (!tgNotifyChatId.trim()) {
+                    alert('请先输入群组 ID')
+                    return
+                  }
+                  try {
+                    const result = await testTelegramChat(tgNotifyChatId.trim())
+                    alert(result.message)
+                  } catch (err: any) {
+                    alert('测试失败: ' + err.message)
+                  }
+                }}
+                style={{ whiteSpace: 'nowrap' }}
+              >
+                📡 Test Connection
+              </button>
             </div>
-          </>
-        )}
+            <span className="form-hint">每次任务执行（无论成功失败）都会发送通知到此群组，并附带重试按钮</span>
+          </div>
+        </div>
+      )}
 
-        {checkType === 'komari_webhook' && (
-          <>
-            <div className="form-group">
-              <label htmlFor="expectedKeyword">监控目标服务器（用于匹配 Komari 通知）</label>
+      {checkType === 'telegram' && (
+        <div className="form-section">
+          <h4>Telegram Configuration</h4>
+          <div className="form-group">
+            <label htmlFor="tgChatId">群组 ID</label>
+            <div style={{ display: 'flex', gap: '8px' }}>
               <input
-                id="expectedKeyword"
+                id="tgChatId"
                 type="text"
-                value={expectedKeyword}
-                onChange={(e) => setExpectedKeyword(e.target.value)}
-                placeholder="服务器名称（多个用逗号分隔）"
+                value={tgChatId}
+                onChange={(e) => setTgChatId(e.target.value)}
+                placeholder="例如: -1001234567890"
                 required
+                style={{ flex: 1 }}
               />
-              <span className="form-hint">
-                当收到 Komari 通知时，会匹配此名称触发告警和 Webhook（需先在 📡 设置启用接收）
-              </span>
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={async () => {
+                  if (!tgChatId.trim()) {
+                    alert('请先输入群组 ID')
+                    return
+                  }
+                  try {
+                    const result = await testTelegramChat(tgChatId.trim())
+                    alert(result.message)
+                  } catch (err: any) {
+                    alert('测试失败: ' + err.message)
+                  }
+                }}
+                style={{ whiteSpace: 'nowrap' }}
+              >
+                📡 测试连接
+              </button>
             </div>
-            <div className="form-group">
-              <span className="form-hint" style={{ display: 'block', marginTop: '8px', padding: '12px', background: 'var(--bg-tertiary)', borderRadius: '8px' }}>
-                <strong>📡 Komari Webhook 监控说明：</strong><br />
-                1. 在顶栏 📡 按钮中启用 Komari 通知接收并填写 TG 群组 ID<br />
-                2. 在 Komari 面板设置 Webhook 指向：<code style={{ background: 'var(--bg-secondary)', padding: '2px 6px', borderRadius: '4px' }}>https://你的域名/api/komari-notify</code><br />
-                3. 收到离线通知时会匹配此监控项并触发下方配置的 Webhook
-              </span>
-            </div>
-          </>
-        )}
-
-        {checkType === 'telegram' && (
-          <>
-            <div className="form-group">
-              <label htmlFor="tgChatId">群组 ID</label>
-              <div style={{ display: 'flex', gap: '8px' }}>
-                <input
-                  id="tgChatId"
-                  type="text"
-                  value={tgChatId}
-                  onChange={(e) => setTgChatId(e.target.value)}
-                  placeholder="例如: -1001234567890"
-                  required
-                  style={{ flex: 1 }}
-                />
-                <button
-                  type="button"
-                  className="btn-secondary"
-                  onClick={async () => {
-                    if (!tgChatId.trim()) {
-                      alert('请先输入群组 ID')
-                      return
-                    }
-                    try {
-                      const result = await testTelegramChat(tgChatId.trim())
-                      alert(result.message)
-                    } catch (err: any) {
-                      alert('测试失败: ' + err.message)
-                    }
-                  }}
-                  style={{ whiteSpace: 'nowrap' }}
-                >
-                  📡 测试连接
-                </button>
-              </div>
-              <span className="form-hint">Telegram 群组 ID（负数），可通过 @userinfobot 获取</span>
-            </div>
-            <div className="form-group">
-              <label htmlFor="tgServerName">服务器名称</label>
-              <input
-                id="tgServerName"
-                type="text"
-                value={tgServerName}
-                onChange={(e) => setTgServerName(e.target.value)}
-                placeholder="例如: streamlit,my-server"
-                required
-              />
-              <span className="form-hint">消息中需包含的服务器名称，多个用逗号分隔（从通知消息的"主机名称"字段提取）</span>
-            </div>
-            <div className="form-group">
-              <label htmlFor="tgOfflineKeywords">离线关键词</label>
-              <input
-                id="tgOfflineKeywords"
-                type="text"
-                value={tgOfflineKeywords}
-                onChange={(e) => setTgOfflineKeywords(e.target.value)}
-                placeholder="离线,offline,down,掉线"
-              />
-              <span className="form-hint">消息包含这些关键词时判定为离线，多个用逗号分隔</span>
-            </div>
-            <div className="form-group">
-              <label htmlFor="tgOnlineKeywords">上线关键词</label>
-              <input
-                id="tgOnlineKeywords"
-                type="text"
-                value={tgOnlineKeywords}
-                onChange={(e) => setTgOnlineKeywords(e.target.value)}
-                placeholder="上线,online,up,恢复"
-              />
-              <span className="form-hint">消息包含这些关键词时判定为上线，多个用逗号分隔</span>
-            </div>
-            <div className="form-group">
-              <span className="form-hint" style={{ display: 'block', marginTop: '8px', padding: '12px', background: 'var(--bg-tertiary)', borderRadius: '8px' }}>
-                <strong>使用说明：</strong><br />
-                1. 先在顶栏 🤖 按钮配置 Bot Token<br />
-                2. 将 Bot 加入到监控的群组<br />
-                3. 填写群组 ID 和服务器名称（从通知消息中提取）<br />
-                4. 根据通知消息格式设置离线/上线关键词
-              </span>
-            </div>
-          </>
-        )}
-      </div>
+            <span className="form-hint">Telegram 群组 ID（负数），可通过 @userinfobot 获取</span>
+          </div>
+          <div className="form-group">
+            <label htmlFor="tgServerName">服务器名称</label>
+            <input
+              id="tgServerName"
+              type="text"
+              value={tgServerName}
+              onChange={(e) => setTgServerName(e.target.value)}
+              placeholder="例如: streamlit,my-server"
+              required
+            />
+            <span className="form-hint">消息中需包含的服务器名称，多个用逗号分隔（从通知消息的"主机名称"字段提取）</span>
+          </div>
+          <div className="form-group">
+            <label htmlFor="tgOfflineKeywords">离线关键词</label>
+            <input
+              id="tgOfflineKeywords"
+              type="text"
+              value={tgOfflineKeywords}
+              onChange={(e) => setTgOfflineKeywords(e.target.value)}
+              placeholder="离线,offline,down,掉线"
+            />
+            <span className="form-hint">消息包含这些关键词时判定为离线，多个用逗号分隔</span>
+          </div>
+          <div className="form-group">
+            <label htmlFor="tgOnlineKeywords">上线关键词</label>
+            <input
+              id="tgOnlineKeywords"
+              type="text"
+              value={tgOnlineKeywords}
+              onChange={(e) => setTgOnlineKeywords(e.target.value)}
+              placeholder="上线,online,up,恢复"
+            />
+            <span className="form-hint">消息包含这些关键词时判定为上线，多个用逗号分隔</span>
+          </div>
+          <div className="form-group">
+            <span className="form-hint" style={{ display: 'block', marginTop: '8px', padding: '12px', background: 'var(--bg-tertiary)', borderRadius: '8px' }}>
+              <strong>使用说明：</strong><br />
+              1. 先在顶栏 🤖 按钮配置 Bot Token<br />
+              2. 将 Bot 加入到监控的群组<br />
+              3. 填写群组 ID 和服务器名称（从通知消息中提取）<br />
+              4. 根据通知消息格式设置离线/上线关键词
+            </span>
+          </div>
+        </div>
+      )}
 
       <div className="form-section">
         <h4>Webhook通知（可选）</h4>
@@ -589,6 +883,6 @@ export default function AddMonitorForm({ onSuccess, onCancel, editMonitor }: Add
           {isSubmitting ? (isEditMode ? '保存中...' : '添加中...') : (isEditMode ? '保存' : '添加监控')}
         </button>
       </div>
-    </form>
+    </form >
   )
 }

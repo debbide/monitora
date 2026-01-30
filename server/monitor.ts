@@ -36,8 +36,8 @@ export async function checkAllMonitors() {
       // 确定本次使用的检查间隔
       let checkIntervalMinutes: number
 
-      // 只有 HTTP 模式且设置了 check_interval_max 才使用随机间隔
-      if (monitor.check_type === 'http' && monitor.check_interval_max && monitor.check_interval_max > monitor.check_interval) {
+      // 只有 HTTP 或 Scheduled Webhook 模式且设置了 check_interval_max 才使用随机间隔
+      if ((monitor.check_type === 'http' || monitor.check_type === 'scheduled_webhook') && monitor.check_interval_max && monitor.check_interval_max > monitor.check_interval) {
         // 使用缓存的间隔，如果没有则生成新的
         if (nextCheckIntervals.has(monitor.id)) {
           checkIntervalMinutes = nextCheckIntervals.get(monitor.id)!
@@ -63,7 +63,7 @@ export async function checkAllMonitors() {
       }
 
       // 执行检查前，为下次生成新的随机间隔
-      if (monitor.check_type === 'http' && monitor.check_interval_max && monitor.check_interval_max > monitor.check_interval) {
+      if ((monitor.check_type === 'http' || monitor.check_type === 'scheduled_webhook') && monitor.check_interval_max && monitor.check_interval_max > monitor.check_interval) {
         const newInterval = getRandomInterval(monitor.check_interval, monitor.check_interval_max)
         nextCheckIntervals.set(monitor.id, newInterval)
         console.log(`Monitor ${monitor.name}: next check in ${newInterval} minutes (random ${monitor.check_interval}-${monitor.check_interval_max})`)
@@ -160,6 +160,34 @@ export async function checkMonitor(monitor: Monitor) {
   } else {
     await handleUpStatus(monitor, checkData)
   }
+
+  // Scheduled Webhook: Always notify on execution
+  if (checkType === 'scheduled_webhook' && monitor.tg_notify_chat_id) {
+    const timeStr = new Date().toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' })
+    const icon = status === 'up' ? '✅' : '❌'
+    const statusText = status === 'up' ? '成功' : '失败'
+
+    // Format headers and body for display if needed, or just keep simple
+    const msg = [
+      `${icon} *定时任务执行: ${statusText}*`,
+      ``,
+      `📋 *任务:* ${monitor.name}`,
+      `🔗 *URL:* ${monitor.url}`,
+      `⏱ *耗时:* ${responseTime}ms`,
+      `🔢 *状态码:* ${statusCode}`,
+      status === 'down' ? `⚠️ *错误:* ${errorMessage}` : '',
+      ``,
+      `\`⏰ ${timeStr}\``
+    ].filter(Boolean).join('\n')
+
+    await sendTgMessage(monitor.tg_notify_chat_id, msg, {
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: '🔄 立即重试', callback_data: `retry_scheduled:${monitor.id}` }]
+        ]
+      }
+    })
+  }
 }
 
 async function checkHTTP(monitor: Monitor, timeout: number): Promise<{
@@ -179,8 +207,13 @@ async function checkHTTP(monitor: Monitor, timeout: number): Promise<{
       signal: controller.signal,
       redirect: 'follow',
       headers: {
-        'User-Agent': 'UptimeMonitor/1.0'
-      }
+        'User-Agent': 'UptimeMonitor/1.0',
+        ...(monitor.check_content_type ? { 'Content-Type': monitor.check_content_type } : {}),
+        ...(monitor.check_headers ? JSON.parse(monitor.check_headers) : {})
+      },
+      body: (method === 'POST' || method === 'PUT' || method === 'PATCH') && monitor.check_body
+        ? JSON.stringify(JSON.parse(monitor.check_body))
+        : undefined
     })
 
     clearTimeout(timeoutId)

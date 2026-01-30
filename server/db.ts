@@ -111,6 +111,9 @@ export async function initDatabase(): Promise<Database> {
       webhook_headers TEXT,
       webhook_body TEXT,
       webhook_username TEXT,
+      check_content_type TEXT DEFAULT 'application/json',
+      check_headers TEXT,
+      check_body TEXT,
       is_active INTEGER NOT NULL DEFAULT 1,
       sort_order INTEGER DEFAULT 0,
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
@@ -148,6 +151,18 @@ export async function initDatabase(): Promise<Database> {
   try {
     db.run(`ALTER TABLE monitors ADD COLUMN tg_notify_chat_id TEXT`)
   } catch (e) { }
+
+  // 迁移：为旧数据库添加 Request Config 相关字段
+  try {
+    db.run(`ALTER TABLE monitors ADD COLUMN check_content_type TEXT DEFAULT 'application/json'`)
+  } catch (e) { }
+  try {
+    db.run(`ALTER TABLE monitors ADD COLUMN check_headers TEXT`)
+  } catch (e) { }
+  try {
+    db.run(`ALTER TABLE monitors ADD COLUMN check_body TEXT`)
+  } catch (e) { }
+
 
 
   db.run(`

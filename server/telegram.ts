@@ -409,7 +409,24 @@ async function handleCallbackQuery(query: TelegramBot.CallbackQuery) {
         } else {
             bot?.sendMessage(query.message.chat.id, `❌ <b>Webhook 重发失败</b>\n📊 监控: ${monitor.name}\n⚠️ 原因: ${result.error}`, { parse_mode: 'HTML' })
         }
+    } else if (query.data.startsWith('retry_scheduled:')) {
+        const monitorId = query.data.split(':')[1]
+        const monitor = queryFirst('SELECT * FROM monitors WHERE id = ?', [monitorId]) as Monitor | undefined
+
+        if (!monitor) {
+            bot?.answerCallbackQuery(query.id, { text: '❌ 监控项不存在' })
+            return
+        }
+
+        bot?.answerCallbackQuery(query.id, { text: '🔄 正在立即执行任务...' })
+
+        // 动态导入以避免循环依赖
+        const { checkMonitor } = await import('./monitor.js')
+
+        // 执行检查 (monitor.ts 中已包含发送结果的逻辑)
+        checkMonitor(monitor)
     }
+
 }
 
 /**

@@ -6,13 +6,16 @@ export interface Monitor {
   url: string
   check_interval: number
   check_interval_max: number | null
-  check_type: 'http' | 'tcp' | 'komari' | 'telegram'
-  check_method: 'GET' | 'HEAD' | 'POST'
+  check_type: 'http' | 'tcp' | 'komari' | 'komari_webhook' | 'telegram' | 'scheduled_webhook'
+  check_method: 'GET' | 'HEAD' | 'POST' | 'PUT' | 'PATCH'
   check_timeout: number
   expected_status_codes: string
   expected_keyword: string | null
   forbidden_keyword: string | null
   komari_offline_threshold: number
+  check_content_type?: string | null
+  check_headers?: string | null
+  check_body?: string | null
   tg_chat_id: string | null
   tg_server_name: string | null
   tg_offline_keywords: string | null
@@ -88,13 +91,16 @@ export async function createMonitor(monitor: {
   url?: string
   check_interval?: number
   check_interval_max?: number | null
-  check_type?: 'http' | 'tcp' | 'komari' | 'komari_webhook' | 'telegram'
-  check_method?: 'GET' | 'HEAD' | 'POST'
+  check_type?: 'http' | 'tcp' | 'komari' | 'komari_webhook' | 'telegram' | 'scheduled_webhook'
+  check_method?: 'GET' | 'HEAD' | 'POST' | 'PUT' | 'PATCH'
   check_timeout?: number
   expected_status_codes?: string
   expected_keyword?: string
   forbidden_keyword?: string
   komari_offline_threshold?: number
+  check_content_type?: string
+  check_headers?: string
+  check_body?: string
   tg_chat_id?: string
   tg_server_name?: string
   tg_offline_keywords?: string
@@ -123,13 +129,16 @@ export async function updateMonitor(id: string, monitor: {
   url?: string
   check_interval?: number
   check_interval_max?: number | null
-  check_type?: 'http' | 'tcp' | 'komari' | 'komari_webhook' | 'telegram'
-  check_method?: 'GET' | 'HEAD' | 'POST'
+  check_type?: 'http' | 'tcp' | 'komari' | 'komari_webhook' | 'telegram' | 'scheduled_webhook'
+  check_method?: 'GET' | 'HEAD' | 'POST' | 'PUT' | 'PATCH'
   check_timeout?: number
   expected_status_codes?: string
   expected_keyword?: string
   forbidden_keyword?: string
   komari_offline_threshold?: number
+  check_content_type?: string
+  check_headers?: string
+  check_body?: string
   tg_chat_id?: string
   tg_server_name?: string
   tg_offline_keywords?: string
