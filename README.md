@@ -133,7 +133,7 @@ CloudEye 作为接收端，被动接收 Komari 面板发出的 Webhook 告警。
 1.  **添加监控** -> 选择类型 **Komari Webhook**。
 2.  **监控目标服务器**：填写服务器名称 (如 `HK-Server-1`)，与探针面板上的名称一致。
 3.  **前往 Komari 面板后台** -> 通知设置 -> 添加 Webhook：
-    *   **URL**: `http://你的CloudEye域名:3000/api/komari-notify`
+    *   **URL**: `https://你的CloudEye域名/api/komari-notify`
     *   **Method**: `POST`
     *   **Body**: 默认 JSON 即可。
 4.  **效果**：当 CloudEye 收到该 Webhook，会匹配服务器名称，更新监控状态，并可触发额外的通知。
