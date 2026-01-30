@@ -149,6 +149,18 @@ export async function initDatabase(): Promise<Database> {
     db.run(`ALTER TABLE monitors ADD COLUMN tg_notify_chat_id TEXT`)
   } catch (e) { }
 
+  try {
+    db.run(`ALTER TABLE monitors ADD COLUMN check_content_type TEXT`)
+  } catch (e) { }
+
+  try {
+    db.run(`ALTER TABLE monitors ADD COLUMN check_headers TEXT`)
+  } catch (e) { }
+
+  try {
+    db.run(`ALTER TABLE monitors ADD COLUMN check_body TEXT`)
+  } catch (e) { }
+
 
   db.run(`
     CREATE TABLE IF NOT EXISTS monitor_checks (

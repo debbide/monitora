@@ -6,7 +6,7 @@ export interface Monitor {
   url: string
   check_interval: number
   check_interval_max: number | null
-  check_type: 'http' | 'tcp' | 'komari' | 'telegram'
+  check_type: 'http' | 'tcp' | 'komari' | 'telegram' | 'scheduled_webhook'
   check_method: 'GET' | 'HEAD' | 'POST'
   check_timeout: number
   expected_status_codes: string
@@ -23,6 +23,9 @@ export interface Monitor {
   webhook_headers: string | null
   webhook_body: string | null
   webhook_username: string | null
+  check_content_type: string | null
+  check_headers: string | null
+  check_body: string | null
   is_active: number
   sort_order: number
   created_at: string
@@ -88,7 +91,7 @@ export async function createMonitor(monitor: {
   url?: string
   check_interval?: number
   check_interval_max?: number | null
-  check_type?: 'http' | 'tcp' | 'komari' | 'komari_webhook' | 'telegram'
+  check_type?: 'http' | 'tcp' | 'komari' | 'komari_webhook' | 'telegram' | 'scheduled_webhook'
   check_method?: 'GET' | 'HEAD' | 'POST'
   check_timeout?: number
   expected_status_codes?: string
@@ -105,6 +108,9 @@ export async function createMonitor(monitor: {
   webhook_headers?: Record<string, string>
   webhook_body?: Record<string, any>
   webhook_username?: string
+  check_content_type?: string
+  check_headers?: Record<string, string>
+  check_body?: Record<string, any>
 }): Promise<Monitor> {
   return fetchAPI('/api/monitors', {
     method: 'POST',
@@ -123,7 +129,7 @@ export async function updateMonitor(id: string, monitor: {
   url?: string
   check_interval?: number
   check_interval_max?: number | null
-  check_type?: 'http' | 'tcp' | 'komari' | 'komari_webhook' | 'telegram'
+  check_type?: 'http' | 'tcp' | 'komari' | 'komari_webhook' | 'telegram' | 'scheduled_webhook'
   check_method?: 'GET' | 'HEAD' | 'POST'
   check_timeout?: number
   expected_status_codes?: string
@@ -140,6 +146,9 @@ export async function updateMonitor(id: string, monitor: {
   webhook_headers?: Record<string, string>
   webhook_body?: Record<string, any>
   webhook_username?: string
+  check_content_type?: string
+  check_headers?: Record<string, string>
+  check_body?: Record<string, any>
   is_active?: number
 }): Promise<Monitor> {
   return fetchAPI(`/api/monitors/${id}`, {

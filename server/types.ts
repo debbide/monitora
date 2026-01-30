@@ -4,13 +4,16 @@ export interface Monitor {
   url: string
   check_interval: number
   check_interval_max: number | null  // HTTP模式随机间隔最大值
-  check_type: 'http' | 'tcp' | 'komari' | 'komari_webhook' | 'telegram'
+  check_type: 'http' | 'tcp' | 'komari' | 'komari_webhook' | 'telegram' | 'scheduled_webhook'
   check_method: 'GET' | 'HEAD' | 'POST'
   check_timeout: number
   expected_status_codes: string
   expected_keyword: string | null
   forbidden_keyword: string | null
   komari_offline_threshold: number
+  check_content_type: string | null
+  check_headers: string | null
+  check_body: string | null
   // Telegram 相关字段
   tg_chat_id: string | null
   tg_server_name: string | null  // 用于消息匹配的服务器名称

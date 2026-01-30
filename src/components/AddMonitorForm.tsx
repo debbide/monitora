@@ -10,10 +10,9 @@ interface AddMonitorFormProps {
 export default function AddMonitorForm({ onSuccess, onCancel, editMonitor }: AddMonitorFormProps) {
   const [name, setName] = useState('')
   const [url, setUrl] = useState('')
-  const [interval, setInterval] = useState('5')
-  const [intervalMax, setIntervalMax] = useState('')
+
   const [enableRandomInterval, setEnableRandomInterval] = useState(false)
-  const [checkType, setCheckType] = useState<'http' | 'tcp' | 'komari' | 'komari_webhook' | 'telegram'>('http')
+  const [checkType, setCheckType] = useState<'http' | 'tcp' | 'komari' | 'komari_webhook' | 'telegram' | 'scheduled_webhook'>('http')
   const [checkMethod, setCheckMethod] = useState<'GET' | 'HEAD' | 'POST'>('GET')
   const [checkTimeout, setCheckTimeout] = useState('30')
   const [expectedStatusCodes, setExpectedStatusCodes] = useState('200,201,204,301,302')
@@ -31,6 +30,19 @@ export default function AddMonitorForm({ onSuccess, onCancel, editMonitor }: Add
   const [headers, setHeaders] = useState('')
   const [body, setBody] = useState('')
   const [username, setUsername] = useState('')
+  // Request Config (HTTP/Webhook Trigger)
+  const [checkContentType, setCheckContentType] = useState('application/json')
+  const [checkHeaders, setCheckHeaders] = useState('')
+  const [checkBody, setCheckBody] = useState('')
+
+  // Scheduling Helper State
+  const [schedDays, setSchedDays] = useState('0')
+  const [schedHours, setSchedHours] = useState('0')
+  const [schedMinutes, setSchedMinutes] = useState('5')
+  const [randomMin, setRandomMin] = useState('5')
+  const [randomMax, setRandomMax] = useState('10')
+  const [randomUnit, setRandomUnit] = useState<'minute' | 'hour' | 'day'>('minute')
+
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   const isEditMode = !!editMonitor
@@ -39,8 +51,6 @@ export default function AddMonitorForm({ onSuccess, onCancel, editMonitor }: Add
     if (editMonitor) {
       setName(editMonitor.name)
       setUrl(editMonitor.url)
-      setInterval(String(editMonitor.check_interval))
-      setIntervalMax(editMonitor.check_interval_max ? String(editMonitor.check_interval_max) : '')
       setEnableRandomInterval(!!editMonitor.check_interval_max)
       setCheckType(editMonitor.check_type || 'http')
       setCheckMethod(editMonitor.check_method || 'GET')
@@ -59,6 +69,30 @@ export default function AddMonitorForm({ onSuccess, onCancel, editMonitor }: Add
       setHeaders(editMonitor.webhook_headers || '')
       setBody(editMonitor.webhook_body || '')
       setUsername(editMonitor.webhook_username || '')
+      setCheckContentType(editMonitor.check_content_type || 'application/json')
+      setCheckHeaders(editMonitor.check_headers || '')
+      setCheckBody(editMonitor.check_body || '')
+
+      // Parse Interval for UI
+      if (editMonitor.check_interval_max) {
+        // Random Mode
+        setEnableRandomInterval(true)
+        setRandomMin(String(editMonitor.check_interval))
+        setRandomMax(String(editMonitor.check_interval_max))
+        // Auto-detect unit? For now default to minute or check magnitude
+        // Simple logic: default to minute
+        setRandomUnit('minute')
+      } else {
+        // Fixed Mode - Decompose to D/H/M
+        const totalMins = editMonitor.check_interval
+        const d = Math.floor(totalMins / 1440)
+        const h = Math.floor((totalMins % 1440) / 60)
+        const m = totalMins % 60
+        setSchedDays(String(d))
+        setSchedHours(String(h))
+        setSchedMinutes(String(m))
+        setEnableRandomInterval(false)
+      }
     }
   }, [editMonitor])
 
@@ -110,8 +144,29 @@ export default function AddMonitorForm({ onSuccess, onCancel, editMonitor }: Add
 
     setIsSubmitting(true)
     try {
-      const intervalNum = parseInt(interval) || 5
-      const intervalMaxNum = intervalMax ? parseInt(intervalMax) : null
+      // Calculate Interval
+      let intervalNum = 5
+      let intervalMaxNum = null
+
+      if (enableRandomInterval) {
+        let multiplier = 1
+        if (randomUnit === 'hour') multiplier = 60
+        if (randomUnit === 'day') multiplier = 1440
+
+        intervalNum = Math.floor(parseFloat(randomMin) * multiplier) || 5
+        intervalMaxNum = Math.floor(parseFloat(randomMax) * multiplier) || (intervalNum + 5)
+
+        if (intervalMaxNum <= intervalNum) {
+          intervalMaxNum = intervalNum + 1 // Ensure max > min
+        }
+      } else {
+        const d = parseInt(schedDays) || 0
+        const h = parseInt(schedHours) || 0
+        const m = parseInt(schedMinutes) || 0
+        intervalNum = (d * 1440) + (h * 60) + m
+        if (intervalNum < 1) intervalNum = 1 // Minimum 1 minute
+      }
+
       const timeoutNum = parseInt(checkTimeout) || 30
       const thresholdNum = parseInt(komariOfflineThreshold) || 3
 
@@ -119,7 +174,7 @@ export default function AddMonitorForm({ onSuccess, onCancel, editMonitor }: Add
         name: name.trim(),
         url: checkType === 'telegram' ? '' : url.trim(),
         check_interval: intervalNum,
-        check_interval_max: (checkType === 'http' && enableRandomInterval && intervalMaxNum && intervalMaxNum > intervalNum) ? intervalMaxNum : null,
+        check_interval_max: (checkType === 'http' || checkType === 'scheduled_webhook') && enableRandomInterval ? intervalMaxNum : null,
         check_type: checkType,
         check_method: checkMethod,
         check_timeout: timeoutNum,
@@ -136,7 +191,10 @@ export default function AddMonitorForm({ onSuccess, onCancel, editMonitor }: Add
         webhook_content_type: contentType,
         webhook_headers: Object.keys(parsedHeaders).length > 0 ? parsedHeaders : undefined,
         webhook_body: Object.keys(parsedBody).length > 0 ? parsedBody : undefined,
-        webhook_username: username.trim() || undefined
+        webhook_username: username.trim() || undefined,
+        check_content_type: checkContentType,
+        check_headers: checkHeaders.trim() ? JSON.parse(checkHeaders) : undefined,
+        check_body: checkBody.trim() ? JSON.parse(checkBody) : undefined
       }
 
       if (isEditMode && editMonitor) {
@@ -159,8 +217,11 @@ export default function AddMonitorForm({ onSuccess, onCancel, editMonitor }: Add
   function resetForm() {
     setName('')
     setUrl('')
-    setInterval('5')
-    setIntervalMax('')
+    setSchedDays('0')
+    setSchedHours('0')
+    setSchedMinutes('5')
+    setRandomMin('5')
+    setRandomMax('10')
     setEnableRandomInterval(false)
     setCheckType('http')
     setCheckMethod('GET')
@@ -179,6 +240,9 @@ export default function AddMonitorForm({ onSuccess, onCancel, editMonitor }: Add
     setHeaders('')
     setBody('')
     setUsername('')
+    setCheckContentType('application/json')
+    setCheckHeaders('')
+    setCheckBody('')
   }
 
   return (
@@ -201,7 +265,7 @@ export default function AddMonitorForm({ onSuccess, onCancel, editMonitor }: Add
         {checkType !== 'telegram' && checkType !== 'komari_webhook' && (
           <div className="form-group">
             <label htmlFor="url">
-              {checkType === 'komari' ? 'Komari API 地址' : '网站URL'}
+              {checkType === 'komari' ? 'Komari API 地址' : (checkType === 'scheduled_webhook' ? '触发地址 (URL)' : '网站URL')}
             </label>
             <input
               id="url"
@@ -213,6 +277,9 @@ export default function AddMonitorForm({ onSuccess, onCancel, editMonitor }: Add
                 : 'https://example.com 或 example.com:8080'}
               required
             />
+            {checkType === 'scheduled_webhook' && (
+              <span className="form-hint">填写需要触发的 Webhook 地址 (如 GitHub Dispatch URL)</span>
+            )}
           </div>
         )}
       </div>
@@ -233,10 +300,11 @@ export default function AddMonitorForm({ onSuccess, onCancel, editMonitor }: Add
               <option value="komari">Komari 轮询监控</option>
               <option value="komari_webhook">Komari Webhook 监控</option>
               <option value="telegram">Telegram 群组监控</option>
+              <option value="scheduled_webhook">定时触发 (Webhook/Cron)</option>
             </select>
           </div>
 
-          {checkType === 'http' && (
+          {(checkType === 'http' || checkType === 'scheduled_webhook') && (
             <div className="form-group">
               <label htmlFor="checkMethod">请求方法</label>
               <select
@@ -252,68 +320,128 @@ export default function AddMonitorForm({ onSuccess, onCancel, editMonitor }: Add
           )}
         </div>
 
-        <div className="form-row">
-          <div className="form-group">
-            <label htmlFor="interval">
-              {enableRandomInterval ? '最小间隔（分钟）' : '检查间隔（分钟）'}
-            </label>
-            <input
-              id="interval"
-              type="number"
-              min="1"
-              max="1440"
-              value={interval}
-              onChange={(e) => setInterval(e.target.value)}
-            />
-          </div>
-
-          {checkType === 'http' && enableRandomInterval && (
-            <div className="form-group">
-              <label htmlFor="intervalMax">最大间隔（分钟）</label>
-              <input
-                id="intervalMax"
-                type="number"
-                min={(parseInt(interval) || 1) + 1}
-                max="1440"
-                value={intervalMax || (parseInt(interval) + 5)}
-                onChange={(e) => setIntervalMax(e.target.value)}
-              />
-            </div>
-          )}
-
-          <div className="form-group">
-            <label htmlFor="checkTimeout">超时时间（秒）</label>
-            <input
-              id="checkTimeout"
-              type="number"
-              min="5"
-              max="120"
-              value={checkTimeout}
-              onChange={(e) => setCheckTimeout(e.target.value)}
-            />
-          </div>
-        </div>
-
-        {checkType === 'http' && (
-          <div className="form-group" style={{ marginBottom: '16px' }}>
+        {(checkType === 'http' || checkType === 'tcp' || checkType === 'komari' || checkType === 'scheduled_webhook') && (
+          <div className="form-group" style={{ marginBottom: '16px', marginTop: '16px' }}>
             <label className="checkbox-label">
               <input
                 type="checkbox"
                 checked={enableRandomInterval}
-                onChange={(e) => {
-                  setEnableRandomInterval(e.target.checked)
-                  if (e.target.checked && !intervalMax) {
-                    setIntervalMax(String((parseInt(interval) || 5) + 5))
-                  }
-                }}
+                onChange={(e) => setEnableRandomInterval(e.target.checked)}
               />
-              启用随机间隔
+              启用随机间隔 (Random Interval)
             </label>
-            <span className="form-hint">每次检查后在设定范围内随机选择下次检查时间，让访问更自然</span>
+            <span className="form-hint" style={{ fontSize: '12px', color: '#888' }}>
+              在最小和最大时间之间随机波动，模拟真实行为
+            </span>
           </div>
         )}
 
-        {checkType === 'http' && (
+        {(checkType === 'http' || checkType === 'tcp' || checkType === 'komari' || checkType === 'scheduled_webhook') && (
+          <div className="form-row" style={{ alignItems: 'flex-start' }}>
+            {enableRandomInterval ? (
+              // Random Interval Mode
+              <div className="form-group" style={{ flex: 1 }}>
+                <label>随机间隔范围</label>
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                  <input
+                    type="number"
+                    min="1"
+                    value={randomMin}
+                    onChange={(e) => setRandomMin(e.target.value)}
+                    placeholder="Min"
+                    style={{ width: '80px' }}
+                  />
+                  <span>-</span>
+                  <input
+                    type="number"
+                    min="1"
+                    value={randomMax}
+                    onChange={(e) => setRandomMax(e.target.value)}
+                    placeholder="Max"
+                    style={{ width: '80px' }}
+                  />
+                  <select
+                    value={randomUnit}
+                    onChange={(e) => setRandomUnit(e.target.value as any)}
+                    style={{ width: '100px' }}
+                  >
+                    <option value="minute">分钟</option>
+                    <option value="hour">小时</option>
+                    <option value="day">天</option>
+                  </select>
+                </div>
+              </div>
+            ) : (
+              // Fixed Interval Mode (Composite)
+              <div className="form-group" style={{ flex: 1 }}>
+                <label>检测频率 (每隔)</label>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column' }}>
+                    <input type="number" min="0" value={schedDays} onChange={e => setSchedDays(e.target.value)} />
+                    <span style={{ fontSize: '10px', textAlign: 'center' }}>天</span>
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column' }}>
+                    <input type="number" min="0" value={schedHours} onChange={e => setSchedHours(e.target.value)} />
+                    <span style={{ fontSize: '10px', textAlign: 'center' }}>小时</span>
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column' }}>
+                    <input type="number" min="0" value={schedMinutes} onChange={e => setSchedMinutes(e.target.value)} />
+                    <span style={{ fontSize: '10px', textAlign: 'center' }}>分钟</span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <div className="form-group" style={{ width: '120px' }}>
+              <label htmlFor="checkTimeout">超时 (秒)</label>
+              <input
+                id="checkTimeout"
+                type="number"
+                min="5"
+                max="120"
+                value={checkTimeout}
+                onChange={(e) => setCheckTimeout(e.target.value)}
+              />
+            </div>
+          </div>
+        )}
+
+        {(checkType === 'http' || checkType === 'scheduled_webhook') && (
+          <div className="form-section">
+            <h4>请求配置 (Body & Headers)</h4>
+            <div className="form-group">
+              <label htmlFor="checkContentType">Content-Type</label>
+              <input
+                id="checkContentType"
+                type="text"
+                value={checkContentType}
+                onChange={(e) => setCheckContentType(e.target.value)}
+                placeholder="application/json"
+              />
+            </div>
+            <div className="form-group">
+              <label htmlFor="checkHeaders">请求头 (JSON 格式)</label>
+              <textarea
+                id="checkHeaders"
+                value={checkHeaders}
+                onChange={(e) => setCheckHeaders(e.target.value)}
+                placeholder='{"Authorization": "Bearer token"}'
+                rows={3}
+              />
+            </div>
+            <div className="form-group">
+              <label htmlFor="checkBody">请求体 (JSON 格式)</label>
+              <textarea
+                id="checkBody"
+                value={checkBody}
+                onChange={(e) => setCheckBody(e.target.value)}
+                placeholder='{"key": "value"}'
+                rows={4}
+              />
+            </div>
+          </div>
+        )}
+        {(checkType === 'http' || checkType === 'scheduled_webhook') && (
           <>
             <div className="form-group">
               <label htmlFor="expectedStatusCodes">期望状态码（逗号分隔）</label>

@@ -48,8 +48,8 @@ app.post('/api/monitors', async (req, res) => {
     const id = crypto.randomUUID()
 
     run(
-      `INSERT INTO monitors (id, name, url, check_interval, check_interval_max, check_type, check_method, check_timeout, expected_status_codes, expected_keyword, forbidden_keyword, komari_offline_threshold, tg_chat_id, tg_server_name, tg_offline_keywords, tg_online_keywords, tg_notify_chat_id, webhook_url, webhook_content_type, webhook_headers, webhook_body, webhook_username, is_active)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`,
+      `INSERT INTO monitors (id, name, url, check_interval, check_interval_max, check_type, check_method, check_timeout, expected_status_codes, expected_keyword, forbidden_keyword, komari_offline_threshold, check_content_type, check_headers, check_body, tg_chat_id, tg_server_name, tg_offline_keywords, tg_online_keywords, tg_notify_chat_id, webhook_url, webhook_content_type, webhook_headers, webhook_body, webhook_username, is_active)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`,
       [
         id,
         body.name,
@@ -63,6 +63,9 @@ app.post('/api/monitors', async (req, res) => {
         body.expected_keyword || null,
         body.forbidden_keyword || null,
         parseInt(body.komari_offline_threshold) || 3,
+        body.check_content_type || 'application/json',
+        body.check_headers && typeof body.check_headers === 'object' ? JSON.stringify(body.check_headers) : (body.check_headers || null),
+        body.check_body && typeof body.check_body === 'object' ? JSON.stringify(body.check_body) : (body.check_body || null),
         body.tg_chat_id || null,
         body.tg_server_name || null,
         body.tg_offline_keywords || null,
@@ -135,6 +138,9 @@ app.put('/api/monitors/:id', (req, res) => {
         expected_keyword = ?,
         forbidden_keyword = ?,
         komari_offline_threshold = ?,
+        check_content_type = ?,
+        check_headers = ?,
+        check_body = ?,
         tg_chat_id = ?,
         tg_server_name = ?,
         tg_offline_keywords = ?,
@@ -160,6 +166,9 @@ app.put('/api/monitors/:id', (req, res) => {
         body.expected_keyword || null,
         body.forbidden_keyword || null,
         parseInt(body.komari_offline_threshold) || 3,
+        body.check_content_type || 'application/json',
+        body.check_headers && typeof body.check_headers === 'object' ? JSON.stringify(body.check_headers) : (body.check_headers || null),
+        body.check_body && typeof body.check_body === 'object' ? JSON.stringify(body.check_body) : (body.check_body || null),
         body.tg_chat_id || null,
         body.tg_server_name || null,
         body.tg_offline_keywords || null,
