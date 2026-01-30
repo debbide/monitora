@@ -262,10 +262,10 @@ export default function AddMonitorForm({ onSuccess, onCancel, editMonitor }: Add
           />
         </div>
 
-        {checkType !== 'telegram' && checkType !== 'komari_webhook' && (
+        {checkType !== 'telegram' && checkType !== 'komari_webhook' && checkType !== 'scheduled_webhook' && (
           <div className="form-group">
             <label htmlFor="url">
-              {checkType === 'komari' ? 'Komari API 地址' : (checkType === 'scheduled_webhook' ? '触发地址 (URL)' : '网站URL')}
+              {checkType === 'komari' ? 'Komari API 地址' : '网站URL'}
             </label>
             <input
               id="url"
@@ -277,9 +277,6 @@ export default function AddMonitorForm({ onSuccess, onCancel, editMonitor }: Add
                 : 'https://example.com 或 example.com:8080'}
               required
             />
-            {checkType === 'scheduled_webhook' && (
-              <span className="form-hint">填写需要触发的 Webhook 地址 (如 GitHub Dispatch URL)</span>
-            )}
           </div>
         )}
       </div>
@@ -304,7 +301,7 @@ export default function AddMonitorForm({ onSuccess, onCancel, editMonitor }: Add
             </select>
           </div>
 
-          {(checkType === 'http' || checkType === 'scheduled_webhook') && (
+          {checkType === 'http' && (
             <div className="form-group">
               <label htmlFor="checkMethod">请求方法</label>
               <select
@@ -409,6 +406,35 @@ export default function AddMonitorForm({ onSuccess, onCancel, editMonitor }: Add
         {(checkType === 'http' || checkType === 'scheduled_webhook') && (
           <div className="form-section">
             <h4>请求配置 (Body & Headers)</h4>
+
+            {checkType === 'scheduled_webhook' && (
+              <>
+                <div className="form-group">
+                  <label htmlFor="url">触发地址 (URL)</label>
+                  <input
+                    id="url"
+                    type="text"
+                    value={url}
+                    onChange={(e) => setUrl(e.target.value)}
+                    placeholder="https://example.com 或 example.com:8080"
+                    required
+                  />
+                  <span className="form-hint">填写需要触发的 Webhook 地址 (如 GitHub Dispatch URL)</span>
+                </div>
+                <div className="form-group">
+                  <label htmlFor="checkMethod">请求方法</label>
+                  <select
+                    id="checkMethod"
+                    value={checkMethod}
+                    onChange={(e) => setCheckMethod(e.target.value as 'GET' | 'HEAD' | 'POST')}
+                  >
+                    <option value="GET">GET</option>
+                    <option value="HEAD">HEAD</option>
+                    <option value="POST">POST</option>
+                  </select>
+                </div>
+              </>
+            )}
             <div className="form-group">
               <label htmlFor="checkContentType">Content-Type</label>
               <input
