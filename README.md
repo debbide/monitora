@@ -7,14 +7,16 @@
 
 ## ✨ 特性
 
-- 🌐 **HTTP/HTTPS 检测** - 支持自定义请求方法和关键词检测
+- 🌐 **HTTP/HTTPS 检测** - 支持自定义请求方法、Header、Body 和状态码验证
 - 🔌 **TCP 连通性检测** - 端口可用性监控
-- 📊 **Komari 面板监控** - 服务器状态监控
-- 📱 **Telegram 群组监控** - 监听 TG 群组消息，根据关键词判断服务状态
-- 🔔 **Webhook 通知** - 自定义 Webhook 通知（支持 Discord、Slack 等）
-- 📡 **SSE 实时推送** - 浏览器插件可实时接收刷新通知
+- 🎲 **随机检测间隔** - 支持设置 10~12 天等长周期随机检测，模拟真实用户行为
+- 📌 **持久化调度** - 定时任务状态写入数据库，重启服务不丢失下次执行时间（倒计时继续）
+- 🚀 **定时 Webhook (Active Probe)** - 主动定时触发远程 API (如 GitHub Actions) 并根据响应判断状态
+- 📊 **Komari 面板监控** - 专门针对 Komari 探针的服务器状态监控
+- 📱 **Telegram 深度集成** - 支持群组消息监听、全局 Bot 配置、Komari 离线通知
+- 🔔 **多渠道通知** - Webhook、Telegram、SSE 实时推送
 - 🔍 **关键词检测** - 检测页面是否包含/不包含特定关键词
-- ⏰ **定时检测** - 可自定义检测间隔
+- 👁️ **可视化图表** - 响应时间趋势图
 
 ### 使用预构建镜像（推荐）
 
@@ -53,14 +55,10 @@ docker-compose up -d
 ```bash
 # 克隆仓库
 git clone https://github.com/debbide/monitora.git
-cd monitor
+cd monitora
 
 # 使用 Docker Compose 构建并启动
 docker-compose up -d
-
-# 或使用 Docker 构建
-docker build -t uptime-monitor .
-docker run -d -p 3000:3000 -v ./data:/app/data uptime-monitor
 ```
 
 ## 📖 使用方法
@@ -73,28 +71,59 @@ docker run -d -p 3000:3000 -v ./data:/app/data uptime-monitor
 
 ⚠️ **首次使用请立即修改密码！**
 
-### 添加监控
+### 添加监控与高级配置
 
 1. 点击"添加监控"按钮
-2. 填写监控信息：
-   - 名称：监控项目名称
-   - URL：要监控的网址或服务器地址
-   - 检测类型：HTTP、TCP、Komari 或 Telegram
-   - 检测间隔：检测频率（分钟）
-   - Webhook URL：（可选）故障时触发的通知地址
+2. **基础配置**：
+   - **名称**：监控项目名称
+   - **URL**：要监控的网址或 API 地址
+   - **检测类型**：
+     - **HTTP/HTTPS**：常规网站监控
+     - **TCP**：端口连通性
+     - **Komari**：针对 Komari 面板 API 的特定监控
+     - **Scheduled Webhook**：定时触发器（如下方详解）
+     - **Telegram**：被动监听群组消息
 
-### Telegram 群组监控
+3. **调度模式 (新功能)**：
+   - **固定周期**：每隔 X 分钟/小时/天执行一次（如：每 5 分钟）。
+   - **随机区间**：在 X 到 Y 之间随机执行（如：每 10 ~ 12 天）。每次执行完后会自动生成下一个随机时间点并持久化保存。
 
-监听 Telegram 群组消息，根据关键词判断服务状态：
+4. **高级设置**：
+   - **Request Configuration**：自定义 HTTP Method, Headers (JSON), Body (JSON)。
+   - **预期状态码**：如 `200,201,204`。
+   - **Webhook Notification**：当检测失败/成功时，发送通知到外部系统（如 Discord/Slack）。
 
-1. 在顶栏点击 🤖 按钮配置 Bot Token（从 @BotFather 获取）
-2. 将 Bot 加入要监控的群组
-3. 在 BotFather 中关闭 Bot 的 **Group Privacy** 模式
-4. 创建 Telegram 类型监控，填写：
-   - **群组 ID**：负数格式，如 `-1001234567890`
-   - **服务器名称**：消息中需包含的服务器名称（支持多个，逗号分隔）
-   - **离线关键词**：如 `Offline,down,离线`
-   - **上线关键词**：如 `Online,up,上线`
+### 🚀 定时 Webhook (Scheduled Webhook)
+
+这是一个特殊的监控类型，用于 **“主动触发”** 外部任务（如 GitHub Actions, Vercel Deploy Hooks 等）。
+
+*   **场景**：你需要每隔 10~12 天自动触发一次 GitHub Workflow 来保活。
+*   **配置方法**：
+    *   **类型**选择 `Scheduled Webhook`。
+    *   **Request Configuration** 中填写触发所需的 Headers (如 `Authorization`) 和 Body。
+    *   **判断逻辑**：只要对方 API 返回 2xx (如 GitHub 返回 204)，即视为成功。
+    *   **结果**：会在面板记录触发时间和耗时，失败则报警。
+
+### 📊 Komari 集成与通知
+
+针对 Komari 探针系统的深度集成功能：
+
+1. **Komari 监控**：
+   - 填写 Komari 面板的 API 地址 (如 `https://status.example.com/api/v1/servers`)。
+   - 设置 **离线阈值** (如 3 分钟)，如果服务器超过该时间未上报，视为离线。
+   - 打开 **Telegram 机器人设置** (右上角机器人图标) -> **Komari 通知设置**，配置全局通知群组。
+   - 当检测到服务器离线时，会自动向指定的 TG 群组发送告警。
+
+2. **Komari Webhook**：
+   - 作为一个被动接收端，接收 Komari 面板发来的 Webhook 消息并转发到 Telegram。
+
+### 🤖 Telegram 全局配置
+
+点击右上角的 🤖 图标进行全局设置：
+
+- **Bot Token**：设置全局 Telegram Bot Token。
+- **连接测试**：输入 Chat ID 测试机器人连通性。
+- **Komari 通知**：设置专门用于接收 Komari 告警的群组 ID。
 
 ### SSE/轮询刷新通知服务
 
