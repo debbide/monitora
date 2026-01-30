@@ -10,11 +10,16 @@ interface AddMonitorFormProps {
 export default function AddMonitorForm({ onSuccess, onCancel, editMonitor }: AddMonitorFormProps) {
   const [name, setName] = useState('')
   const [url, setUrl] = useState('')
-  // Advanced Scheduling State
+
+  // Scheduling State
+  const [scheduleMode, setScheduleMode] = useState<'fixed' | 'random'>('fixed')
+
+  // Fixed Schedule
   const [schedDays, setSchedDays] = useState('0')
   const [schedHours, setSchedHours] = useState('0')
   const [schedMinutes, setSchedMinutes] = useState('5')
-  const [enableRandomInterval, setEnableRandomInterval] = useState(false)
+
+  // Random Schedule
   const [randomMin, setRandomMin] = useState('5')
   const [randomMax, setRandomMax] = useState('10')
   const [randomUnit, setRandomUnit] = useState<'minutes' | 'hours' | 'days'>('minutes')
@@ -52,20 +57,12 @@ export default function AddMonitorForm({ onSuccess, onCancel, editMonitor }: Add
       setName(editMonitor.name)
       setUrl(editMonitor.url)
 
-      // Parse interval into Days/Hours/Minutes
-      const totalMinutes = editMonitor.check_interval || 5
-      const days = Math.floor(totalMinutes / 1440)
-      const hours = Math.floor((totalMinutes % 1440) / 60)
-      const minutes = totalMinutes % 60
-      setSchedDays(String(days))
-      setSchedHours(String(hours))
-      setSchedMinutes(String(minutes))
-
-      // Parse Random Interval
-      if (editMonitor.check_interval_max) {
-        setEnableRandomInterval(true)
+      // Initialize Scheduling Mode
+      if (editMonitor.check_interval_max && editMonitor.check_interval_max > editMonitor.check_interval) {
+        setScheduleMode('random')
         const min = editMonitor.check_interval
         const max = editMonitor.check_interval_max
+
         // Heuristic to detect unit
         if (min % 1440 === 0 && max % 1440 === 0) {
           setRandomUnit('days')
@@ -80,10 +77,24 @@ export default function AddMonitorForm({ onSuccess, onCancel, editMonitor }: Add
           setRandomMin(String(min))
           setRandomMax(String(max))
         }
+
+        // Also populate fixed fields just in case user switches back
+        setSchedDays('0')
+        setSchedHours('0')
+        setSchedMinutes('5')
       } else {
-        setEnableRandomInterval(false)
-        setRandomMin(String(totalMinutes))
-        setRandomMax(String(totalMinutes + 5))
+        setScheduleMode('fixed')
+        const totalMinutes = editMonitor.check_interval || 5
+        const days = Math.floor(totalMinutes / 1440)
+        const hours = Math.floor((totalMinutes % 1440) / 60)
+        const minutes = totalMinutes % 60
+        setSchedDays(String(days))
+        setSchedHours(String(hours))
+        setSchedMinutes(String(minutes))
+
+        // Populate random fields with defaults
+        setRandomMin('5')
+        setRandomMax('10')
         setRandomUnit('minutes')
       }
 
@@ -184,44 +195,35 @@ export default function AddMonitorForm({ onSuccess, onCancel, editMonitor }: Add
 
     setIsSubmitting(true)
     try {
-      // Calculate total minutes from Days/Hours/Minutes
-      const days = parseInt(schedDays) || 0
-      const hours = parseInt(schedHours) || 0
-      const minutes = parseInt(schedMinutes) || 0
-      const totalMinutes = (days * 1440) + (hours * 60) + minutes
-
-      const intervalNum = totalMinutes > 0 ? totalMinutes : 5
-
-      // Calculate max interval if random enabled
+      let finalInterval = 5
       let intervalMaxNum = null
-      if (enableRandomInterval) {
+
+      if (scheduleMode === 'fixed') {
+        // Fixed Mode: Calculate total minutes from Days/Hours/Minutes
+        const days = parseInt(schedDays) || 0
+        const hours = parseInt(schedHours) || 0
+        const minutes = parseInt(schedMinutes) || 0
+        const totalMinutes = (days * 1440) + (hours * 60) + minutes
+        finalInterval = totalMinutes > 0 ? totalMinutes : 5
+        intervalMaxNum = null
+      } else {
+        // Random Mode: interval is MIN, intervalMax is MAX
         const rMin = parseFloat(randomMin) || 0
         const rMax = parseFloat(randomMax) || 0
         const multiplier = randomUnit === 'days' ? 1440 : (randomUnit === 'hours' ? 60 : 1)
 
-        // We only care about Max for the DB field `check_interval_max`
-        // The logic in monitor.ts expects `check_interval` to be min, and `check_interval_max` to be max
-        // So we override intervalNum if random is enabled to be rMin * multiplier
-        // And intervalMaxNum to be rMax * multiplier
-
         const minTime = Math.floor(rMin * multiplier)
         const maxTime = Math.floor(rMax * multiplier)
 
-        if (maxTime > minTime) {
-          // intervalNum is used as MIN in random mode by backend logic
-          // But wait, the backend logic says:
-          // if (monitor.check_interval_max && monitor.check_interval_max > monitor.check_interval)
-          // So we should set checking_interval to minTime
-          // But usually checking_interval is the fixed interval.
-          // Let's ensure consistency:
-          // If random enabled, check_interval = minTime, check_interval_max = maxTime
+        finalInterval = minTime > 0 ? minTime : 5
+        // Ensure max > min
+        if (maxTime > finalInterval) {
+          intervalMaxNum = maxTime
+        } else {
+          // Fallback to fixed if max <= min
+          intervalMaxNum = null
         }
-        intervalMaxNum = maxTime
       }
-
-      const finalInterval = enableRandomInterval
-        ? Math.floor((parseFloat(randomMin) || 0) * (randomUnit === 'days' ? 1440 : (randomUnit === 'hours' ? 60 : 1)))
-        : intervalNum
 
       const timeoutNum = parseInt(checkTimeout) || 30
       const thresholdNum = parseInt(komariOfflineThreshold) || 3
@@ -229,8 +231,8 @@ export default function AddMonitorForm({ onSuccess, onCancel, editMonitor }: Add
       const monitorData = {
         name: name.trim(),
         url: checkType === 'telegram' ? '' : url.trim(),
-        check_interval: finalInterval > 0 ? finalInterval : 5,
-        check_interval_max: (enableRandomInterval && intervalMaxNum && intervalMaxNum > finalInterval) ? intervalMaxNum : null,
+        check_interval: finalInterval,
+        check_interval_max: intervalMaxNum,
         check_type: checkType,
         check_method: checkMethod,
         check_timeout: timeoutNum,
@@ -251,7 +253,7 @@ export default function AddMonitorForm({ onSuccess, onCancel, editMonitor }: Add
         check_content_type: checkContentType,
         check_headers: Object.keys(parsedCheckHeaders).length > 0 ? parsedCheckHeaders : undefined,
         check_body: Object.keys(parsedCheckBody).length > 0 ? parsedCheckBody : undefined,
-      } as any // Use any to bypass strict type check for now if interface mismatch (but we updated api.ts)
+      } as any
 
       if (isEditMode && editMonitor) {
         await updateMonitor(editMonitor.id, monitorData)
@@ -273,10 +275,10 @@ export default function AddMonitorForm({ onSuccess, onCancel, editMonitor }: Add
   function resetForm() {
     setName('')
     setUrl('')
+    setScheduleMode('fixed')
     setSchedDays('0')
     setSchedHours('0')
     setSchedMinutes('5')
-    setEnableRandomInterval(false)
     setRandomMin('5')
     setRandomMax('10')
     setRandomUnit('minutes')
@@ -380,53 +382,94 @@ export default function AddMonitorForm({ onSuccess, onCancel, editMonitor }: Add
           <div className="form-group" style={{ flex: 2 }}>
             <label>
               {checkType === 'scheduled_webhook' ? '触发周期' : '检查间隔'}
+              {(checkType === 'http' || checkType === 'scheduled_webhook') && (
+                <span style={{ fontSize: '12px', fontWeight: 'normal', marginLeft: '8px', color: 'var(--text-secondary)' }}>
+                  模式:
+                  <select
+                    value={scheduleMode}
+                    onChange={(e) => setScheduleMode(e.target.value as 'fixed' | 'random')}
+                    style={{
+                      marginLeft: '4px',
+                      padding: '2px 4px',
+                      fontSize: '12px',
+                      border: 'none',
+                      background: 'var(--bg-secondary)',
+                      color: 'var(--text-primary)',
+                      borderRadius: '4px'
+                    }}
+                  >
+                    <option value="fixed">固定周期</option>
+                    <option value="random">随机区间</option>
+                  </select>
+                </span>
+              )}
             </label>
-            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-              <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+
+            {/* Fixed Mode UI */}
+            {scheduleMode === 'fixed' && (
+              <>
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                  <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      <input type="number" min="0" value={schedDays} onChange={(e) => setSchedDays(e.target.value)} style={{ width: '100%' }} />
+                      <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>天</span>
+                    </div>
+                  </div>
+                  <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      <input type="number" min="0" max="23" value={schedHours} onChange={(e) => setSchedHours(e.target.value)} style={{ width: '100%' }} />
+                      <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>时</span>
+                    </div>
+                  </div>
+                  <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      <input type="number" min="0" max="59" value={schedMinutes} onChange={(e) => setSchedMinutes(e.target.value)} style={{ width: '100%' }} />
+                      <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>分</span>
+                    </div>
+                  </div>
+                </div>
+                <span className="form-hint">
+                  {checkType === 'komari_webhook'
+                    ? '此项对此类型不生效，但已保留配置'
+                    : `固定每 ${parseInt(schedDays) || 0}天 ${parseInt(schedHours) || 0}小时 ${parseInt(schedMinutes) || 0}分 执行一次`}
+                </span>
+              </>
+            )}
+
+            {/* Random Mode UI */}
+            {scheduleMode === 'random' && (
+              <>
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                   <input
                     type="number"
-                    min="0"
-                    value={schedDays}
-                    onChange={(e) => setSchedDays(e.target.value)}
-                    style={{ width: '100%' }}
+                    value={randomMin}
+                    onChange={(e) => setRandomMin(e.target.value)}
+                    style={{ flex: 1 }}
+                    placeholder="Min"
                   />
-                  <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>天</span>
-                </div>
-              </div>
-              <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <span style={{ fontSize: '14px' }}>至</span>
                   <input
                     type="number"
-                    min="0"
-                    max="23"
-                    value={schedHours}
-                    onChange={(e) => setSchedHours(e.target.value)}
-                    style={{ width: '100%' }}
+                    value={randomMax}
+                    onChange={(e) => setRandomMax(e.target.value)}
+                    style={{ flex: 1 }}
+                    placeholder="Max"
                   />
-                  <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>时</span>
+                  <select
+                    value={randomUnit}
+                    onChange={(e) => setRandomUnit(e.target.value as any)}
+                    style={{ width: '80px' }}
+                  >
+                    <option value="minutes">分钟</option>
+                    <option value="hours">小时</option>
+                    <option value="days">天</option>
+                  </select>
                 </div>
-              </div>
-              <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                  <input
-                    type="number"
-                    min="0"
-                    max="59"
-                    value={schedMinutes}
-                    onChange={(e) => setSchedMinutes(e.target.value)}
-                    style={{ width: '100%' }}
-                  />
-                  <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>分</span>
-                </div>
-              </div>
-            </div>
-            {/* 提示信息 */}
-            <span className="form-hint">
-              {checkType === 'komari_webhook'
-                ? '此项对此类型不生效，但已保留配置'
-                : `每 ${parseInt(schedDays) || 0}天 ${parseInt(schedHours) || 0}小时 ${parseInt(schedMinutes) || 0}分 执行一次`}
-            </span>
+                <span className="form-hint">
+                  每次检查将在 {randomMin} - {randomMax} {randomUnit === 'minutes' ? '分钟' : (randomUnit === 'hours' ? '小时' : '天')} 内随机触发
+                </span>
+              </>
+            )}
           </div>
 
           <div className="form-group">
@@ -441,52 +484,6 @@ export default function AddMonitorForm({ onSuccess, onCancel, editMonitor }: Add
             />
           </div>
         </div>
-
-        {(checkType === 'http' || checkType === 'scheduled_webhook') && (
-          <div className="form-group" style={{ marginBottom: '16px', padding: '12px', background: 'var(--bg-tertiary)', borderRadius: '8px' }}>
-            <label className="checkbox-label" style={{ marginBottom: '8px' }}>
-              <input
-                type="checkbox"
-                checked={enableRandomInterval}
-                onChange={(e) => setEnableRandomInterval(e.target.checked)}
-              />
-              启用随机波动（防风控）
-            </label>
-
-            {enableRandomInterval && (
-              <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginTop: '8px' }}>
-                <span style={{ fontSize: '14px' }}>波动范围:</span>
-                <input
-                  type="number"
-                  value={randomMin}
-                  onChange={(e) => setRandomMin(e.target.value)}
-                  style={{ width: '70px' }}
-                  placeholder="Min"
-                />
-                <span style={{ fontSize: '14px' }}>-</span>
-                <input
-                  type="number"
-                  value={randomMax}
-                  onChange={(e) => setRandomMax(e.target.value)}
-                  style={{ width: '70px' }}
-                  placeholder="Max"
-                />
-                <select
-                  value={randomUnit}
-                  onChange={(e) => setRandomUnit(e.target.value as any)}
-                  style={{ width: '80px' }}
-                >
-                  <option value="minutes">分钟</option>
-                  <option value="hours">小时</option>
-                  <option value="days">天</option>
-                </select>
-              </div>
-            )}
-            <span className="form-hint" style={{ marginTop: '8px', display: 'block' }}>
-              启用后，实际检查间隔将在设定范围内随机浮动，模拟真实用户行为
-            </span>
-          </div>
-        )}
       </div>
 
       {(checkType === 'http' || checkType === 'scheduled_webhook') && (
