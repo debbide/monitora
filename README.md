@@ -109,15 +109,28 @@ docker-compose up -d
 
 ### 2. 对接 Komari 探针
 
-如果你有自建的探针面板，想把报警统一收敛：
+如果你有自建的探针面板，想把报警统一收敛，有两种方式：
+
+#### 方案 A: API 轮询 (推荐)
+主动定期拉取 Komari 面板数据，适合需要实时监控所有服务器状态的场景。
 
 1.  **添加监控** -> 选择类型 **Komari**。
-2.  **URL**：填写探针数据的 API 地址（返回 JSON 格式）。
+2.  **URL**：填写探针数据的 API 地址（如 `https://status.example.com/api/v1/servers`）。
 3.  **离线阈值**：设置 `3` 分钟（如果服务器数据 `updated_at` 超过3分钟未变动，视为离线）。
 4.  **Telegram 通知配置**：
     *   点击右上角机器人图标 🤖。
     *   设置 **Komari 通知群组 ID**。
-    *   一旦检测到离线，机器人会直接发消息到该群组。
+
+#### 方案 B: Webhook 被动接收
+CloudEye 作为接收端，被动接收 Komari 面板发出的 Webhook 告警。
+
+1.  **添加监控** -> 选择类型 **Komari Webhook**。
+2.  **监控目标服务器**：填写服务器名称 (如 `HK-Server-1`)，与探针面板上的名称一致。
+3.  **前往 Komari 面板后台** -> 通知设置 -> 添加 Webhook：
+    *   **URL**: `http://你的CloudEye域名:3000/api/komari-notify`
+    *   **Method**: `POST`
+    *   **Body**: 默认 JSON 即可。
+4.  **效果**：当 CloudEye 收到该 Webhook，会匹配服务器名称，更新监控状态，并可触发额外的通知。
 
 ### 3. Telegram 消息监听 (被动监控)
 
