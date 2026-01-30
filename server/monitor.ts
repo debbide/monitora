@@ -52,14 +52,16 @@ export async function checkAllMonitors() {
       const checkInterval = checkIntervalMinutes * 60 * 1000 // 转换为毫秒
 
       // 如果有上次检查记录，检查是否超过间隔
-      if (lastCheck) {
-        const lastCheckTime = new Date(lastCheck.checked_at).getTime()
-        const timeSinceLastCheck = now - lastCheckTime
+      // 如果没有记录，使用 created_at 作为起点（避免保存后立即执行）
+      const referenceTime = lastCheck
+        ? new Date(lastCheck.checked_at).getTime()
+        : new Date(monitor.created_at).getTime()
 
-        if (timeSinceLastCheck < checkInterval) {
-          // 还没到检查时间，跳过
-          continue
-        }
+      const timeSinceReference = now - referenceTime
+
+      if (timeSinceReference < checkInterval) {
+        // 还没到检查时间，跳过
+        continue
       }
 
       // 执行检查前，为下次生成新的随机间隔
@@ -202,18 +204,28 @@ async function checkHTTP(monitor: Monitor, timeout: number): Promise<{
 
     const method = monitor.check_method || 'GET'
 
+    const headers = {
+      'User-Agent': 'UptimeMonitor/1.0',
+      ...(monitor.check_content_type ? { 'Content-Type': monitor.check_content_type } : {}),
+      ...(monitor.check_headers ? JSON.parse(monitor.check_headers) : {})
+    }
+
+    const requestBody = (method === 'POST' || method === 'PUT' || method === 'PATCH') && monitor.check_body
+      ? JSON.stringify(JSON.parse(monitor.check_body))
+      : undefined
+
+    console.log(`[DEBUG] Executing HTTP Check for ${monitor.name}:`)
+    console.log(`[DEBUG] URL: ${monitor.url}`)
+    console.log(`[DEBUG] Method: ${method}`)
+    console.log(`[DEBUG] Headers:`, headers)
+    console.log(`[DEBUG] Body:`, requestBody)
+
     const response = await fetch(monitor.url, {
       method,
       signal: controller.signal,
-      redirect: 'follow',
-      headers: {
-        'User-Agent': 'UptimeMonitor/1.0',
-        ...(monitor.check_content_type ? { 'Content-Type': monitor.check_content_type } : {}),
-        ...(monitor.check_headers ? JSON.parse(monitor.check_headers) : {})
-      },
-      body: (method === 'POST' || method === 'PUT' || method === 'PATCH') && monitor.check_body
-        ? JSON.stringify(JSON.parse(monitor.check_body))
-        : undefined
+      headers,
+      body: requestBody,
+      redirect: 'follow'
     })
 
     clearTimeout(timeoutId)
