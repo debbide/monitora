@@ -464,6 +464,8 @@
 .monitor-drag-wrapper {
   cursor: grab;
   transition: transform 0.2s ease, opacity 0.2s ease;
+  height: 100%;
+  /* Ensure wrapper takes full height of grid cell */
 }
 
 .monitor-drag-wrapper:active {
@@ -496,6 +498,12 @@
   box-shadow: var(--shadow), var(--shadow-inset);
   position: relative;
   overflow: hidden;
+  height: 100%;
+  /* Occupy full height */
+  display: flex;
+  /* Flex layout */
+  flex-direction: column;
+  /* Vertical alignment */
 }
 
 .monitor-card::before {
@@ -630,6 +638,10 @@
   padding-top: calc(var(--spacing-unit) * 1);
   font-size: 0.6875rem;
   color: var(--color-text-secondary);
+  border-top: 1px solid var(--color-border-dark);
+  /* Optional: add explicit separator */
+  margin-top: auto;
+  /* Push footer to bottom */
 }
 
 .monitor-error {
@@ -645,7 +657,8 @@
 .monitor-webhook-test {
   margin-top: calc(var(--spacing-unit) * 1.25);
   padding-top: calc(var(--spacing-unit) * 1);
-  border-top: 1px solid var(--color-border);
+  /* border-top: 1px solid var(--color-border); Remove this as we have top border on footer now or keep relying on margin-top: auto */
+  /* Better to keep it clean */
 }
 
 .btn-test-webhook {
@@ -955,6 +968,7 @@
     padding: calc(var(--spacing-unit) * 3);
   }
 }
+
 /* Telegram Bot 按钮样式 */
 .btn-telegram {
   background: linear-gradient(135deg, #0088cc, #229ED9);
