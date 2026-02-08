@@ -138,7 +138,19 @@ CloudEye 作为接收端，被动接收 Komari 面板发出的 Webhook 告警。
     *   **Body**: 默认 JSON 即可。
 4.  **效果**：当 CloudEye 收到该 Webhook，会匹配服务器名称，更新监控状态，并可触发额外的通知。
 
-### 3. Telegram 消息监听 (被动监控)
+### 3. 对接 哪吒探针 (Nezha)
+
+类似于 Komari，CloudEye 也支持接收 哪吒探针 (Nezha) 的 Webhook 告警。
+
+1.  **添加监控** -> 选择类型 **哪吒 (Nezha) Webhook 监控**。
+2.  **服务器名称**：填写在哪吒面板中显示的服务器名称 (如 `US-Node-1`)，需完全一致。
+3.  **前往 哪吒面板后台** -> 报警通知 -> 添加通知方式：
+    *   **方式**: `Webhook`
+    *   **URL**: `https://你的CloudEye域名/api/nezha-notify-v1`
+    *   **Request Body**: 保持默认 JSON 格式即可。
+4.  **效果**：当哪吒探针检测到服务器离线/上线，会发送 Webhook 给 CloudEye，CloudEye 会更新面板状态并发送 TG 通知。
+
+### 4. Telegram 消息监听 (被动监控)
 
 适用于：你的服务器在内网，没有公网 IP，但能发 TG 消息。
 

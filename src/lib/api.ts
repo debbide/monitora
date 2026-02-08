@@ -6,7 +6,7 @@ export interface Monitor {
   url: string
   check_interval: number
   check_interval_max: number | null
-  check_type: 'http' | 'tcp' | 'komari' | 'komari_webhook' | 'telegram' | 'scheduled_webhook'
+  check_type: 'http' | 'tcp' | 'komari' | 'komari_webhook' | 'nezha_webhook' | 'telegram' | 'scheduled_webhook'
   check_method: 'GET' | 'HEAD' | 'POST' | 'PUT' | 'PATCH'
   check_timeout: number
   expected_status_codes: string
@@ -92,7 +92,7 @@ export async function createMonitor(monitor: {
   url?: string
   check_interval?: number
   check_interval_max?: number | null
-  check_type?: 'http' | 'tcp' | 'komari' | 'komari_webhook' | 'telegram' | 'scheduled_webhook'
+  check_type?: 'http' | 'tcp' | 'komari' | 'komari_webhook' | 'nezha_webhook' | 'telegram' | 'scheduled_webhook'
   check_method?: 'GET' | 'HEAD' | 'POST' | 'PUT' | 'PATCH'
   check_timeout?: number
   expected_status_codes?: string
@@ -130,7 +130,7 @@ export async function updateMonitor(id: string, monitor: {
   url?: string
   check_interval?: number
   check_interval_max?: number | null
-  check_type?: 'http' | 'tcp' | 'komari' | 'komari_webhook' | 'telegram' | 'scheduled_webhook'
+  check_type?: 'http' | 'tcp' | 'komari' | 'komari_webhook' | 'nezha_webhook' | 'telegram' | 'scheduled_webhook'
   check_method?: 'GET' | 'HEAD' | 'POST' | 'PUT' | 'PATCH'
   check_timeout?: number
   expected_status_codes?: string
@@ -252,6 +252,23 @@ export async function getKomariNotifySettings(): Promise<KomariNotifySettings> {
 
 export async function saveKomariNotifySettings(settings: Partial<KomariNotifySettings>): Promise<{ success: boolean; message: string }> {
   return fetchAPI('/api/settings/komari-notify', {
+    method: 'POST',
+    body: JSON.stringify(settings),
+  })
+}
+
+// Nezha 通知配置
+export interface NezhaNotifySettings {
+  enabled: boolean
+  chat_id: string
+}
+
+export async function getNezhaNotifySettings(): Promise<NezhaNotifySettings> {
+  return fetchAPI('/api/settings/nezha-notify')
+}
+
+export async function saveNezhaNotifySettings(settings: Partial<NezhaNotifySettings>): Promise<{ success: boolean; message: string }> {
+  return fetchAPI('/api/settings/nezha-notify', {
     method: 'POST',
     body: JSON.stringify(settings),
   })

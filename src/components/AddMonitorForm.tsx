@@ -24,7 +24,7 @@ export default function AddMonitorForm({ onSuccess, onCancel, editMonitor }: Add
   const [randomMax, setRandomMax] = useState('10')
   const [randomUnit, setRandomUnit] = useState<'minutes' | 'hours' | 'days'>('minutes')
 
-  const [checkType, setCheckType] = useState<'http' | 'tcp' | 'komari' | 'komari_webhook' | 'telegram' | 'scheduled_webhook'>('http')
+  const [checkType, setCheckType] = useState<'http' | 'tcp' | 'komari' | 'komari_webhook' | 'nezha_webhook' | 'telegram' | 'scheduled_webhook'>('http')
   const [checkMethod, setCheckMethod] = useState<'GET' | 'HEAD' | 'POST' | 'PUT' | 'PATCH'>('GET')
   const [checkTimeout, setCheckTimeout] = useState('30')
   const [expectedStatusCodes, setExpectedStatusCodes] = useState('200,201,204,301,302')
@@ -131,14 +131,18 @@ export default function AddMonitorForm({ onSuccess, onCancel, editMonitor }: Add
       return
     }
 
-    // Telegram 和 komari_webhook 类型不需要 URL，其他类型需要 URL
-    if (checkType === 'telegram' || checkType === 'komari_webhook') {
+    // Telegram, komari_webhook, nezha_webhook 类型不需要 URL，其他类型需要 URL
+    if (checkType === 'telegram' || checkType === 'komari_webhook' || checkType === 'nezha_webhook') {
       if (checkType === 'telegram' && !tgChatId.trim()) {
         alert('请填写群组 ID')
         return
       }
       if (checkType === 'komari_webhook' && !expectedKeyword.trim()) {
         alert('请填写监控目标服务器（用于匹配 Komari 通知）')
+        return
+      }
+      if (checkType === 'nezha_webhook' && !expectedKeyword.trim()) {
+        alert('请填写 Nezha 监控中的服务器名称')
         return
       }
     } else if (checkType === 'scheduled_webhook') {
@@ -323,7 +327,7 @@ export default function AddMonitorForm({ onSuccess, onCancel, editMonitor }: Add
           />
         </div>
 
-        {checkType !== 'telegram' && checkType !== 'komari_webhook' && checkType !== 'scheduled_webhook' && (
+        {checkType !== 'telegram' && checkType !== 'komari_webhook' && checkType !== 'nezha_webhook' && checkType !== 'scheduled_webhook' && (
           <div className="form-group">
             <label htmlFor="url">
               {checkType === 'komari' ? 'Komari API 地址' : '网站URL'}
@@ -351,12 +355,13 @@ export default function AddMonitorForm({ onSuccess, onCancel, editMonitor }: Add
             <select
               id="checkType"
               value={checkType}
-              onChange={(e) => setCheckType(e.target.value as 'http' | 'tcp' | 'komari' | 'komari_webhook' | 'telegram' | 'scheduled_webhook')}
+              onChange={(e) => setCheckType(e.target.value as 'http' | 'tcp' | 'komari' | 'komari_webhook' | 'nezha_webhook' | 'telegram' | 'scheduled_webhook')}
             >
               <option value="http">HTTP 检测</option>
               <option value="tcp">TCP 连通性检测 (Ping)</option>
               <option value="komari">Komari 轮询监控</option>
               <option value="komari_webhook">Komari Webhook 监控</option>
+              <option value="nezha_webhook">哪吒 (Nezha) Webhook 监控</option>
               <option value="telegram">Telegram 群组监控</option>
               <option value="scheduled_webhook">定时触发 (Webhook/Cron)</option>
             </select>
@@ -673,6 +678,35 @@ export default function AddMonitorForm({ onSuccess, onCancel, editMonitor }: Add
               1. 在顶栏 📡 按钮中启用 Komari 通知接收并填写 TG 群组 ID<br />
               2. 在 Komari 面板设置 Webhook 指向：<code style={{ background: 'var(--bg-secondary)', padding: '2px 6px', borderRadius: '4px' }}>https://你的域名/api/komari-notify</code><br />
               3. 收到离线通知时会匹配此监控项并触发下方配置的 Webhook
+            </span>
+          </div>
+        </div>
+      )}
+
+      {checkType === 'nezha_webhook' && (
+        <div className="form-section">
+          <h4>Nezha Webhook Configuration</h4>
+          <div className="form-group">
+            <label htmlFor="expectedKeyword">服务器名称 (Server Name)</label>
+            <input
+              id="expectedKeyword"
+              type="text"
+              value={expectedKeyword}
+              onChange={(e) => setExpectedKeyword(e.target.value)}
+              placeholder="例如: US-Node-1"
+              required
+            />
+            <span className="form-hint">
+              填写哪吒面板中显示的服务器名称。收到 Webhook 通知时，会通过此名称匹配监控项。
+            </span>
+          </div>
+          <div className="form-group">
+            <span className="form-hint" style={{ display: 'block', marginTop: '8px', padding: '12px', background: 'var(--bg-tertiary)', borderRadius: '8px' }}>
+              <strong>📡 Nezha Webhook 配置说明：</strong><br />
+              1. 确保已在 📡 设置中启用 Nezha 通知接收<br />
+              2. 在哪吒面板添加通知方式：Webhook<br />
+              3. URL: <code style={{ background: 'var(--bg-secondary)', padding: '2px 6px', borderRadius: '4px' }}>{window.location.protocol}//{window.location.host}/api/nezha-notify-v1</code><br />
+              4. 这里的"服务器名称"必须与哪吒面板中的名称完全一致
             </span>
           </div>
         </div>

@@ -6,7 +6,7 @@ import { fileURLToPath } from 'url'
 import crypto from 'crypto'
 import { initDatabase, queryAll, queryFirst, run } from './db.js'
 import { Monitor, MonitorCheck } from './types.js'
-import { checkAllMonitors, checkMonitor, hashPassword, verifyPassword } from './monitor.js'
+import { checkAllMonitors, checkMonitor, hashPassword, verifyPassword, saveCheck, handleDownStatus, handleUpStatus } from './monitor.js'
 import { processWebhookBody } from './webhook-sender.js'
 import { initTelegramBot, getTelegramBotStatus, stopTelegramBot, setTgBotToken, getTgBotToken, testChatConnection, sendTgMessage } from './telegram.js'
 import { addClient, broadcastRefresh, getClientCount, getClients, pollRefresh } from './sse.js'
@@ -999,6 +999,133 @@ app.get('/api/komari-status/:id', async (req, res) => {
     res.status(500).json({ error: error.message })
   }
 })
+
+// ==========================================
+// 哪吒 (Nezha) Webhook 集成
+// ==========================================
+
+// 获取 Nezha 通知配置
+app.get('/api/settings/nezha-notify', (req, res) => {
+  try {
+    const enabled = queryFirst("SELECT value FROM system_settings WHERE key = 'nezha_notify_enabled'") as { value: string } | null
+    const chatId = queryFirst("SELECT value FROM system_settings WHERE key = 'nezha_notify_chat_id'") as { value: string } | null
+
+    res.json({
+      enabled: enabled?.value === '1',
+      chat_id: chatId?.value || ''
+    })
+  } catch (error: any) {
+    res.status(500).json({ error: error.message })
+  }
+})
+
+// 保存 Nezha 通知配置
+app.post('/api/settings/nezha-notify', (req, res) => {
+  try {
+    const { enabled, chat_id } = req.body
+
+    run("INSERT OR REPLACE INTO system_settings (key, value, updated_at) VALUES ('nezha_notify_enabled', ?, datetime('now'))", [enabled ? '1' : '0'])
+    run("INSERT OR REPLACE INTO system_settings (key, value, updated_at) VALUES ('nezha_notify_chat_id', ?, datetime('now'))", [chat_id || ''])
+
+    res.json({ success: true, message: '配置已保存' })
+  } catch (error: any) {
+    res.status(500).json({ error: error.message })
+  }
+})
+
+// Nezha 通知接收端点 (接收 JSON)
+app.post('/api/nezha-notify-v1', async (req, res) => {
+  try {
+    // Nezha Payload Example:
+    // {
+    //   "project": "NezhaMonitor",
+    //   "server_name": "evennode",
+    //   "server_ip": "37.187.248.7",
+    //   "message": "[事件] evennode(37.****.7) 离线"
+    // }
+    const { server_name, message } = req.body
+    const serverName = server_name || ''
+    const text = message || ''
+
+    console.log(`📩 收到 Nezha 通知: ${serverName} - ${text}`)
+
+    // 1. 检查是否启用全局接收
+    const enabledResult = queryFirst("SELECT value FROM system_settings WHERE key = 'nezha_notify_enabled'") as { value: string } | null
+    if (enabledResult?.value !== '1') {
+      return res.json({ success: true, message: 'Nezha 通知接收已禁用' })
+    }
+
+    // 2. 解析状态 (简单关键词匹配)
+    const textLower = text.toLowerCase()
+    const isOffline = textLower.includes('离线') || textLower.includes('offline') || textLower.includes('down')
+    const isRecovery = textLower.includes('上线') || textLower.includes('online') || textLower.includes('up') || textLower.includes('恢复')
+
+    if (!isOffline && !isRecovery) {
+      return res.json({ success: true, message: '未识别的状态变化，忽略' })
+    }
+
+    const timeStr = new Date().toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' })
+    const chatIdResult = queryFirst("SELECT value FROM system_settings WHERE key = 'nezha_notify_chat_id'") as { value: string } | null
+    const chatId = chatIdResult?.value || ''
+
+    // 3. 全局 TG 通知
+    if (chatId) {
+      const icon = isOffline ? '🔴' : '🟢'
+      const title = isOffline ? '服务器离线报警' : '服务器恢复通知'
+      // 使用更紧凑的排版
+      const fullMsg = `${icon} *[Nezha] ${title}*\n\n🖥️ **${serverName}**\n📜 ${text}\n\n🕒 ${timeStr}`
+      await sendTgMessage(chatId, fullMsg)
+    }
+
+    // 4. 匹配监控项并更新状态
+    // 查找所有 check_type = 'nezha_webhook' 的监控项
+    const monitors = queryAll(
+      "SELECT * FROM monitors WHERE check_type = 'nezha_webhook' AND is_active = 1"
+    ) as Monitor[]
+
+    let matchedMonitor: Monitor | null = null
+
+    for (const monitor of monitors) {
+      // 使用 expected_keyword 存储 Nezha 的 server_name
+      if (monitor.expected_keyword && monitor.expected_keyword.trim() === serverName) {
+        matchedMonitor = monitor
+        break
+      }
+    }
+
+    if (matchedMonitor) {
+      if (isOffline) {
+        const checkData: MonitorCheck = {
+          monitor_id: matchedMonitor.id,
+          status: 'down',
+          response_time: 0,
+          status_code: 0,
+          error_message: `Nezha Alert: ${text}`,
+          checked_at: new Date().toISOString()
+        }
+        saveCheck(checkData)
+        await handleDownStatus(matchedMonitor, checkData)
+      } else if (isRecovery) {
+        const checkData: MonitorCheck = {
+          monitor_id: matchedMonitor.id,
+          status: 'up',
+          response_time: 0,
+          status_code: 200,
+          error_message: '',
+          checked_at: new Date().toISOString()
+        }
+        saveCheck(checkData)
+        await handleUpStatus(matchedMonitor, checkData)
+      }
+    }
+
+    res.json({ success: true })
+  } catch (error: any) {
+    console.error('Nezha Webhook Error:', error)
+    res.status(500).json({ error: error.message })
+  }
+})
+
 
 // 手动触发检查
 app.get('/trigger', async (req, res) => {

@@ -376,7 +376,7 @@ async function checkKomari(monitor: Monitor, timeout: number): Promise<{
   }
 }
 
-function saveCheck(check: MonitorCheck) {
+export function saveCheck(check: MonitorCheck) {
   run(
     `INSERT INTO monitor_checks (monitor_id, status, response_time, status_code, error_message, checked_at)
      VALUES (?, ?, ?, ?, ?, ?)`,
@@ -384,7 +384,7 @@ function saveCheck(check: MonitorCheck) {
   )
 }
 
-async function handleDownStatus(monitor: Monitor, check: MonitorCheck) {
+export async function handleDownStatus(monitor: Monitor, check: MonitorCheck) {
   const incidents = queryAll('SELECT * FROM incidents WHERE monitor_id = ? AND resolved_at IS NULL', [monitor.id]) as any[]
 
   if (!incidents || incidents.length === 0) {
@@ -435,7 +435,7 @@ async function handleDownStatus(monitor: Monitor, check: MonitorCheck) {
   }
 }
 
-async function handleUpStatus(monitor: Monitor, check: MonitorCheck) {
+export async function handleUpStatus(monitor: Monitor, check: MonitorCheck) {
   const incidents = queryAll('SELECT * FROM incidents WHERE monitor_id = ? AND resolved_at IS NULL', [monitor.id]) as any[]
 
   if (incidents && incidents.length > 0) {
