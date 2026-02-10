@@ -119,7 +119,8 @@ export async function initDatabase(): Promise<Database> {
       sort_order INTEGER DEFAULT 0,
       feedback_linkage INTEGER DEFAULT 0,
       feedback_threshold INTEGER DEFAULT 0,
-      feedback_threshold_max INTEGER,
+      feedback_fluctuation_min INTEGER DEFAULT 0,
+      feedback_fluctuation_max INTEGER DEFAULT 0,
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       updated_at TEXT NOT NULL DEFAULT (datetime('now'))
     )

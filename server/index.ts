@@ -59,8 +59,8 @@ app.post('/api/monitors', async (req, res) => {
     const initialNextCheck = new Date(now + (nextInterval * 60 * 1000)).toISOString()
 
     run(
-      `INSERT INTO monitors (id, name, url, check_interval, check_interval_max, check_type, check_method, check_timeout, expected_status_codes, expected_keyword, forbidden_keyword, komari_offline_threshold, tg_chat_id, tg_server_name, tg_offline_keywords, tg_online_keywords, tg_notify_chat_id, webhook_url, webhook_content_type, webhook_headers, webhook_body, webhook_username, check_content_type, check_headers, check_body, next_check_at, is_active, feedback_linkage, feedback_threshold, feedback_threshold_max)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?)`,
+      `INSERT INTO monitors (id, name, url, check_interval, check_interval_max, check_type, check_method, check_timeout, expected_status_codes, expected_keyword, forbidden_keyword, komari_offline_threshold, tg_chat_id, tg_server_name, tg_offline_keywords, tg_online_keywords, tg_notify_chat_id, webhook_url, webhook_content_type, webhook_headers, webhook_body, webhook_username, check_content_type, check_headers, check_body, next_check_at, is_active, feedback_linkage, feedback_threshold, feedback_fluctuation_min, feedback_fluctuation_max)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?)`,
       [
         id,
         body.name,
@@ -93,7 +93,8 @@ app.post('/api/monitors', async (req, res) => {
         initialNextCheck,
         body.feedback_linkage || body.check_type === 'feedback_linkage' ? 1 : 0,
         parseInt(body.feedback_threshold) || 0,
-        parseInt(body.feedback_threshold_max) || null
+        parseInt(body.feedback_fluctuation_min) || 0,
+        parseInt(body.feedback_fluctuation_max) || 0
       ]
     )
 
@@ -186,7 +187,8 @@ app.put('/api/monitors/:id', (req, res) => {
         next_check_at = ?,
         feedback_linkage = ?,
         feedback_threshold = ?,
-        feedback_threshold_max = ?
+        feedback_fluctuation_min = ?,
+        feedback_fluctuation_max = ?
       WHERE id = ?`,
       [
         body.name,
@@ -221,7 +223,8 @@ app.put('/api/monitors/:id', (req, res) => {
         resetNextCheck,
         body.feedback_linkage || body.check_type === 'feedback_linkage' ? 1 : 0,
         parseInt(body.feedback_threshold) || 0,
-        parseInt(body.feedback_threshold_max) || null,
+        parseInt(body.feedback_fluctuation_min) || 0,
+        parseInt(body.feedback_fluctuation_max) || 0,
         id
       ]
     )
