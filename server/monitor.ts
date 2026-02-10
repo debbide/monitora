@@ -133,6 +133,13 @@ export async function checkMonitor(monitor: Monitor) {
 
   const responseTime = Date.now() - startTime
 
+  // 反馈联动类型的特殊处理：成功通常意味着 remaining_time > 0
+  if (checkType === 'feedback_linkage') {
+    // 主动检查（触发脚本）时，状态通常标记为 up，直到回调返回故障
+    // 这里保持默认逻辑，如果 HTTP 触发成功即为 up
+    if (errorMessage === '') status = 'up'
+  }
+
   const checkData: MonitorCheck = {
     monitor_id: monitor.id,
     status,
@@ -154,15 +161,16 @@ export async function checkMonitor(monitor: Monitor) {
     await handleUpStatus(monitor, checkData)
   }
 
-  // Scheduled Webhook: Always notify on execution
-  if (checkType === 'scheduled_webhook' && monitor.tg_notify_chat_id) {
+  // Scheduled Webhook & Feedback Linkage: Always notify on execution
+  if ((checkType === 'scheduled_webhook' || checkType === 'feedback_linkage') && monitor.tg_notify_chat_id) {
     const timeStr = new Date().toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' })
     const icon = status === 'up' ? '✅' : '❌'
     const statusText = status === 'up' ? '成功' : '失败'
+    const typeLabel = checkType === 'feedback_linkage' ? '反馈联动任务' : '定时任务'
 
     // Format headers and body for display if needed, or just keep simple
     const msg = [
-      `${icon} *定时任务执行: ${statusText}*`,
+      `${icon} *${typeLabel}执行: ${statusText}*`,
       ``,
       `📋 *任务:* ${monitor.name}`,
       `🔗 *URL:* ${monitor.url}`,
@@ -187,7 +195,7 @@ export async function checkMonitor(monitor: Monitor) {
   // ---------------------------------------------------------
   let nextIntervalMinutes = monitor.check_interval || 5
 
-  if (monitor.feedback_linkage) {
+  if (monitor.feedback_linkage || monitor.check_type === 'feedback_linkage') {
     // 反馈联动模式：设置一个较大的安全冗余时间 (例如 6 小时)，防止回调没到导致任务永久停滞
     // 正常情况下，回调会很快回来并覆盖这个时间
     nextIntervalMinutes = 360 // 6 小时保底

@@ -24,7 +24,7 @@ export default function AddMonitorForm({ onSuccess, onCancel, editMonitor }: Add
   const [randomMax, setRandomMax] = useState('10')
   const [randomUnit, setRandomUnit] = useState<'minutes' | 'hours' | 'days'>('minutes')
 
-  const [checkType, setCheckType] = useState<'http' | 'tcp' | 'komari' | 'komari_webhook' | 'nezha_webhook' | 'telegram' | 'scheduled_webhook'>('http')
+  const [checkType, setCheckType] = useState<'http' | 'tcp' | 'komari' | 'komari_webhook' | 'nezha_webhook' | 'telegram' | 'scheduled_webhook' | 'feedback_linkage'>('http')
   const [checkMethod, setCheckMethod] = useState<'GET' | 'HEAD' | 'POST' | 'PUT' | 'PATCH'>('GET')
   const [checkTimeout, setCheckTimeout] = useState('30')
   const [expectedStatusCodes, setExpectedStatusCodes] = useState('200,201,204,301,302')
@@ -50,6 +50,7 @@ export default function AddMonitorForm({ onSuccess, onCancel, editMonitor }: Add
   const [username, setUsername] = useState('')
   const [feedbackLinkage, setFeedbackLinkage] = useState(false)
   const [feedbackThreshold, setFeedbackThreshold] = useState('24')
+  const [feedbackThresholdMax, setFeedbackThresholdMax] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   const isEditMode = !!editMonitor
@@ -122,8 +123,9 @@ export default function AddMonitorForm({ onSuccess, onCancel, editMonitor }: Add
       setHeaders(editMonitor.webhook_headers || '')
       setBody(editMonitor.webhook_body || '')
       setUsername(editMonitor.webhook_username || '')
-      setFeedbackLinkage(editMonitor.feedback_linkage === 1)
+      setFeedbackLinkage(editMonitor.feedback_linkage === 1 || editMonitor.check_type === 'feedback_linkage')
       setFeedbackThreshold(String(editMonitor.feedback_threshold || 24))
+      setFeedbackThresholdMax(editMonitor.feedback_threshold_max ? String(editMonitor.feedback_threshold_max) : '')
     }
   }, [editMonitor])
 
@@ -260,8 +262,9 @@ export default function AddMonitorForm({ onSuccess, onCancel, editMonitor }: Add
         webhook_username: username.trim() || undefined,
         check_headers: Object.keys(parsedCheckHeaders).length > 0 ? parsedCheckHeaders : undefined,
         check_body: Object.keys(parsedCheckBody).length > 0 ? parsedCheckBody : undefined,
-        feedback_linkage: feedbackLinkage ? 1 : 0,
+        feedback_linkage: (feedbackLinkage || checkType === 'feedback_linkage') ? 1 : 0,
         feedback_threshold: parseInt(feedbackThreshold) || 0,
+        feedback_threshold_max: feedbackThresholdMax.trim() ? parseInt(feedbackThresholdMax) : null,
       } as any
 
       if (isEditMode && editMonitor) {
@@ -311,10 +314,10 @@ export default function AddMonitorForm({ onSuccess, onCancel, editMonitor }: Add
     setWebhookUrl('')
     setContentType('application/json')
     setHeaders('')
-    setBody('')
     setUsername('')
     setFeedbackLinkage(false)
     setFeedbackThreshold('24')
+    setFeedbackThresholdMax('')
   }
 
   return (
@@ -334,7 +337,7 @@ export default function AddMonitorForm({ onSuccess, onCancel, editMonitor }: Add
           />
         </div>
 
-        {checkType !== 'telegram' && checkType !== 'komari_webhook' && checkType !== 'nezha_webhook' && checkType !== 'scheduled_webhook' && (
+        {checkType !== 'telegram' && checkType !== 'komari_webhook' && checkType !== 'nezha_webhook' && checkType !== 'scheduled_webhook' && checkType !== 'feedback_linkage' && (
           <div className="form-group">
             <label htmlFor="url">
               {checkType === 'komari' ? 'Komari API 地址' : '网站URL'}
@@ -353,16 +356,161 @@ export default function AddMonitorForm({ onSuccess, onCancel, editMonitor }: Add
         )}
       </div>
 
-      <div className="form-section">
-        <h4>检测配置</h4>
+      {checkType !== 'telegram' && checkType !== 'komari_webhook' && checkType !== 'nezha_webhook' && checkType !== 'feedback_linkage' && (
+        <div className="form-section">
+          <h4>检测配置</h4>
 
-        <div className="form-row">
+          <div className="form-row">
+            <div className="form-group">
+              <label htmlFor="checkType">检测类型</label>
+              <select
+                id="checkType"
+                value={checkType}
+                onChange={(e) => setCheckType(e.target.value as any)}
+              >
+                <option value="http">HTTP 检测</option>
+                <option value="tcp">TCP 连通性检测 (Ping)</option>
+                <option value="komari">Komari 轮询监控</option>
+                <option value="komari_webhook">Komari Webhook 监控</option>
+                <option value="nezha_webhook">哪吒 (Nezha) Webhook 监控</option>
+                <option value="telegram">Telegram 群组监控</option>
+                <option value="scheduled_webhook">定时触发 (Webhook/Cron)</option>
+                <option value="feedback_linkage">反馈联动监控 (Feedback Linkage)</option>
+              </select>
+            </div>
+
+            {checkType === 'http' && (
+              <div className="form-group">
+                <label htmlFor="checkMethod">请求方法</label>
+                <select
+                  id="checkMethod"
+                  value={checkMethod}
+                  onChange={(e) => setCheckMethod(e.target.value as 'GET' | 'HEAD' | 'POST')}
+                >
+                  <option value="GET">GET</option>
+                  <option value="HEAD">HEAD</option>
+                  <option value="POST">POST</option>
+                </select>
+              </div>
+            )}
+          </div>
+
+          <div className="form-row">
+            <div className="form-group" style={{ flex: 2 }}>
+              <label>
+                {checkType === 'scheduled_webhook' ? '触发周期' : '检查间隔'}
+                {(checkType === 'http' || checkType === 'scheduled_webhook') && (
+                  <span style={{ fontSize: '12px', fontWeight: 'normal', marginLeft: '8px', color: 'var(--text-secondary)' }}>
+                    模式:
+                    <select
+                      value={scheduleMode}
+                      onChange={(e) => setScheduleMode(e.target.value as 'fixed' | 'random')}
+                      style={{
+                        marginLeft: '4px',
+                        padding: '2px 4px',
+                        fontSize: '12px',
+                        border: 'none',
+                        background: 'var(--bg-secondary)',
+                        color: 'var(--text-primary)',
+                        borderRadius: '4px'
+                      }}
+                    >
+                      <option value="fixed">固定周期</option>
+                      <option value="random">随机区间</option>
+                    </select>
+                  </span>
+                )}
+              </label>
+
+              {/* Fixed Mode UI */}
+              {scheduleMode === 'fixed' && (
+                <>
+                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <input type="number" min="0" value={schedDays} onChange={(e) => setSchedDays(e.target.value)} style={{ width: '100%' }} />
+                        <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>天</span>
+                      </div>
+                    </div>
+                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <input type="number" min="0" max="23" value={schedHours} onChange={(e) => setSchedHours(e.target.value)} style={{ width: '100%' }} />
+                        <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>时</span>
+                      </div>
+                    </div>
+                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <input type="number" min="0" max="59" value={schedMinutes} onChange={(e) => setSchedMinutes(e.target.value)} style={{ width: '100%' }} />
+                        <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>分</span>
+                      </div>
+                    </div>
+                  </div>
+                  <span className="form-hint">
+                    {`固定每 ${parseInt(schedDays) || 0}天 ${parseInt(schedHours) || 0}小时 ${parseInt(schedMinutes) || 0}分 执行一次`}
+                  </span>
+                </>
+              )}
+
+              {/* Random Mode UI */}
+              {scheduleMode === 'random' && (
+                <>
+                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                    <input
+                      type="number"
+                      value={randomMin}
+                      onChange={(e) => setRandomMin(e.target.value)}
+                      style={{ flex: 1 }}
+                      placeholder="Min"
+                    />
+                    <span style={{ fontSize: '14px' }}>至</span>
+                    <input
+                      type="number"
+                      value={randomMax}
+                      onChange={(e) => setRandomMax(e.target.value)}
+                      style={{ flex: 1 }}
+                      placeholder="Max"
+                    />
+                    <select
+                      value={randomUnit}
+                      onChange={(e) => setRandomUnit(e.target.value as any)}
+                      style={{ width: '80px' }}
+                    >
+                      <option value="minutes">分钟</option>
+                      <option value="hours">小时</option>
+                      <option value="days">天</option>
+                    </select>
+                  </div>
+                  <span className="form-hint">
+                    每次检查将在 {randomMin} - {randomMax} {randomUnit === 'minutes' ? '分钟' : (randomUnit === 'hours' ? '小时' : '天')} 内随机触发
+                  </span>
+                </>
+              )}
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="checkTimeout">超时时间（秒）</label>
+              <input
+                id="checkTimeout"
+                type="number"
+                min="5"
+                max="120"
+                value={checkTimeout}
+                onChange={(e) => setCheckTimeout(e.target.value)}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {checkType === 'feedback_linkage' && (
+        <div className="form-section">
+          <h4>检测配置</h4>
           <div className="form-group">
             <label htmlFor="checkType">检测类型</label>
             <select
               id="checkType"
               value={checkType}
-              onChange={(e) => setCheckType(e.target.value as 'http' | 'tcp' | 'komari' | 'komari_webhook' | 'nezha_webhook' | 'telegram' | 'scheduled_webhook')}
+              onChange={(e) => setCheckType(e.target.value as any)}
             >
               <option value="http">HTTP 检测</option>
               <option value="tcp">TCP 连通性检测 (Ping)</option>
@@ -371,142 +519,76 @@ export default function AddMonitorForm({ onSuccess, onCancel, editMonitor }: Add
               <option value="nezha_webhook">哪吒 (Nezha) Webhook 监控</option>
               <option value="telegram">Telegram 群组监控</option>
               <option value="scheduled_webhook">定时触发 (Webhook/Cron)</option>
+              <option value="feedback_linkage">反馈联动监控 (Feedback Linkage)</option>
             </select>
           </div>
 
-          {checkType === 'http' && (
-            <div className="form-group">
-              <label htmlFor="checkMethod">请求方法</label>
-              <select
-                id="checkMethod"
-                value={checkMethod}
-                onChange={(e) => setCheckMethod(e.target.value as 'GET' | 'HEAD' | 'POST')}
-              >
-                <option value="GET">GET</option>
-                <option value="HEAD">HEAD</option>
-                <option value="POST">POST</option>
-              </select>
+          <div className="form-group" style={{ background: 'var(--bg-secondary)', padding: '16px', borderRadius: '12px', border: '1px solid var(--border-color)', marginTop: '16px' }}>
+            <h5 style={{ margin: '0 0 12px 0', fontSize: '1rem' }}>🔗 联动参数 (Feedback Parameters)</h5>
+            <div className="form-row">
+              <div className="form-group">
+                <label htmlFor="feedbackThresholdMin">续期窗口阈值 - 最小值 (小时)</label>
+                <input
+                  id="feedbackThresholdMin"
+                  type="number"
+                  value={feedbackThreshold}
+                  onChange={(e) => setFeedbackThreshold(e.target.value)}
+                  placeholder="例如: 20"
+                />
+              </div>
+              <div className="form-group">
+                <label htmlFor="feedbackThresholdMax">续期窗口阈值 - 最大值 (小时, 可选用于波动)</label>
+                <input
+                  id="feedbackThresholdMax"
+                  type="number"
+                  value={feedbackThresholdMax}
+                  onChange={(e) => setFeedbackThresholdMax(e.target.value)}
+                  placeholder="例如: 24 (留空则不波动)"
+                />
+              </div>
             </div>
-          )}
-        </div>
-
-        <div className="form-row">
-          <div className="form-group" style={{ flex: 2 }}>
-            <label>
-              {checkType === 'scheduled_webhook' ? '触发周期' : '检查间隔'}
-              {(checkType === 'http' || checkType === 'scheduled_webhook') && (
-                <span style={{ fontSize: '12px', fontWeight: 'normal', marginLeft: '8px', color: 'var(--text-secondary)' }}>
-                  模式:
-                  <select
-                    value={scheduleMode}
-                    onChange={(e) => setScheduleMode(e.target.value as 'fixed' | 'random')}
-                    style={{
-                      marginLeft: '4px',
-                      padding: '2px 4px',
-                      fontSize: '12px',
-                      border: 'none',
-                      background: 'var(--bg-secondary)',
-                      color: 'var(--text-primary)',
-                      borderRadius: '4px'
-                    }}
-                  >
-                    <option value="fixed">固定周期</option>
-                    <option value="random">随机区间</option>
-                  </select>
-                </span>
-              )}
-            </label>
-
-            {/* Fixed Mode UI */}
-            {scheduleMode === 'fixed' && (
-              <>
-                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                  <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                      <input type="number" min="0" value={schedDays} onChange={(e) => setSchedDays(e.target.value)} style={{ width: '100%' }} />
-                      <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>天</span>
-                    </div>
-                  </div>
-                  <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                      <input type="number" min="0" max="23" value={schedHours} onChange={(e) => setSchedHours(e.target.value)} style={{ width: '100%' }} />
-                      <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>时</span>
-                    </div>
-                  </div>
-                  <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                      <input type="number" min="0" max="59" value={schedMinutes} onChange={(e) => setSchedMinutes(e.target.value)} style={{ width: '100%' }} />
-                      <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>分</span>
-                    </div>
-                  </div>
-                </div>
-                <span className="form-hint">
-                  {checkType === 'komari_webhook'
-                    ? '此项对此类型不生效，但已保留配置'
-                    : `固定每 ${parseInt(schedDays) || 0}天 ${parseInt(schedHours) || 0}小时 ${parseInt(schedMinutes) || 0}分 执行一次`}
-                </span>
-              </>
-            )}
-
-            {/* Random Mode UI */}
-            {scheduleMode === 'random' && (
-              <>
-                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                  <input
-                    type="number"
-                    value={randomMin}
-                    onChange={(e) => setRandomMin(e.target.value)}
-                    style={{ flex: 1 }}
-                    placeholder="Min"
-                  />
-                  <span style={{ fontSize: '14px' }}>至</span>
-                  <input
-                    type="number"
-                    value={randomMax}
-                    onChange={(e) => setRandomMax(e.target.value)}
-                    style={{ flex: 1 }}
-                    placeholder="Max"
-                  />
-                  <select
-                    value={randomUnit}
-                    onChange={(e) => setRandomUnit(e.target.value as any)}
-                    style={{ width: '80px' }}
-                  >
-                    <option value="minutes">分钟</option>
-                    <option value="hours">小时</option>
-                    <option value="days">天</option>
-                  </select>
-                </div>
-                <span className="form-hint">
-                  每次检查将在 {randomMin} - {randomMax} {randomUnit === 'minutes' ? '分钟' : (randomUnit === 'hours' ? '小时' : '天')} 内随机触发
-                </span>
-              </>
-            )}
+            <span className="form-hint" style={{ marginTop: '8px', display: 'block' }}>
+              面板在计算下次执行时间时，会在此区间内随机取值。脚本需上报 <code>remaining_time</code> (秒)。<br />
+              如果 <code>remaining_time &gt; 随机动态阈值</code>，面板将自动等待到进入窗口后再执行。
+            </span>
           </div>
 
-          <div className="form-group">
-            <label htmlFor="checkTimeout">超时时间（秒）</label>
-            <input
-              id="checkTimeout"
-              type="number"
-              min="5"
-              max="120"
-              value={checkTimeout}
-              onChange={(e) => setCheckTimeout(e.target.value)}
-            />
+          <div className="form-group" style={{ background: 'var(--bg-tertiary)', padding: '16px', borderRadius: '12px', marginTop: '16px', border: '1px solid var(--border-color)' }}>
+            <h5 style={{ margin: '0 0 12px 0', fontSize: '1rem' }}>📡 脚本对接指引 (Callback Guide)</h5>
+            <label>回调入口 URL</label>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'var(--bg-primary)', padding: '8px 12px', borderRadius: '6px', border: '1px solid var(--border-color)' }}>
+              <code style={{ fontSize: '0.85rem', color: 'var(--accent-color)', wordBreak: 'break-all' }}>
+                {window.location.protocol}//{window.location.host}/api/callback/{editMonitor?.id || 'NEW_ID'}
+              </code>
+              <button
+                type="button"
+                className="btn-text"
+                onClick={() => {
+                  const url = `${window.location.protocol}//${window.location.host}/api/callback/${editMonitor?.id || 'NEW_ID'}`
+                  navigator.clipboard.writeText(url)
+                  alert('已复制到剪贴板')
+                }}
+                title="复制链接"
+              >
+                📋
+              </button>
+            </div>
+            <span className="form-hint" style={{ marginTop: '8px' }}>
+              POST Payload: <code style={{ color: 'var(--text-secondary)' }}>{'{'} "remaining_time": 秒, "status": "up" {'}'}</code>
+            </span>
           </div>
         </div>
-      </div>
+      )}
 
-      {(checkType === 'http' || checkType === 'scheduled_webhook') && (
+      {(checkType === 'http' || checkType === 'scheduled_webhook' || checkType === 'feedback_linkage') && (
         <div className="form-section">
           <h4>Request Configuration</h4>
 
-          {checkType === 'scheduled_webhook' && (
+          {(checkType === 'scheduled_webhook' || checkType === 'feedback_linkage') && (
             <div className="form-row">
               <div className="form-group">
                 <label htmlFor="url">
-                  Webhook URL (触发地址)
+                  触发 URL (Trigger Webhook)
                 </label>
                 <input
                   id="url"
@@ -534,7 +616,7 @@ export default function AddMonitorForm({ onSuccess, onCancel, editMonitor }: Add
               />
             </div>
 
-            {(checkType === 'scheduled_webhook' || checkType === 'http') && (
+            {(checkType === 'scheduled_webhook' || checkType === 'http' || checkType === 'feedback_linkage') && (
               <div className="form-group">
                 <label htmlFor="checkMethod">Request Method</label>
                 <select

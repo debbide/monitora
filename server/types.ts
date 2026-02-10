@@ -4,7 +4,7 @@ export interface Monitor {
   url: string
   check_interval: number
   check_interval_max: number | null  // HTTP模式随机间隔最大值
-  check_type: 'http' | 'tcp' | 'komari' | 'komari_webhook' | 'nezha_webhook' | 'telegram' | 'scheduled_webhook'
+  check_type: 'http' | 'tcp' | 'komari' | 'komari_webhook' | 'nezha_webhook' | 'telegram' | 'scheduled_webhook' | 'feedback_linkage'
   check_method: 'GET' | 'HEAD' | 'POST' | 'PUT' | 'PATCH'
   check_timeout: number
   expected_status_codes: string
@@ -30,6 +30,7 @@ export interface Monitor {
   sort_order: number
   feedback_linkage: number  // 是否开启反馈联动
   feedback_threshold: number // 反馈触发阈值 (小时)
+  feedback_threshold_max: number | null // 反馈触发最大阈值 (小时，用于波动)
   created_at: string
   updated_at: string
 }

@@ -6,7 +6,7 @@ export interface Monitor {
   url: string
   check_interval: number
   check_interval_max: number | null
-  check_type: 'http' | 'tcp' | 'komari' | 'komari_webhook' | 'nezha_webhook' | 'telegram' | 'scheduled_webhook'
+  check_type: 'http' | 'tcp' | 'komari' | 'komari_webhook' | 'nezha_webhook' | 'telegram' | 'scheduled_webhook' | 'feedback_linkage'
   check_method: 'GET' | 'HEAD' | 'POST' | 'PUT' | 'PATCH'
   check_timeout: number
   expected_status_codes: string
@@ -31,6 +31,7 @@ export interface Monitor {
   sort_order: number
   feedback_linkage?: number
   feedback_threshold?: number
+  feedback_threshold_max?: number | null
   created_at: string
   updated_at: string
 }
@@ -116,6 +117,7 @@ export async function createMonitor(monitor: {
   webhook_username?: string
   feedback_linkage?: boolean | number
   feedback_threshold?: number
+  feedback_threshold_max?: number | null
 }): Promise<Monitor> {
   return fetchAPI('/api/monitors', {
     method: 'POST',
@@ -157,6 +159,7 @@ export async function updateMonitor(id: string, monitor: {
   is_active?: number
   feedback_linkage?: boolean | number
   feedback_threshold?: number
+  feedback_threshold_max?: number | null
 }): Promise<Monitor> {
   return fetchAPI(`/api/monitors/${id}`, {
     method: 'PUT',

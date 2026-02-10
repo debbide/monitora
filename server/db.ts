@@ -119,6 +119,7 @@ export async function initDatabase(): Promise<Database> {
       sort_order INTEGER DEFAULT 0,
       feedback_linkage INTEGER DEFAULT 0,
       feedback_threshold INTEGER DEFAULT 0,
+      feedback_threshold_max INTEGER,
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       updated_at TEXT NOT NULL DEFAULT (datetime('now'))
     )
@@ -175,10 +176,10 @@ export async function initDatabase(): Promise<Database> {
 
   // 迁移：为旧数据库添加反馈联动相关字段
   try {
-    db.run(`ALTER TABLE monitors ADD COLUMN feedback_linkage INTEGER DEFAULT 0`)
+    db.run(`ALTER TABLE monitors ADD COLUMN feedback_threshold INTEGER DEFAULT 0`)
   } catch (e) { }
   try {
-    db.run(`ALTER TABLE monitors ADD COLUMN feedback_threshold INTEGER DEFAULT 0`)
+    db.run(`ALTER TABLE monitors ADD COLUMN feedback_threshold_max INTEGER`)
   } catch (e) { }
 
 

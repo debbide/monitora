@@ -59,8 +59,8 @@ app.post('/api/monitors', async (req, res) => {
     const initialNextCheck = new Date(now + (nextInterval * 60 * 1000)).toISOString()
 
     run(
-      `INSERT INTO monitors (id, name, url, check_interval, check_interval_max, check_type, check_method, check_timeout, expected_status_codes, expected_keyword, forbidden_keyword, komari_offline_threshold, tg_chat_id, tg_server_name, tg_offline_keywords, tg_online_keywords, tg_notify_chat_id, webhook_url, webhook_content_type, webhook_headers, webhook_body, webhook_username, check_content_type, check_headers, check_body, next_check_at, is_active, feedback_linkage, feedback_threshold)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)`,
+      `INSERT INTO monitors (id, name, url, check_interval, check_interval_max, check_type, check_method, check_timeout, expected_status_codes, expected_keyword, forbidden_keyword, komari_offline_threshold, tg_chat_id, tg_server_name, tg_offline_keywords, tg_online_keywords, tg_notify_chat_id, webhook_url, webhook_content_type, webhook_headers, webhook_body, webhook_username, check_content_type, check_headers, check_body, next_check_at, is_active, feedback_linkage, feedback_threshold, feedback_threshold_max)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?)`,
       [
         id,
         body.name,
@@ -88,8 +88,9 @@ app.post('/api/monitors', async (req, res) => {
         body.check_headers && typeof body.check_headers === 'object' ? JSON.stringify(body.check_headers) : (body.check_headers || null),
         body.check_body && typeof body.check_body === 'object' ? JSON.stringify(body.check_body) : (body.check_body || null),
         initialNextCheck,
-        body.feedback_linkage ? 1 : 0,
-        parseInt(body.feedback_threshold) || 0
+        body.feedback_linkage || body.check_type === 'feedback_linkage' ? 1 : 0,
+        parseInt(body.feedback_threshold) || 0,
+        parseInt(body.feedback_threshold_max) || null
       ]
     )
 
@@ -178,7 +179,8 @@ app.put('/api/monitors/:id', (req, res) => {
         updated_at = ?,
         next_check_at = ?,
         feedback_linkage = ?,
-        feedback_threshold = ?
+        feedback_threshold = ?,
+        feedback_threshold_max = ?
       WHERE id = ?`,
       [
         body.name,
@@ -208,8 +210,9 @@ app.put('/api/monitors/:id', (req, res) => {
         body.is_active !== undefined ? body.is_active : 1,
         new Date().toISOString(),
         resetNextCheck,
-        body.feedback_linkage ? 1 : 0,
+        body.feedback_linkage || body.check_type === 'feedback_linkage' ? 1 : 0,
         parseInt(body.feedback_threshold) || 0,
+        parseInt(body.feedback_threshold_max) || null,
         id
       ]
     )
@@ -1153,10 +1156,18 @@ app.post('/api/callback/:monitorId', async (req, res) => {
     const now = Date.now()
     let nextCheckAt: string
 
-    // 转换为秒的阈值
-    const thresholdSeconds = (monitor.feedback_threshold || 0) * 3600
+    // 灵活阈值：如果有最大值，则在区间内随机取值
+    const minThreshold = monitor.feedback_threshold || 0
+    const maxThreshold = monitor.feedback_threshold_max || minThreshold
 
-    if (monitor.feedback_linkage && remaining_time !== undefined && remaining_time > thresholdSeconds) {
+    let actualThresholdHours = minThreshold
+    if (maxThreshold > minThreshold) {
+      actualThresholdHours = Math.random() * (maxThreshold - minThreshold) + minThreshold
+    }
+
+    const thresholdSeconds = actualThresholdHours * 3600
+
+    if ((monitor.feedback_linkage || monitor.check_type === 'feedback_linkage') && remaining_time !== undefined && remaining_time > thresholdSeconds) {
       // 剩余时间充足，等待到接近阈值时再试
       // 即：现在 + (剩余时间 - 阈值)
       const waitSeconds = remaining_time - thresholdSeconds
