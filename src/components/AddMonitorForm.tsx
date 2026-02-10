@@ -50,7 +50,8 @@ export default function AddMonitorForm({ onSuccess, onCancel, editMonitor }: Add
   const [username, setUsername] = useState('')
   const [feedbackLinkage, setFeedbackLinkage] = useState(false)
   const [feedbackThreshold, setFeedbackThreshold] = useState('24')
-  const [feedbackThresholdMax, setFeedbackThresholdMax] = useState('')
+  const [feedbackFluctuationMin, setFeedbackFluctuationMin] = useState('0')
+  const [feedbackFluctuationMax, setFeedbackFluctuationMax] = useState('0')
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   const isEditMode = !!editMonitor
@@ -125,7 +126,8 @@ export default function AddMonitorForm({ onSuccess, onCancel, editMonitor }: Add
       setUsername(editMonitor.webhook_username || '')
       setFeedbackLinkage(editMonitor.feedback_linkage === 1 || editMonitor.check_type === 'feedback_linkage')
       setFeedbackThreshold(String(editMonitor.feedback_threshold || 24))
-      setFeedbackThresholdMax(editMonitor.feedback_threshold_max ? String(editMonitor.feedback_threshold_max) : '')
+      setFeedbackFluctuationMin(String(editMonitor.feedback_fluctuation_min || 0))
+      setFeedbackFluctuationMax(String(editMonitor.feedback_fluctuation_max || 0))
     }
   }, [editMonitor])
 
@@ -264,7 +266,8 @@ export default function AddMonitorForm({ onSuccess, onCancel, editMonitor }: Add
         check_body: Object.keys(parsedCheckBody).length > 0 ? parsedCheckBody : undefined,
         feedback_linkage: (feedbackLinkage || checkType === 'feedback_linkage') ? 1 : 0,
         feedback_threshold: parseInt(feedbackThreshold) || 0,
-        feedback_threshold_max: feedbackThresholdMax.trim() ? parseInt(feedbackThresholdMax) : null,
+        feedback_fluctuation_min: parseInt(feedbackFluctuationMin) || 0,
+        feedback_fluctuation_max: parseInt(feedbackFluctuationMax) || 0,
       } as any
 
       if (isEditMode && editMonitor) {
@@ -317,7 +320,8 @@ export default function AddMonitorForm({ onSuccess, onCancel, editMonitor }: Add
     setUsername('')
     setFeedbackLinkage(false)
     setFeedbackThreshold('24')
-    setFeedbackThresholdMax('')
+    setFeedbackFluctuationMin('0')
+    setFeedbackFluctuationMax('0')
   }
 
   return (
@@ -525,46 +529,73 @@ export default function AddMonitorForm({ onSuccess, onCancel, editMonitor }: Add
 
           <div className="form-group" style={{ background: 'var(--bg-secondary)', padding: '16px', borderRadius: '12px', border: '1px solid var(--border-color)', marginTop: '16px' }}>
             <h5 style={{ margin: '0 0 12px 0', fontSize: '1rem' }}>🔗 联动参数 (Feedback Parameters)</h5>
-            <div className="form-row">
+
+            <div className="form-group">
+              <label htmlFor="expectedKeyword">服务器匹配关键词 (用于回调识别)</label>
+              <input
+                id="expectedKeyword"
+                type="text"
+                value={expectedKeyword}
+                onChange={(e) => setExpectedKeyword(e.target.value)}
+                placeholder="例如: Server-A"
+                required
+              />
+              <span className="form-hint">回调接口会根据此关键词匹配监控项。请确保唯一。</span>
+            </div>
+
+            <div className="form-row" style={{ marginTop: '16px' }}>
               <div className="form-group">
-                <label htmlFor="feedbackThresholdMin">续期窗口阈值 - 最小值 (小时)</label>
+                <label htmlFor="feedbackThreshold">续期触发阈值 (小时)</label>
                 <input
-                  id="feedbackThresholdMin"
+                  id="feedbackThreshold"
                   type="number"
                   value={feedbackThreshold}
                   onChange={(e) => setFeedbackThreshold(e.target.value)}
-                  placeholder="例如: 20"
+                  placeholder="例如: 24"
                 />
+                <span className="form-hint">小于此剩余时间进入续期窗口</span>
               </div>
               <div className="form-group">
-                <label htmlFor="feedbackThresholdMax">续期窗口阈值 - 最大值 (小时, 可选用于波动)</label>
-                <input
-                  id="feedbackThresholdMax"
-                  type="number"
-                  value={feedbackThresholdMax}
-                  onChange={(e) => setFeedbackThresholdMax(e.target.value)}
-                  placeholder="例如: 24 (留空则不波动)"
-                />
+                <label>执行波动范围 (小时)</label>
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                  <input
+                    type="number"
+                    value={feedbackFluctuationMin}
+                    onChange={(e) => setFeedbackFluctuationMin(e.target.value)}
+                    style={{ flex: 1 }}
+                    placeholder="Min"
+                  />
+                  <span style={{ fontSize: '14px' }}>至</span>
+                  <input
+                    type="number"
+                    value={feedbackFluctuationMax}
+                    onChange={(e) => setFeedbackFluctuationMax(e.target.value)}
+                    style={{ flex: 1 }}
+                    placeholder="Max"
+                  />
+                </div>
+                <span className="form-hint">在触发点之前随机减去的延迟量</span>
               </div>
             </div>
-            <span className="form-hint" style={{ marginTop: '8px', display: 'block' }}>
-              面板在计算下次执行时间时，会在此区间内随机取值。脚本需上报 <code>remaining_time</code> (秒)。<br />
-              如果 <code>remaining_time &gt; 随机动态阈值</code>，面板将自动等待到进入窗口后再执行。
+
+            <span className="form-hint" style={{ marginTop: '12px', display: 'block', padding: '10px', background: 'var(--bg-tertiary)', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+              <strong>逻辑说明：</strong> 实际触发点 = <code>触发阈值 - 随机(波动范围)</code>。<br />
+              例如配置 24 小时阈值，波动 2-3 小时。面板将在服务器剩余 21~22 小时左右执行续期。
             </span>
           </div>
 
           <div className="form-group" style={{ background: 'var(--bg-tertiary)', padding: '16px', borderRadius: '12px', marginTop: '16px', border: '1px solid var(--border-color)' }}>
             <h5 style={{ margin: '0 0 12px 0', fontSize: '1rem' }}>📡 脚本对接指引 (Callback Guide)</h5>
-            <label>回调入口 URL</label>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'var(--bg-primary)', padding: '8px 12px', borderRadius: '6px', border: '1px solid var(--border-color)' }}>
+            <label>通用回调接口 (通过关键词匹配)</label>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'var(--bg-primary)', padding: '8px 12px', borderRadius: '6px', border: '1px solid var(--border-color)', marginBottom: '12px' }}>
               <code style={{ fontSize: '0.85rem', color: 'var(--accent-color)', wordBreak: 'break-all' }}>
-                {window.location.protocol}//{window.location.host}/api/callback/{editMonitor?.id || 'NEW_ID'}
+                {window.location.protocol}//{window.location.host}/api/callback
               </code>
               <button
                 type="button"
                 className="btn-text"
                 onClick={() => {
-                  const url = `${window.location.protocol}//${window.location.host}/api/callback/${editMonitor?.id || 'NEW_ID'}`
+                  const url = `${window.location.protocol}//${window.location.host}/api/callback`
                   navigator.clipboard.writeText(url)
                   alert('已复制到剪贴板')
                 }}
@@ -573,9 +604,20 @@ export default function AddMonitorForm({ onSuccess, onCancel, editMonitor }: Add
                 📋
               </button>
             </div>
-            <span className="form-hint" style={{ marginTop: '8px' }}>
-              POST Payload: <code style={{ color: 'var(--text-secondary)' }}>{'{'} "remaining_time": 秒, "status": "up" {'}'}</code>
-            </span>
+
+            <label>特定监控 ID 接口</label>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'var(--bg-primary)', padding: '8px 12px', borderRadius: '6px', border: '1px solid var(--border-color)' }}>
+              <code style={{ fontSize: '0.85rem', color: 'var(--accent-color)', wordBreak: 'break-all' }}>
+                {window.location.protocol}//{window.location.host}/api/callback/{editMonitor?.id || 'NEW_ID'}
+              </code>
+            </div>
+
+            <div className="form-hint" style={{ marginTop: '12px' }}>
+              <strong>POST Payload:</strong><br />
+              <code style={{ color: 'var(--text-secondary)', display: 'block', marginTop: '4px' }}>
+                {'{'} "server_name": "{expectedKeyword || '你的关键词'}", "remaining_time": 秒, "status": "up" {'}'}
+              </code>
+            </div>
           </div>
         </div>
       )}
@@ -853,32 +895,50 @@ export default function AddMonitorForm({ onSuccess, onCancel, editMonitor }: Add
 
             {feedbackLinkage && (
               <div className="feedback-linkage-settings" style={{ padding: '12px', background: 'var(--bg-primary)', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
-                <div className="form-group" style={{ marginBottom: '12px' }}>
-                  <label htmlFor="feedbackThreshold">续期窗口阈值 (小时)</label>
-                  <input
-                    id="feedbackThreshold"
-                    type="number"
-                    value={feedbackThreshold}
-                    onChange={(e) => setFeedbackThreshold(e.target.value)}
-                    placeholder="例如: 24 (代表剩余不足 24h 时触发)"
-                  />
-                  <span className="form-hint">
-                    脚本需在完成后回调接口并携带 <code>remaining_time</code> (秒)。<br />
-                    如果 <code>remaining_time &gt; 阈值</code>，面板将自动等待到进入窗口后再执行。
-                  </span>
+                <div className="form-row">
+                  <div className="form-group">
+                    <label htmlFor="feedbackThreshold_alt">续期触发阈值 (小时)</label>
+                    <input
+                      id="feedbackThreshold_alt"
+                      type="number"
+                      value={feedbackThreshold}
+                      onChange={(e) => setFeedbackThreshold(e.target.value)}
+                      placeholder="例如: 24"
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>执行波动范围 (小时)</label>
+                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                      <input
+                        type="number"
+                        value={feedbackFluctuationMin}
+                        onChange={(e) => setFeedbackFluctuationMin(e.target.value)}
+                        style={{ flex: 1 }}
+                        placeholder="Min"
+                      />
+                      <span style={{ fontSize: '14px' }}>至</span>
+                      <input
+                        type="number"
+                        value={feedbackFluctuationMax}
+                        onChange={(e) => setFeedbackFluctuationMax(e.target.value)}
+                        style={{ flex: 1 }}
+                        placeholder="Max"
+                      />
+                    </div>
+                  </div>
                 </div>
 
-                <div className="form-group" style={{ marginBottom: 0 }}>
+                <div className="form-group" style={{ marginTop: '12px', marginBottom: 0 }}>
                   <label>脚本回调 URL</label>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'var(--bg-tertiary)', padding: '8px 12px', borderRadius: '6px' }}>
                     <code style={{ fontSize: '0.9rem', color: 'var(--accent-color)', wordBreak: 'break-all' }}>
-                      {window.location.protocol}//{window.location.host}/api/callback/{editMonitor?.id || 'NEW_ID'}
+                      {window.location.protocol}//{window.location.host}/api/callback
                     </code>
                     <button
                       type="button"
                       className="btn-text"
                       onClick={() => {
-                        const url = `${window.location.protocol}//${window.location.host}/api/callback/${editMonitor?.id || 'NEW_ID'}`
+                        const url = `${window.location.protocol}//{window.location.host}/api/callback`
                         navigator.clipboard.writeText(url)
                         alert('已复制到剪贴板')
                       }}
@@ -888,7 +948,7 @@ export default function AddMonitorForm({ onSuccess, onCancel, editMonitor }: Add
                     </button>
                   </div>
                   <span className="form-hint" style={{ marginTop: '8px' }}>
-                    在脚本中发送 POST 请求。Payload 格式: <code style={{ color: 'var(--text-secondary)' }}>{'{'} "remaining_time": 待定(秒), "status": "success" {'}'}</code>
+                    <strong>Payload:</strong> <code>{'{'} "server_name": "{expectedKeyword || '你的关键词'}", "remaining_time": 秒 {'}'}</code>
                   </span>
                 </div>
               </div>

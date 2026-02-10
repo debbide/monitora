@@ -140,7 +140,8 @@ export async function initDatabase(): Promise<Database> {
     { name: 'check_body', type: 'TEXT' },
     { name: 'feedback_linkage', type: 'INTEGER DEFAULT 0' },
     { name: 'feedback_threshold', type: 'INTEGER DEFAULT 0' },
-    { name: 'feedback_threshold_max', type: 'INTEGER' }
+    { name: 'feedback_fluctuation_min', type: 'INTEGER' },
+    { name: 'feedback_fluctuation_max', type: 'INTEGER' }
   ]
 
   for (const col of columns) {

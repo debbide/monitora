@@ -1148,42 +1148,74 @@ app.post('/api/nezha-notify-v1', async (req, res) => {
 // ==========================================
 // 反馈联动模式 (Feedback Linkage Mode) 回调
 // ==========================================
+// 灵活用法：通用回调入口，通过 server_name 匹配监控项
+app.post('/api/callback', async (req, res) => {
+  try {
+    const { server_name, remaining_time, status, message } = req.body
+    if (!server_name) {
+      return res.status(400).json({ error: '必须提供 server_name 以匹配监控项' })
+    }
+
+    // 搜索匹配关键词的反馈联动监控项
+    const monitor = queryFirst(
+      "SELECT * FROM monitors WHERE check_type = 'feedback_linkage' AND (expected_keyword LIKE ? OR name = ?)",
+      [`%${server_name}%`, server_name]
+    ) as Monitor
+
+    if (!monitor) {
+      return res.status(404).json({ error: `未匹配到名称包含 "${server_name}" 的联动监控项` })
+    }
+
+    return handleFeedbackCallback(monitor, remaining_time, status, message, res)
+  } catch (error: any) {
+    res.status(500).json({ error: error.message })
+  }
+})
+
 app.post('/api/callback/:monitorId', async (req, res) => {
   try {
     const { monitorId } = req.params
     const { remaining_time, status, message } = req.body
 
-    // 1. 获取监控项
     const monitor = queryFirst('SELECT * FROM monitors WHERE id = ?', [monitorId]) as Monitor
     if (!monitor) {
       return res.status(404).json({ error: '监控项不存在' })
     }
 
+    return handleFeedbackCallback(monitor, remaining_time, status, message, res)
+  } catch (error: any) {
+    res.status(500).json({ error: error.message })
+  }
+})
+
+async function handleFeedbackCallback(monitor: Monitor, remaining_time: number, status: string, message: string, res: any) {
+  try {
     console.log(`📡 收到反馈联动回调: [${monitor.name}] 剩余时间: ${remaining_time}s, 状态: ${status || '无'}`)
 
-    // 2. 计算下一次检查时间
+    // 1. 计算随机触发点 (Actual Trigger Point = Threshold - random(Min, Max))
     const now = Date.now()
     let nextCheckAt: string
 
-    // 灵活阈值：如果有最大值，则在区间内随机取值
-    const minThreshold = monitor.feedback_threshold || 0
-    const maxThreshold = monitor.feedback_threshold_max || minThreshold
+    const baseThresholdHours = monitor.feedback_threshold || 24
+    const fluMin = monitor.feedback_fluctuation_min || 0
+    const fluMax = monitor.feedback_fluctuation_max || 0
 
-    let actualThresholdHours = minThreshold
-    if (maxThreshold > minThreshold) {
-      actualThresholdHours = Math.random() * (maxThreshold - minThreshold) + minThreshold
-    }
+    // 随机产生一个波动值 (小时)
+    const randomOffset = (fluMax !== null && fluMax > fluMin)
+      ? Math.random() * (fluMax - fluMin) + fluMin
+      : fluMin
 
-    const thresholdSeconds = actualThresholdHours * 3600
+    // 实际触发点 (小时)
+    const triggerPointHours = baseThresholdHours - randomOffset
+    const triggerPointSeconds = triggerPointHours * 3600
 
-    if ((monitor.feedback_linkage || monitor.check_type === 'feedback_linkage') && remaining_time !== undefined && remaining_time > thresholdSeconds) {
-      // 剩余时间充足，等待到接近阈值时再试
-      // 即：现在 + (剩余时间 - 阈值)
-      const waitSeconds = remaining_time - thresholdSeconds
+    if (remaining_time !== undefined && remaining_time > triggerPointSeconds) {
+      // 剩余时间还在触发点之上，计算需要等待多久到达触发点
+      const waitSeconds = remaining_time - triggerPointSeconds
       nextCheckAt = new Date(now + waitSeconds * 1000).toISOString()
+      console.log(`⏳ [${monitor.name}] 尚未到达触发点 (${triggerPointHours.toFixed(2)}h)，预计在 ${(waitSeconds / 3600).toFixed(2)}h 后再次检查`)
     } else {
-      // 已经进入续期窗口，或者未开启联动，或者没有返回有效时间
-      // 使用监控项自带的随机间隔重试
+      // 已到达或低于触发点，立即触发检测逻辑 (或按默认小间隔重试以免错过)
       const checkInterval = monitor.check_interval || 5
       const checkIntervalMax = monitor.check_interval_max
       let nextInterval = checkInterval
@@ -1191,45 +1223,45 @@ app.post('/api/callback/:monitorId', async (req, res) => {
         nextInterval = Math.floor(Math.random() * (checkIntervalMax - checkInterval + 1)) + checkInterval
       }
       nextCheckAt = new Date(now + nextInterval * 60 * 1000).toISOString()
+      console.log(`🔥 [${monitor.name}] 已到达触发点 (${triggerPointHours.toFixed(2)}h)，准备执行任务`)
     }
 
-    // 3. 更新监控项状态和下次检查时间
+    // 2. 更新监控项状态和下次检查时间
     run(
       'UPDATE monitors SET next_check_at = ?, updated_at = ? WHERE id = ?',
-      [nextCheckAt, new Date().toISOString(), monitorId]
+      [nextCheckAt, new Date().toISOString(), monitor.id]
     )
 
-    // 4. 记录一次 Check (作为被动更新的凭据)
-    // 如果返回了 status，以 status 为准；否则根据 remaining_time > 0 判断
+    // 3. 记录一次 Check
     const isSuccess = status ? (status === 'success' || status === 'up') : (remaining_time !== undefined && remaining_time > 0)
-
     const checkData: MonitorCheck = {
-      monitor_id: monitorId,
+      monitor_id: monitor.id,
       status: isSuccess ? 'up' : 'down',
       response_time: 0,
       status_code: isSuccess ? 200 : 500,
-      error_message: message || (remaining_time !== undefined ? `收到反馈: 剩余 ${remaining_time}s` : '收到反馈回调'),
+      error_message: message || (isSuccess ? (remaining_time !== undefined ? `收到反馈: 剩余 ${remaining_time}s` : '收到反馈回调') : '联动检测不通过'),
       checked_at: new Date().toISOString()
     }
+
     saveCheck(checkData)
 
-    // 5. 如果状态是失败，触发告警逻辑
     if (!isSuccess) {
       await handleDownStatus(monitor, checkData)
     } else {
       await handleUpStatus(monitor, checkData)
     }
 
-    res.json({
+    return res.json({
       success: true,
-      message: '反馈已接收',
+      matched_monitor: monitor.name,
+      trigger_point_hours: Number(triggerPointHours.toFixed(2)),
       next_check_at: nextCheckAt
     })
   } catch (error: any) {
-    console.error('Error processing callback:', error)
-    res.status(500).json({ error: error.message })
+    console.error('Error processing feedback callback:', error)
+    return res.status(500).json({ error: error.message })
   }
-})
+}
 
 // 手动触发检查
 app.get('/trigger', async (req, res) => {

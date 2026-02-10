@@ -29,9 +29,10 @@ export interface Monitor {
   next_check_at?: string
   is_active: number
   sort_order: number
-  feedback_linkage?: number
-  feedback_threshold?: number
-  feedback_threshold_max?: number | null
+  feedback_linkage: number
+  feedback_threshold: number
+  feedback_fluctuation_min: number | null
+  feedback_fluctuation_max: number | null
   created_at: string
   updated_at: string
 }
@@ -117,7 +118,8 @@ export async function createMonitor(monitor: {
   webhook_username?: string
   feedback_linkage?: boolean | number
   feedback_threshold?: number
-  feedback_threshold_max?: number | null
+  feedback_fluctuation_min?: number | null
+  feedback_fluctuation_max?: number | null
 }): Promise<Monitor> {
   return fetchAPI('/api/monitors', {
     method: 'POST',
@@ -159,7 +161,8 @@ export async function updateMonitor(id: string, monitor: {
   is_active?: number
   feedback_linkage?: boolean | number
   feedback_threshold?: number
-  feedback_threshold_max?: number | null
+  feedback_fluctuation_min?: number | null
+  feedback_fluctuation_max?: number | null
 }): Promise<Monitor> {
   return fetchAPI(`/api/monitors/${id}`, {
     method: 'PUT',
