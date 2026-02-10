@@ -420,12 +420,20 @@ async function handleCallbackQuery(query: TelegramBot.CallbackQuery) {
 
         bot?.answerCallbackQuery(query.id, { text: '🔄 正在立即执行任务...' })
 
+<<<<<<< HEAD
         // 动态导入避免循环依赖
         const { checkMonitor } = await import('./monitor.js')
 
         // 执行检查（monitor.ts 中已包含发送结果的逻辑）
+=======
+        // 动态导入以避免循环依赖
+        const { checkMonitor } = await import('./monitor.js')
+
+        // 执行检查 (monitor.ts 中已包含发送结果的逻辑)
+>>>>>>> feature/nezha-integration
         checkMonitor(monitor)
     }
+
 }
 
 /**

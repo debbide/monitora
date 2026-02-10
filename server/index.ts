@@ -6,7 +6,7 @@ import { fileURLToPath } from 'url'
 import crypto from 'crypto'
 import { initDatabase, queryAll, queryFirst, run } from './db.js'
 import { Monitor, MonitorCheck } from './types.js'
-import { checkAllMonitors, checkMonitor, hashPassword, verifyPassword } from './monitor.js'
+import { checkAllMonitors, checkMonitor, hashPassword, verifyPassword, saveCheck, handleDownStatus, handleUpStatus } from './monitor.js'
 import { processWebhookBody } from './webhook-sender.js'
 import { initTelegramBot, getTelegramBotStatus, stopTelegramBot, setTgBotToken, getTgBotToken, testChatConnection, sendTgMessage } from './telegram.js'
 import { addClient, broadcastRefresh, getClientCount, getClients, pollRefresh } from './sse.js'
@@ -47,15 +47,31 @@ app.post('/api/monitors', async (req, res) => {
     const body = req.body
     const id = crypto.randomUUID()
 
+    // 计算初始 next_check_at (延迟首次执行)
+    const now = Date.now()
+    const checkInterval = parseInt(body.check_interval) || 5
+    const checkIntervalMax = body.check_interval_max ? parseInt(body.check_interval_max) : null
+    let nextInterval = checkInterval
+
+    if ((body.check_type === 'http' || body.check_type === 'scheduled_webhook') && checkIntervalMax && checkIntervalMax > checkInterval) {
+      nextInterval = Math.floor(Math.random() * (checkIntervalMax - checkInterval + 1)) + checkInterval
+    }
+    const initialNextCheck = new Date(now + (nextInterval * 60 * 1000)).toISOString()
+
     run(
+<<<<<<< HEAD
       `INSERT INTO monitors (id, name, url, check_interval, check_interval_max, check_type, check_method, check_timeout, expected_status_codes, expected_keyword, forbidden_keyword, komari_offline_threshold, check_content_type, check_headers, check_body, tg_chat_id, tg_server_name, tg_offline_keywords, tg_online_keywords, tg_notify_chat_id, webhook_url, webhook_content_type, webhook_headers, webhook_body, webhook_username, is_active)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`,
+=======
+      `INSERT INTO monitors (id, name, url, check_interval, check_interval_max, check_type, check_method, check_timeout, expected_status_codes, expected_keyword, forbidden_keyword, komari_offline_threshold, tg_chat_id, tg_server_name, tg_offline_keywords, tg_online_keywords, tg_notify_chat_id, webhook_url, webhook_content_type, webhook_headers, webhook_body, webhook_username, check_content_type, check_headers, check_body, next_check_at, is_active, feedback_linkage, feedback_threshold, feedback_threshold_max)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?)`,
+>>>>>>> feature/nezha-integration
       [
         id,
         body.name,
         body.url || '',
-        parseInt(body.check_interval) || 5,
-        body.check_interval_max ? parseInt(body.check_interval_max) : null,
+        checkInterval,
+        checkIntervalMax,
         body.check_type || 'http',
         body.check_method || 'GET',
         parseInt(body.check_timeout) || 30,
@@ -75,23 +91,28 @@ app.post('/api/monitors', async (req, res) => {
         body.webhook_content_type || 'application/json',
         body.webhook_headers && typeof body.webhook_headers === 'object' ? JSON.stringify(body.webhook_headers) : (body.webhook_headers || null),
         body.webhook_body && typeof body.webhook_body === 'object' ? JSON.stringify(body.webhook_body) : (body.webhook_body || null),
-        body.webhook_username || null
+        body.webhook_username || null,
+        body.check_content_type || 'application/json',
+        body.check_headers && typeof body.check_headers === 'object' ? JSON.stringify(body.check_headers) : (body.check_headers || null),
+        body.check_body && typeof body.check_body === 'object' ? JSON.stringify(body.check_body) : (body.check_body || null),
+        initialNextCheck,
+        body.feedback_linkage || body.check_type === 'feedback_linkage' ? 1 : 0,
+        parseInt(body.feedback_threshold) || 0,
+        parseInt(body.feedback_threshold_max) || null
       ]
     )
 
     const monitor = queryFirst('SELECT * FROM monitors WHERE id = ?', [id]) as Monitor
 
-    // 创建后立即检查一次（Telegram 和 Komari Webhook 类型插入默认正常状态）
+    // 不再立即执行 checkMonitor(monitor)，而是等待 next_check_at
     if (monitor) {
       if (monitor.check_type === 'telegram' || monitor.check_type === 'komari_webhook') {
-        // 被动接收类型：插入一条默认正常状态的记录
+        // ... (保持不变) ...
         run(
           `INSERT INTO monitor_checks (monitor_id, status, response_time, status_code, error_message, checked_at)
            VALUES (?, 'up', 0, 0, NULL, datetime('now'))`,
           [id]
         )
-      } else {
-        await checkMonitor(monitor)
       }
     }
 
@@ -125,6 +146,17 @@ app.put('/api/monitors/:id', (req, res) => {
     const { id } = req.params
     const body = req.body
 
+    // 计算新的 next_check_at (修改后重置计时)
+    const now = Date.now()
+    const checkInterval = parseInt(body.check_interval) || 5
+    const checkIntervalMax = body.check_interval_max ? parseInt(body.check_interval_max) : null
+    let nextInterval = checkInterval
+
+    if ((body.check_type === 'http' || body.check_type === 'scheduled_webhook') && checkIntervalMax && checkIntervalMax > checkInterval) {
+      nextInterval = Math.floor(Math.random() * (checkIntervalMax - checkInterval + 1)) + checkInterval
+    }
+    const resetNextCheck = new Date(now + (nextInterval * 60 * 1000)).toISOString()
+
     run(
       `UPDATE monitors SET
         name = ?,
@@ -151,14 +183,21 @@ app.put('/api/monitors/:id', (req, res) => {
         webhook_headers = ?,
         webhook_body = ?,
         webhook_username = ?,
+        check_content_type = ?,
+        check_headers = ?,
+        check_body = ?,
         is_active = ?,
-        updated_at = ?
+        updated_at = ?,
+        next_check_at = ?,
+        feedback_linkage = ?,
+        feedback_threshold = ?,
+        feedback_threshold_max = ?
       WHERE id = ?`,
       [
         body.name,
         body.url || '',
-        parseInt(body.check_interval) || 5,
-        body.check_interval_max ? parseInt(body.check_interval_max) : null,
+        checkInterval,
+        checkIntervalMax,
         body.check_type || 'http',
         body.check_method || 'GET',
         parseInt(body.check_timeout) || 30,
@@ -179,8 +218,15 @@ app.put('/api/monitors/:id', (req, res) => {
         body.webhook_headers && typeof body.webhook_headers === 'object' ? JSON.stringify(body.webhook_headers) : (body.webhook_headers || null),
         body.webhook_body && typeof body.webhook_body === 'object' ? JSON.stringify(body.webhook_body) : (body.webhook_body || null),
         body.webhook_username || null,
+        body.check_content_type || 'application/json',
+        body.check_headers && typeof body.check_headers === 'object' ? JSON.stringify(body.check_headers) : (body.check_headers || null),
+        body.check_body && typeof body.check_body === 'object' ? JSON.stringify(body.check_body) : (body.check_body || null),
         body.is_active !== undefined ? body.is_active : 1,
         new Date().toISOString(),
+        resetNextCheck,
+        body.feedback_linkage || body.check_type === 'feedback_linkage' ? 1 : 0,
+        parseInt(body.feedback_threshold) || 0,
+        parseInt(body.feedback_threshold_max) || null,
         id
       ]
     )
@@ -973,6 +1019,219 @@ app.get('/api/komari-status/:id', async (req, res) => {
 
     res.json({ servers })
   } catch (error: any) {
+    res.status(500).json({ error: error.message })
+  }
+})
+
+// ==========================================
+// 哪吒 (Nezha) Webhook 集成
+// ==========================================
+
+// 获取 Nezha 通知配置
+app.get('/api/settings/nezha-notify', (req, res) => {
+  try {
+    const enabled = queryFirst("SELECT value FROM system_settings WHERE key = 'nezha_notify_enabled'") as { value: string } | null
+    const chatId = queryFirst("SELECT value FROM system_settings WHERE key = 'nezha_notify_chat_id'") as { value: string } | null
+
+    res.json({
+      enabled: enabled?.value === '1',
+      chat_id: chatId?.value || ''
+    })
+  } catch (error: any) {
+    res.status(500).json({ error: error.message })
+  }
+})
+
+// 保存 Nezha 通知配置
+app.post('/api/settings/nezha-notify', (req, res) => {
+  try {
+    const { enabled, chat_id } = req.body
+
+    run("INSERT OR REPLACE INTO system_settings (key, value, updated_at) VALUES ('nezha_notify_enabled', ?, datetime('now'))", [enabled ? '1' : '0'])
+    run("INSERT OR REPLACE INTO system_settings (key, value, updated_at) VALUES ('nezha_notify_chat_id', ?, datetime('now'))", [chat_id || ''])
+
+    res.json({ success: true, message: '配置已保存' })
+  } catch (error: any) {
+    res.status(500).json({ error: error.message })
+  }
+})
+
+// Nezha 通知接收端点 (接收 JSON)
+app.post('/api/nezha-notify-v1', async (req, res) => {
+  try {
+    // Nezha Payload Example:
+    // {
+    //   "project": "NezhaMonitor",
+    //   "server_name": "evennode",
+    //   "server_ip": "37.187.248.7",
+    //   "message": "[事件] evennode(37.****.7) 离线"
+    // }
+    const { server_name, message } = req.body
+    const serverName = server_name || ''
+    const text = message || ''
+
+    console.log(`📩 收到 Nezha 通知: ${serverName} - ${text}`)
+
+    // 1. 检查是否启用全局接收
+    const enabledResult = queryFirst("SELECT value FROM system_settings WHERE key = 'nezha_notify_enabled'") as { value: string } | null
+    if (enabledResult?.value !== '1') {
+      return res.json({ success: true, message: 'Nezha 通知接收已禁用' })
+    }
+
+    // 2. 解析状态 (简单关键词匹配)
+    const textLower = text.toLowerCase()
+    const isOffline = textLower.includes('离线') || textLower.includes('offline') || textLower.includes('down')
+    const isRecovery = textLower.includes('上线') || textLower.includes('online') || textLower.includes('up') || textLower.includes('恢复')
+
+    if (!isOffline && !isRecovery) {
+      return res.json({ success: true, message: '未识别的状态变化，忽略' })
+    }
+
+    const timeStr = new Date().toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' })
+    const chatIdResult = queryFirst("SELECT value FROM system_settings WHERE key = 'nezha_notify_chat_id'") as { value: string } | null
+    const chatId = chatIdResult?.value || ''
+
+    // 3. 全局 TG 通知
+    if (chatId) {
+      const icon = isOffline ? '🔴' : '🟢'
+      const title = isOffline ? '服务器离线报警' : '服务器恢复通知'
+      // 使用更紧凑的排版
+      const fullMsg = `${icon} *[Nezha] ${title}*\n\n🖥️ **${serverName}**\n📜 ${text}\n\n🕒 ${timeStr}`
+      await sendTgMessage(chatId, fullMsg)
+    }
+
+    // 4. 匹配监控项并更新状态
+    // 查找所有 check_type = 'nezha_webhook' 的监控项
+    const monitors = queryAll(
+      "SELECT * FROM monitors WHERE check_type = 'nezha_webhook' AND is_active = 1"
+    ) as Monitor[]
+
+    let matchedMonitor: Monitor | null = null
+
+    for (const monitor of monitors) {
+      // 使用 expected_keyword 存储 Nezha 的 server_name
+      if (monitor.expected_keyword && monitor.expected_keyword.trim() === serverName) {
+        matchedMonitor = monitor
+        break
+      }
+    }
+
+    if (matchedMonitor) {
+      if (isOffline) {
+        const checkData: MonitorCheck = {
+          monitor_id: matchedMonitor.id,
+          status: 'down',
+          response_time: 0,
+          status_code: 0,
+          error_message: `Nezha Alert: ${text}`,
+          checked_at: new Date().toISOString()
+        }
+        saveCheck(checkData)
+        await handleDownStatus(matchedMonitor, checkData)
+      } else if (isRecovery) {
+        const checkData: MonitorCheck = {
+          monitor_id: matchedMonitor.id,
+          status: 'up',
+          response_time: 0,
+          status_code: 200,
+          error_message: '',
+          checked_at: new Date().toISOString()
+        }
+        saveCheck(checkData)
+        await handleUpStatus(matchedMonitor, checkData)
+      }
+    }
+
+    res.json({ success: true })
+  } catch (error: any) {
+    console.error('Nezha Webhook Error:', error)
+    res.status(500).json({ error: error.message })
+  }
+})
+
+
+// ==========================================
+// 反馈联动模式 (Feedback Linkage Mode) 回调
+// ==========================================
+app.post('/api/callback/:monitorId', async (req, res) => {
+  try {
+    const { monitorId } = req.params
+    const { remaining_time, status, message } = req.body
+
+    // 1. 获取监控项
+    const monitor = queryFirst('SELECT * FROM monitors WHERE id = ?', [monitorId]) as Monitor
+    if (!monitor) {
+      return res.status(404).json({ error: '监控项不存在' })
+    }
+
+    console.log(`📡 收到反馈联动回调: [${monitor.name}] 剩余时间: ${remaining_time}s, 状态: ${status || '无'}`)
+
+    // 2. 计算下一次检查时间
+    const now = Date.now()
+    let nextCheckAt: string
+
+    // 灵活阈值：如果有最大值，则在区间内随机取值
+    const minThreshold = monitor.feedback_threshold || 0
+    const maxThreshold = monitor.feedback_threshold_max || minThreshold
+
+    let actualThresholdHours = minThreshold
+    if (maxThreshold > minThreshold) {
+      actualThresholdHours = Math.random() * (maxThreshold - minThreshold) + minThreshold
+    }
+
+    const thresholdSeconds = actualThresholdHours * 3600
+
+    if ((monitor.feedback_linkage || monitor.check_type === 'feedback_linkage') && remaining_time !== undefined && remaining_time > thresholdSeconds) {
+      // 剩余时间充足，等待到接近阈值时再试
+      // 即：现在 + (剩余时间 - 阈值)
+      const waitSeconds = remaining_time - thresholdSeconds
+      nextCheckAt = new Date(now + waitSeconds * 1000).toISOString()
+    } else {
+      // 已经进入续期窗口，或者未开启联动，或者没有返回有效时间
+      // 使用监控项自带的随机间隔重试
+      const checkInterval = monitor.check_interval || 5
+      const checkIntervalMax = monitor.check_interval_max
+      let nextInterval = checkInterval
+      if (checkIntervalMax && checkIntervalMax > checkInterval) {
+        nextInterval = Math.floor(Math.random() * (checkIntervalMax - checkInterval + 1)) + checkInterval
+      }
+      nextCheckAt = new Date(now + nextInterval * 60 * 1000).toISOString()
+    }
+
+    // 3. 更新监控项状态和下次检查时间
+    run(
+      'UPDATE monitors SET next_check_at = ?, updated_at = ? WHERE id = ?',
+      [nextCheckAt, new Date().toISOString(), monitorId]
+    )
+
+    // 4. 记录一次 Check (作为被动更新的凭据)
+    // 如果返回了 status，以 status 为准；否则根据 remaining_time > 0 判断
+    const isSuccess = status ? (status === 'success' || status === 'up') : (remaining_time !== undefined && remaining_time > 0)
+
+    const checkData: MonitorCheck = {
+      monitor_id: monitorId,
+      status: isSuccess ? 'up' : 'down',
+      response_time: 0,
+      status_code: isSuccess ? 200 : 500,
+      error_message: message || (remaining_time !== undefined ? `收到反馈: 剩余 ${remaining_time}s` : '收到反馈回调'),
+      checked_at: new Date().toISOString()
+    }
+    saveCheck(checkData)
+
+    // 5. 如果状态是失败，触发告警逻辑
+    if (!isSuccess) {
+      await handleDownStatus(monitor, checkData)
+    } else {
+      await handleUpStatus(monitor, checkData)
+    }
+
+    res.json({
+      success: true,
+      message: '反馈已接收',
+      next_check_at: nextCheckAt
+    })
+  } catch (error: any) {
+    console.error('Error processing callback:', error)
     res.status(500).json({ error: error.message })
   }
 })

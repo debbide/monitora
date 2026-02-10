@@ -6,8 +6,6 @@ import crypto from 'crypto'
 
 // 缓存最新检查结果
 const latestChecks = new Map<string, MonitorCheck>()
-// 缓存每个监控的下次检查间隔（用于随机间隔）
-const nextCheckIntervals = new Map<string, number>()
 
 export function getLatestCheck(monitorId: string): MonitorCheck | undefined {
   return latestChecks.get(monitorId)
@@ -27,15 +25,19 @@ export async function checkAllMonitors() {
     const now = Date.now()
 
     for (const monitor of monitors) {
-      // 获取上次检查时间
-      const lastCheck = queryFirst(
-        'SELECT checked_at FROM monitor_checks WHERE monitor_id = ? ORDER BY checked_at DESC LIMIT 1',
-        [monitor.id]
-      ) as { checked_at: string } | undefined
+      // 1. 如果没有 next_check_at (遗留数据或新创建)，初始化它
+      if (!monitor.next_check_at) {
+        // 如果有上次检查，下一次 = 上次 + 间隔
+        // 如果没有上次检查（新监控），下一次 = 现在
+        // 为了安全起见，我们先初始化为 "现在"，让它立即跑一次，或者根据逻辑推迟
 
-      // 确定本次使用的检查间隔
-      let checkIntervalMinutes: number
+        let nextCheck = now
+        const lastCheck = queryFirst(
+          'SELECT checked_at FROM monitor_checks WHERE monitor_id = ? ORDER BY checked_at DESC LIMIT 1',
+          [monitor.id]
+        ) as { checked_at: string } | undefined
 
+<<<<<<< HEAD
       // HTTP模式或定时Webhook模式，且设置了最大间隔，使用随机间隔
       if ((monitor.check_type === 'http' || monitor.check_type === 'scheduled_webhook') && monitor.check_interval_max && monitor.check_interval_max > monitor.check_interval) {
         // 使用缓存的间隔，如果没有则生成新的
@@ -44,24 +46,34 @@ export async function checkAllMonitors() {
         } else {
           checkIntervalMinutes = getRandomInterval(monitor.check_interval, monitor.check_interval_max)
           nextCheckIntervals.set(monitor.id, checkIntervalMinutes)
+=======
+        if (lastCheck) {
+          // 基础间隔（分钟）
+          let intervalMinutes = monitor.check_interval || 5
+          // 如果是随机间隔模式，取个随机值
+          if ((monitor.check_type === 'http' || monitor.check_type === 'scheduled_webhook') && monitor.check_interval_max && monitor.check_interval_max > monitor.check_interval) {
+            intervalMinutes = getRandomInterval(monitor.check_interval, monitor.check_interval_max)
+          }
+          nextCheck = new Date(lastCheck.checked_at).getTime() + (intervalMinutes * 60 * 1000)
+>>>>>>> feature/nezha-integration
         }
+
+        // 立即保存到 DB，防止重复计算
+        const nextCheckStr = new Date(nextCheck).toISOString()
+        run("UPDATE monitors SET next_check_at = ? WHERE id = ?", [nextCheckStr, monitor.id])
+        console.log(`Initialized next_check_at for ${monitor.name} to ${nextCheckStr}`)
+
+        // 如果时间未到，跳过本次
+        if (nextCheck > now) continue
       } else {
-        checkIntervalMinutes = monitor.check_interval || 5
-      }
-
-      const checkInterval = checkIntervalMinutes * 60 * 1000 // 转换为毫秒
-
-      // 如果有上次检查记录，检查是否超过间隔
-      if (lastCheck) {
-        const lastCheckTime = new Date(lastCheck.checked_at).getTime()
-        const timeSinceLastCheck = now - lastCheckTime
-
-        if (timeSinceLastCheck < checkInterval) {
-          // 还没到检查时间，跳过
+        // 2. 如果有 next_check_at，判断时间是否已到
+        const nextCheckTime = new Date(monitor.next_check_at).getTime()
+        if (now < nextCheckTime) {
           continue
         }
       }
 
+<<<<<<< HEAD
       // 执行检查前，为下次生成新的随机间隔
       if ((monitor.check_type === 'http' || monitor.check_type === 'scheduled_webhook') && monitor.check_interval_max && monitor.check_interval_max > monitor.check_interval) {
         const newInterval = getRandomInterval(monitor.check_interval, monitor.check_interval_max)
@@ -69,6 +81,8 @@ export async function checkAllMonitors() {
         console.log(`Monitor ${monitor.name}: next check in ${newInterval} minutes (random ${monitor.check_interval}-${monitor.check_interval_max})`)
       }
 
+=======
+>>>>>>> feature/nezha-integration
       // 执行检查
       await checkMonitor(monitor)
     }
@@ -150,6 +164,7 @@ export async function checkMonitor(monitor: Monitor) {
 
   const responseTime = Date.now() - startTime
 
+<<<<<<< HEAD
   // 针对 Scheduled Webhook 的特殊处理：每次执行都发送通知（无论成功失败）
   if (checkType === 'scheduled_webhook' && monitor.tg_notify_chat_id) {
     const timeStr = new Date().toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' })
@@ -175,6 +190,13 @@ export async function checkMonitor(monitor: Monitor) {
         ]
       }
     })
+=======
+  // 反馈联动类型的特殊处理：成功通常意味着 remaining_time > 0
+  if (checkType === 'feedback_linkage') {
+    // 主动检查（触发脚本）时，状态通常标记为 up，直到回调返回故障
+    // 这里保持默认逻辑，如果 HTTP 触发成功即为 up
+    if (errorMessage === '') status = 'up'
+>>>>>>> feature/nezha-integration
   }
 
   const checkData: MonitorCheck = {
@@ -197,6 +219,54 @@ export async function checkMonitor(monitor: Monitor) {
   } else {
     await handleUpStatus(monitor, checkData)
   }
+
+  // Scheduled Webhook & Feedback Linkage: Always notify on execution
+  if ((checkType === 'scheduled_webhook' || checkType === 'feedback_linkage') && monitor.tg_notify_chat_id) {
+    const timeStr = new Date().toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' })
+    const icon = status === 'up' ? '✅' : '❌'
+    const statusText = status === 'up' ? '成功' : '失败'
+    const typeLabel = checkType === 'feedback_linkage' ? '反馈联动任务' : '定时任务'
+
+    // Format headers and body for display if needed, or just keep simple
+    const msg = [
+      `${icon} *${typeLabel}执行: ${statusText}*`,
+      ``,
+      `📋 *任务:* ${monitor.name}`,
+      `🔗 *URL:* ${monitor.url}`,
+      `⏱ *耗时:* ${responseTime}ms`,
+      `🔢 *状态码:* ${statusCode}`,
+      status === 'down' ? `⚠️ *错误:* ${errorMessage}` : '',
+      ``,
+      `\`⏰ ${timeStr}\``
+    ].filter(Boolean).join('\n')
+
+    await sendTgMessage(monitor.tg_notify_chat_id, msg, {
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: '🔄 立即重试', callback_data: `retry_scheduled:${monitor.id}` }]
+        ]
+      }
+    })
+  }
+
+  // ---------------------------------------------------------
+  // 关键改动：检查完成后，立即计算并持久化 下一次检查时间
+  // ---------------------------------------------------------
+  let nextIntervalMinutes = monitor.check_interval || 5
+
+  if (monitor.feedback_linkage || monitor.check_type === 'feedback_linkage') {
+    // 反馈联动模式：设置一个较大的安全冗余时间 (例如 6 小时)，防止回调没到导致任务永久停滞
+    // 正常情况下，回调会很快回来并覆盖这个时间
+    nextIntervalMinutes = 360 // 6 小时保底
+    console.log(`Monitor ${monitor.name}: Feedback Linkage enabled. Safety fallback set to 6h.`)
+  } else if ((monitor.check_type === 'http' || monitor.check_type === 'scheduled_webhook') && monitor.check_interval_max && monitor.check_interval_max > monitor.check_interval) {
+    nextIntervalMinutes = getRandomInterval(monitor.check_interval, monitor.check_interval_max)
+    console.log(`Monitor ${monitor.name}: Random interval generated for next run: ${nextIntervalMinutes}m`)
+  }
+
+  const nextCheckTime = new Date(Date.now() + (nextIntervalMinutes * 60 * 1000)).toISOString()
+  run("UPDATE monitors SET next_check_at = ? WHERE id = ?", [nextCheckTime, monitor.id])
+  console.log(`Monitor ${monitor.name}: Scheduled next check at ${nextCheckTime}`)
 }
 
 async function checkHTTP(monitor: Monitor, timeout: number): Promise<{
@@ -211,6 +281,7 @@ async function checkHTTP(monitor: Monitor, timeout: number): Promise<{
 
     const method = monitor.check_method || 'GET'
 
+<<<<<<< HEAD
     const headers: Record<string, string> = {
       'User-Agent': 'UptimeMonitor/1.0'
     }
@@ -246,6 +317,30 @@ async function checkHTTP(monitor: Monitor, timeout: number): Promise<{
 
     const response = await fetch(monitor.url, {
       ...fetchOptions
+=======
+    const headers = {
+      'User-Agent': 'UptimeMonitor/1.0',
+      ...(monitor.check_content_type ? { 'Content-Type': monitor.check_content_type } : {}),
+      ...(monitor.check_headers ? JSON.parse(monitor.check_headers) : {})
+    }
+
+    const requestBody = (method === 'POST' || method === 'PUT' || method === 'PATCH') && monitor.check_body
+      ? JSON.stringify(JSON.parse(monitor.check_body))
+      : undefined
+
+    console.log(`[DEBUG] Executing HTTP Check for ${monitor.name}:`)
+    console.log(`[DEBUG] URL: ${monitor.url}`)
+    console.log(`[DEBUG] Method: ${method}`)
+    console.log(`[DEBUG] Headers:`, headers)
+    console.log(`[DEBUG] Body:`, requestBody)
+
+    const response = await fetch(monitor.url, {
+      method,
+      signal: controller.signal,
+      headers,
+      body: requestBody,
+      redirect: 'follow'
+>>>>>>> feature/nezha-integration
     })
 
     clearTimeout(timeoutId)
@@ -392,7 +487,7 @@ async function checkKomari(monitor: Monitor, timeout: number): Promise<{
   }
 }
 
-function saveCheck(check: MonitorCheck) {
+export function saveCheck(check: MonitorCheck) {
   run(
     `INSERT INTO monitor_checks (monitor_id, status, response_time, status_code, error_message, checked_at)
      VALUES (?, ?, ?, ?, ?, ?)`,
@@ -400,7 +495,7 @@ function saveCheck(check: MonitorCheck) {
   )
 }
 
-async function handleDownStatus(monitor: Monitor, check: MonitorCheck) {
+export async function handleDownStatus(monitor: Monitor, check: MonitorCheck) {
   const incidents = queryAll('SELECT * FROM incidents WHERE monitor_id = ? AND resolved_at IS NULL', [monitor.id]) as any[]
 
   if (!incidents || incidents.length === 0) {
@@ -451,7 +546,7 @@ async function handleDownStatus(monitor: Monitor, check: MonitorCheck) {
   }
 }
 
-async function handleUpStatus(monitor: Monitor, check: MonitorCheck) {
+export async function handleUpStatus(monitor: Monitor, check: MonitorCheck) {
   const incidents = queryAll('SELECT * FROM incidents WHERE monitor_id = ? AND resolved_at IS NULL', [monitor.id]) as any[]
 
   if (incidents && incidents.length > 0) {

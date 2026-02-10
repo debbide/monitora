@@ -4,16 +4,29 @@ export interface Monitor {
   url: string
   check_interval: number
   check_interval_max: number | null  // HTTP模式随机间隔最大值
+<<<<<<< HEAD
   check_type: 'http' | 'tcp' | 'komari' | 'komari_webhook' | 'telegram' | 'scheduled_webhook'
   check_method: 'GET' | 'HEAD' | 'POST'
+=======
+  check_type: 'http' | 'tcp' | 'komari' | 'komari_webhook' | 'nezha_webhook' | 'telegram' | 'scheduled_webhook' | 'feedback_linkage'
+  check_method: 'GET' | 'HEAD' | 'POST' | 'PUT' | 'PATCH'
+>>>>>>> feature/nezha-integration
   check_timeout: number
   expected_status_codes: string
   expected_keyword: string | null
   forbidden_keyword: string | null
+<<<<<<< HEAD
   komari_offline_threshold: number
   check_content_type: string | null
   check_headers: string | null
   check_body: string | null
+=======
+  komari_offline_threshold?: number
+  check_content_type?: string | null
+  check_headers?: string | null
+  check_body?: string | null
+  next_check_at?: string
+>>>>>>> feature/nezha-integration
   // Telegram 相关字段
   tg_chat_id: string | null
   tg_server_name: string | null  // 用于消息匹配的服务器名称
@@ -27,6 +40,9 @@ export interface Monitor {
   webhook_username: string | null
   is_active: number
   sort_order: number
+  feedback_linkage: number  // 是否开启反馈联动
+  feedback_threshold: number // 反馈触发阈值 (小时)
+  feedback_threshold_max: number | null // 反馈触发最大阈值 (小时，用于波动)
   created_at: string
   updated_at: string
 }

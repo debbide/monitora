@@ -7,7 +7,7 @@ import LoginForm from './components/LoginForm'
 import ChangePasswordModal from './components/ChangePasswordModal'
 import DashboardStats from './components/DashboardStats'
 import TelegramSettings from './components/TelegramSettings'
-import KomariNotifySettings from './components/KomariNotifySettings'
+import ProbeNotifySettings from './components/ProbeNotifySettings'
 import { verifyPassword, setAuthToken, generateAuthToken, isAuthenticated, clearAuthToken } from './lib/auth'
 import './App.css'
 
@@ -24,7 +24,7 @@ function App() {
   const [authenticated, setAuthenticated] = useState(false)
   const [showChangePassword, setShowChangePassword] = useState(false)
   const [showTelegramSettings, setShowTelegramSettings] = useState(false)
-  const [showKomariNotifySettings, setShowKomariNotifySettings] = useState(false)
+  const [showProbeSettings, setShowProbeSettings] = useState(false)
   const [editingMonitor, setEditingMonitor] = useState<Monitor | null>(null)
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
     const saved = localStorage.getItem('theme')
@@ -246,7 +246,7 @@ function App() {
             <button className="btn-telegram" onClick={() => setShowTelegramSettings(true)} title="Telegram Bot 设置">
               🤖
             </button>
-            <button className="btn-telegram" onClick={() => setShowKomariNotifySettings(true)} title="Komari 通知设置" style={{ marginLeft: '4px' }}>
+            <button className="btn-telegram" onClick={() => setShowProbeSettings(true)} title="探针通知设置 (Komari/Nezha)" style={{ marginLeft: '4px' }}>
               📡
             </button>
           </div>
@@ -303,8 +303,8 @@ function App() {
         <TelegramSettings onClose={() => setShowTelegramSettings(false)} />
       )}
 
-      {showKomariNotifySettings && (
-        <KomariNotifySettings onClose={() => setShowKomariNotifySettings(false)} />
+      {showProbeSettings && (
+        <ProbeNotifySettings onClose={() => setShowProbeSettings(false)} />
       )}
 
       {showAddForm && (

@@ -1,26 +1,67 @@
-# CloudEye 监控面板
 
-[![Docker Build](https://github.com/debbide/monitora/actions/workflows/docker-build.yml/badge.svg)](https://github.com/debbide/monitora/actions/workflows/docker-build.yml)
-[![Code Quality](https://github.com/debbide/monitora/actions/workflows/code-quality.yml/badge.svg)](https://github.com/debbide/monitora/actions/workflows/code-quality.yml)
+# CloudEye 监控面板 (Uptime Monitor)
 
-一个现代化的服务监控面板，支持 HTTP/TCP/Komari/Telegram 监控，基于 Docker 快速部署。
+[![Docker Build](https://github.com/debbide/monitora/actions/workflows/docker-build.yml/badge.svg)](https://github.com/debbide/monitora/actions/workflows/docker-build.yml)  
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-## ✨ 特性
+**CloudEye** 是一个现代化、轻量级且功能强大的服务器监控面板。  
+它不仅仅是一个 uptime 监控工具，更集成了 **主动探针 (Active Probe)**、**随机调度**、**Komari 面板集成** 和 **Telegram 深度控制** 等高级功能。
 
-- 🌐 **HTTP/HTTPS 检测** - 支持自定义请求方法和关键词检测
-- 🔌 **TCP 连通性检测** - 端口可用性监控
-- 📊 **Komari 面板监控** - 服务器状态监控
-- 📱 **Telegram 群组监控** - 监听 TG 群组消息，根据关键词判断服务状态
-- 🔔 **Webhook 通知** - 自定义 Webhook 通知（支持 Discord、Slack 等）
-- 📡 **SSE 实时推送** - 浏览器插件可实时接收刷新通知
-- 🔍 **关键词检测** - 检测页面是否包含/不包含特定关键词
-- ⏰ **定时检测** - 可自定义检测间隔
+### 适用场景
+- 监控网站、API 接口、TCP 端口连通性。
+- **GitHub Actions 保活**：利用随机长周期调度，定期触发 Workflow。
+- **Komari 探针监控**：聚合多台服务器状态，离线自动报警。
+- **Telegram 消息监听**：监控那些为了隐私而不开放端口的服务。
 
-### 使用预构建镜像（推荐）
+---
 
-#### Docker Compose
+## ✨ 核心功能
 
-创建 `docker-compose.yml` 文件：
+### 1. 全方位监控能力
+- **🌐 HTTP/HTTPS 深度检测**  
+    支持 GET/POST/HEAD 等多种方法，自定义 Headers 和 Body，双重验证：状态码与响应内容关键词。
+
+- **🔌 TCP 端口监控**  
+    通过 Ping 检测目标主机端口连通性。
+
+- **📊 Komari 探针集成**  
+    支持主动轮询与被动 Webhook，适配 Komari 面板，监控旗下所有服务器状态。
+
+- **📱 Telegram 无探针监控 (被动模式)**  
+    适用于无公网 IP 的服务器，监听群组消息，根据关键词自动标记状态。
+
+### 2. 智能调度系统 (Smart Scheduling)
+- **🎲 随机区间模式 (Random Interval)**  
+    设置 `Min - Max` 范围（如 10天 ~ 12天）避免滥用，通过长周期模拟人工操作。
+
+- **💾 持久化调度技术**  
+    任务的下次执行时间写入 SQLite 数据库，容器重启后倒计时继续运行。
+
+- **🚀 主动探针 (Active Webhook)**  
+    定时触发 Webhook 任务，如定期唤醒 Serverless 服务、触发 CI/CD 构建。
+
+### 3. 下一代告警系统
+- **🤖 Telegram 深度交互**  
+    配置一次，全系统通用，支持交互式卡片与不同群组推送。
+
+- **🔔 多渠道分发**  
+    支持 Webhook (Discord/Slack/钉钉/企业微信)，内置 SSE 推送，浏览器插件实时告警。
+
+### 4. 极致轻量与部署
+- **🐳 Docker Native**  
+    原生支持 AMD64 与 ARM64，体积小巧。
+
+- **📁 Zero-Config DB**  
+    内置 SQLite，无需部署 MySQL/Postgres，单文件即可备份迁移。
+
+- **📉 可视化面板**  
+    响应时间趋势图、状态历史、服务器地区旗帜展示。
+
+---
+
+## 🚀 快速部署 (Docker Compose)
+
+1. 创建 `docker-compose.yml`：
 
 ```yaml
 version: '3.8'
@@ -35,167 +76,116 @@ services:
     volumes:
       - ./data:/app/data
     environment:
-      - NODE_ENV=production
-      - PORT=3000
-      - DATA_DIR=/app/data
+      - TZ=Asia/Shanghai
 ```
 
-然后运行:
+2. 启动服务：
 
 ```bash
 docker-compose up -d
 ```
 
-启动后访问 `http://localhost:3000`，默认密码为 **`admin123`**。
+3. 访问面板：
+   - URL: `http://localhost:3000`
+   - 默认密码: `admin123`（登录后请务必修改）
 
-### 从源码构建
+---
 
-```bash
-# 克隆仓库
-git clone https://github.com/debbide/monitora.git
-cd monitor
+## 📖 详细使用指南
 
-# 使用 Docker Compose 构建并启动
-docker-compose up -d
+### 1. 配置 GitHub Actions 保活 (随机长周期)
+1. 添加监控 -> 选择类型 **Scheduled Webhook**。
+2. 调度模式：选择 **随机区间**，填入 `10` - `12`，单位选择 **Days**。
+3. 配置 Request：
+    - URL: `https://api.github.com/repos/YOUR_USER/YOUR_REPO/dispatches`
+    - Method: `POST`
+    - Headers:
+        ```json
+        {
+          "Authorization": "Bearer YOUR_GITHUB_TOKEN",
+          "Accept": "application/vnd.github+json"
+        }
+        ```
+    - Body: `{"event_type": "keep-alive"}`
+4. 保存配置，系统会立即执行一次。
 
-# 或使用 Docker 构建
-docker build -t uptime-monitor .
-docker run -d -p 3000:3000 -v ./data:/app/data uptime-monitor
-```
+### 2. 对接 Komari 探针
+- **方案 A: API 轮询 (推荐)**  
+  适合需要实时监控所有服务器状态的场景。定期拉取 Komari 面板数据。
 
-## 📖 使用方法
+- **方案 B: Webhook 被动接收**  
+  被动接收 Komari 面板发出的告警。
 
-### 访问界面
+### 3. 对接 哪吒探针 (Nezha)
 
-打开浏览器访问 `http://localhost:3000`
+类似于 Komari，CloudEye 也支持接收 哪吒探针 (Nezha) 的 Webhook 告警。
 
-**默认密码**: `admin123`
+1.  **添加监控** -> 选择类型 **哪吒 (Nezha) Webhook 监控**。
+2.  **服务器名称**：填写在哪吒面板中显示的服务器名称 (如 `US-Node-1`)，需完全一致。
+3.  **前往 哪吒面板后台** -> 报警通知 -> 添加通知方式：
+    *   **方式**: `Webhook`
+    *   **URL**: `https://你的CloudEye域名/api/nezha-notify-v1`
+    *   **Request Body**: 保持默认 JSON 格式即可。
+4.  **效果**：当哪吒探针检测到服务器离线/上线，会发送 Webhook 给 CloudEye，CloudEye 会更新面板状态并发送 TG 通知。
 
-⚠️ **首次使用请立即修改密码！**
+### 4. Telegram 消息监听 (被动监控)
 
-### 添加监控
+适用于：你的服务器在内网，没有公网 IP，但能发 TG 消息。
 
-1. 点击"添加监控"按钮
-2. 填写监控信息：
-   - 名称：监控项目名称
-   - URL：要监控的网址或服务器地址
-   - 检测类型：HTTP、TCP、Komari 或 Telegram
-   - 检测间隔：检测频率（分钟）
-   - Webhook URL：（可选）故障时触发的通知地址
+1.  让服务器的脚本定时往群里发 "Server A is Online"。
+2.  在面板添加 **Telegram** 监控。
+3.  配置：
+    *   监听群组 ID。
+    *   上线关键词：`Online`。
+    *   服务器名称：`Server A`。
+4.  逻辑：面板如果没有在规定时间内（间隔 x 2）收到包含 `Server A` 和 `Online` 的消息，就标记为 **Down**。
 
-### Telegram 群组监控
+---
 
-监听 Telegram 群组消息，根据关键词判断服务状态：
+## 🔔 Webhook 被动接收配置 (Komari 面板接收 CloudEye)
 
-1. 在顶栏点击 🤖 按钮配置 Bot Token（从 @BotFather 获取）
-2. 将 Bot 加入要监控的群组
-3. 在 BotFather 中关闭 Bot 的 **Group Privacy** 模式
-4. 创建 Telegram 类型监控，填写：
-   - **群组 ID**：负数格式，如 `-1001234567890`
-   - **服务器名称**：消息中需包含的服务器名称（支持多个，逗号分隔）
-   - **离线关键词**：如 `Offline,down,离线`
-   - **上线关键词**：如 `Online,up,上线`
+### 1. 在 CloudEye 面板中添加 Webhook 监控
+在 CloudEye 面板中，选择 **添加监控**，然后选择 **Komari Webhook** 类型。
 
-### SSE/轮询刷新通知服务
+### 2. 配置监控目标
+填写你想要监控的目标服务器名称，确保它与 Komari 面板上的服务器名称一致。例如：
+- 服务器名称：`HK-Server-1`
 
-内置刷新通知服务，可供浏览器插件接收实时刷新通知：
+### 3. 在 Komari 面板后台配置 Webhook
+- 打开 **Komari 面板后台**。
+- 转到 **通知设置** -> **Webhook** 部分。
+- 添加一个新的 Webhook，配置如下：
+  - **URL**: `https://你的CloudEye域名/api/komari-notify`
+  - **Method**: `POST`
+  - **Body**: 默认 JSON 格式即可，无需修改。
 
-| 端点 | 方法 | 用途 |
-|------|------|------|
-| `/poll` | GET | 轮询获取刷新通知（推荐） |
-| `/api/sse/refresh` | GET | SSE 长连接方式 |
-| `/api/webhook/refresh` | POST | 触发刷新通知 `{"url": "..."}` |
-| `/api/sse/status` | GET | 查看连接的客户端数量 |
+  例如，假设 CloudEye 部署在 `cloudeye.example.com`，则 URL 配置为：
+  ```plaintext
+  https://cloudeye.example.com/api/komari-notify
+  ```
 
-**浏览器插件配置**：
-1. 插件服务器地址填写：`http://你的服务器:3000`
-2. 面板监控项 Webhook 填写：`http://你的服务器:3000/api/webhook/refresh`
-3. 面板监控项 Webhook Body 填写：`{"url": "要刷新的页面URL"}`
+- 保存设置，Komari 面板会在监控目标发生变化时，自动向 CloudEye 发送通知。
 
+### 4. CloudEye 接收通知并更新状态
+当 CloudEye 接收到 Webhook 通知后，会根据服务器名称更新监控状态，并触发相应的告警操作。
 
-### 配置 Webhook 通知
+---
 
-支持常见的 Webhook 服务：
+## 🛠️ API 接口
 
-#### Discord
+- `GET /api/monitors`: 获取所有监控项状态。
+- `GET /poll?since=0`: 获取最新的刷新指令。
+- `POST /api/check-now`: 强制立即触发任务。
 
-```
-https://discord.com/api/webhooks/YOUR_WEBHOOK_ID/YOUR_WEBHOOK_TOKEN
-```
+## ⚙️ 环境变量
 
-#### Slack
+| 变量 名  | 默认值  | 描述 |
+| ---  | ---  | --- |
+| `PORT`  | 3000  | 监听端口 |
+| `DATA_DIR`  | /app/data  | 数据存储路径 |
+| `TZ`  | UTC  | 时区设置 (建议设为 Asia/Shanghai) |
 
-```
-https://hooks.slack.com/services/YOUR/WEBHOOK/URL
-```
+---
 
-## 🛠️ 配置选项
-
-### 环境变量
-
-| 变量 | 默认值 | 说明 |
-|-----|--------|------|
-| `PORT` | 3000 | 服务端口 |
-| `DATA_DIR` | /app/data | 数据目录 |
-| `NODE_ENV` | production | 运行环境 |
-
-### 数据持久化
-
-数据存储在 `./data` 目录中（SQLite 数据库），使用 Docker 卷挂载确保数据不会丢失。
-
-## 🏗️ 多平台支持
-
-本项目使用 GitHub Actions 自动构建多平台 Docker 镜像：
-
-- **linux/amd64** - x86_64 架构（普通 PC、服务器）
-- **linux/arm64** - ARM64 架构（树莓派 4、Apple M1/M2 等）
-
-Docker 会自动选择适合你系统的镜像版本。
-
-## 🔧 开发
-
-查看 [CONTRIBUTING.md](./CONTRIBUTING.md) 了解如何参与开发。
-
-### 开发环境要求
-
-- Node.js 20+
-- npm
-- Docker (可选)
-
-### 本地开发
-
-```bash
-# 安装依赖
-npm install
-
-# 启动开发服务器
-npm run dev
-
-# 运行代码检查
-npm run lint
-
-# 格式化代码
-npm run format
-
-# 类型检查
-npm run type-check
-```
-
-## 📦 技术栈
-
-- **前端**: React 18 + TypeScript + Vite
-- **后端**: Express + TypeScript + Node.js 20
-- **数据库**: SQLite (sql.js)
-- **定时任务**: node-cron
-- **容器化**: Docker + Docker Compose
-- **CI/CD**: GitHub Actions
-
-
-## 🤝 贡献
-
-欢迎提交 Issue 和 Pull Request！
-
-## 📧 联系方式
-
-如有问题或建议，请提交 Issue。
-
+## 🤝 贡献与反馈
+欢迎提交 Issue 或 Pull Request。更多详情请查看 [CONTRIBUTING.md](./CONTRIBUTING.md)。

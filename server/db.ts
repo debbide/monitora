@@ -111,8 +111,15 @@ export async function initDatabase(): Promise<Database> {
       webhook_headers TEXT,
       webhook_body TEXT,
       webhook_username TEXT,
+      check_content_type TEXT DEFAULT 'application/json',
+      check_headers TEXT,
+      check_body TEXT,
+      next_check_at TEXT,
       is_active INTEGER NOT NULL DEFAULT 1,
       sort_order INTEGER DEFAULT 0,
+      feedback_linkage INTEGER DEFAULT 0,
+      feedback_threshold INTEGER DEFAULT 0,
+      feedback_threshold_max INTEGER,
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       updated_at TEXT NOT NULL DEFAULT (datetime('now'))
     )
@@ -121,6 +128,13 @@ export async function initDatabase(): Promise<Database> {
   // 迁移：为旧数据库添加 check_interval_max 字段
   try {
     db.run(`ALTER TABLE monitors ADD COLUMN check_interval_max INTEGER`)
+  } catch (e) {
+    // 字段已存在，忽略错误
+  }
+
+  // 迁移：为旧数据库添加 next_check_at 字段
+  try {
+    db.run(`ALTER TABLE monitors ADD COLUMN next_check_at TEXT`)
   } catch (e) {
     // 字段已存在，忽略错误
   }
@@ -149,6 +163,7 @@ export async function initDatabase(): Promise<Database> {
     db.run(`ALTER TABLE monitors ADD COLUMN tg_notify_chat_id TEXT`)
   } catch (e) { }
 
+<<<<<<< HEAD
   try {
     db.run(`ALTER TABLE monitors ADD COLUMN check_content_type TEXT`)
   } catch (e) { }
@@ -157,10 +172,31 @@ export async function initDatabase(): Promise<Database> {
     db.run(`ALTER TABLE monitors ADD COLUMN check_headers TEXT`)
   } catch (e) { }
 
+=======
+  // 迁移：为旧数据库添加 Request Config 相关字段
+  try {
+    db.run(`ALTER TABLE monitors ADD COLUMN check_content_type TEXT DEFAULT 'application/json'`)
+  } catch (e) { }
+  try {
+    db.run(`ALTER TABLE monitors ADD COLUMN check_headers TEXT`)
+  } catch (e) { }
+>>>>>>> feature/nezha-integration
   try {
     db.run(`ALTER TABLE monitors ADD COLUMN check_body TEXT`)
   } catch (e) { }
 
+<<<<<<< HEAD
+=======
+  // 迁移：为旧数据库添加反馈联动相关字段
+  try {
+    db.run(`ALTER TABLE monitors ADD COLUMN feedback_threshold INTEGER DEFAULT 0`)
+  } catch (e) { }
+  try {
+    db.run(`ALTER TABLE monitors ADD COLUMN feedback_threshold_max INTEGER`)
+  } catch (e) { }
+
+
+>>>>>>> feature/nezha-integration
 
   db.run(`
     CREATE TABLE IF NOT EXISTS monitor_checks (
