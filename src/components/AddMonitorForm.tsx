@@ -48,6 +48,8 @@ export default function AddMonitorForm({ onSuccess, onCancel, editMonitor }: Add
   const [headers, setHeaders] = useState('')
   const [body, setBody] = useState('')
   const [username, setUsername] = useState('')
+  const [feedbackLinkage, setFeedbackLinkage] = useState(false)
+  const [feedbackThreshold, setFeedbackThreshold] = useState('24')
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   const isEditMode = !!editMonitor
@@ -120,6 +122,8 @@ export default function AddMonitorForm({ onSuccess, onCancel, editMonitor }: Add
       setHeaders(editMonitor.webhook_headers || '')
       setBody(editMonitor.webhook_body || '')
       setUsername(editMonitor.webhook_username || '')
+      setFeedbackLinkage(editMonitor.feedback_linkage === 1)
+      setFeedbackThreshold(String(editMonitor.feedback_threshold || 24))
     }
   }, [editMonitor])
 
@@ -254,9 +258,10 @@ export default function AddMonitorForm({ onSuccess, onCancel, editMonitor }: Add
         webhook_headers: Object.keys(parsedHeaders).length > 0 ? parsedHeaders : undefined,
         webhook_body: Object.keys(parsedBody).length > 0 ? parsedBody : undefined,
         webhook_username: username.trim() || undefined,
-        check_content_type: checkContentType,
         check_headers: Object.keys(parsedCheckHeaders).length > 0 ? parsedCheckHeaders : undefined,
         check_body: Object.keys(parsedCheckBody).length > 0 ? parsedCheckBody : undefined,
+        feedback_linkage: feedbackLinkage ? 1 : 0,
+        feedback_threshold: parseInt(feedbackThreshold) || 0,
       } as any
 
       if (isEditMode && editMonitor) {
@@ -308,6 +313,8 @@ export default function AddMonitorForm({ onSuccess, onCancel, editMonitor }: Add
     setHeaders('')
     setBody('')
     setUsername('')
+    setFeedbackLinkage(false)
+    setFeedbackThreshold('24')
   }
 
   return (
@@ -747,6 +754,63 @@ export default function AddMonitorForm({ onSuccess, onCancel, editMonitor }: Add
               </button>
             </div>
             <span className="form-hint">每次任务执行（无论成功失败）都会发送通知到此群组，并附带重试按钮</span>
+          </div>
+
+          <div className="form-group" style={{ background: 'var(--bg-secondary)', padding: '16px', borderRadius: '12px', marginTop: '16px', border: '1px solid var(--border-color)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+              <h5 style={{ margin: 0, fontSize: '1.1rem' }}>🔗 反馈联动模式 (Feedback Linkage Mode)</h5>
+              <label className="switch">
+                <input
+                  type="checkbox"
+                  checked={feedbackLinkage}
+                  onChange={(e) => setFeedbackLinkage(e.target.checked)}
+                />
+                <span className="slider round"></span>
+              </label>
+            </div>
+
+            {feedbackLinkage && (
+              <div className="feedback-linkage-settings" style={{ padding: '12px', background: 'var(--bg-primary)', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+                <div className="form-group" style={{ marginBottom: '12px' }}>
+                  <label htmlFor="feedbackThreshold">续期窗口阈值 (小时)</label>
+                  <input
+                    id="feedbackThreshold"
+                    type="number"
+                    value={feedbackThreshold}
+                    onChange={(e) => setFeedbackThreshold(e.target.value)}
+                    placeholder="例如: 24 (代表剩余不足 24h 时触发)"
+                  />
+                  <span className="form-hint">
+                    脚本需在完成后回调接口并携带 <code>remaining_time</code> (秒)。<br />
+                    如果 <code>remaining_time &gt; 阈值</code>，面板将自动等待到进入窗口后再执行。
+                  </span>
+                </div>
+
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label>脚本回调 URL</label>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'var(--bg-tertiary)', padding: '8px 12px', borderRadius: '6px' }}>
+                    <code style={{ fontSize: '0.9rem', color: 'var(--accent-color)', wordBreak: 'break-all' }}>
+                      {window.location.protocol}//{window.location.host}/api/callback/{editMonitor?.id || 'NEW_ID'}
+                    </code>
+                    <button
+                      type="button"
+                      className="btn-text"
+                      onClick={() => {
+                        const url = `${window.location.protocol}//${window.location.host}/api/callback/${editMonitor?.id || 'NEW_ID'}`
+                        navigator.clipboard.writeText(url)
+                        alert('已复制到剪贴板')
+                      }}
+                      title="复制链接"
+                    >
+                      📋
+                    </button>
+                  </div>
+                  <span className="form-hint" style={{ marginTop: '8px' }}>
+                    在脚本中发送 POST 请求。Payload 格式: <code style={{ color: 'var(--text-secondary)' }}>{'{'} "remaining_time": 待定(秒), "status": "success" {'}'}</code>
+                  </span>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}

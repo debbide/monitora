@@ -28,6 +28,8 @@ export interface Monitor {
   webhook_username: string | null
   is_active: number
   sort_order: number
+  feedback_linkage: number  // 是否开启反馈联动
+  feedback_threshold: number // 反馈触发阈值 (小时)
   created_at: string
   updated_at: string
 }

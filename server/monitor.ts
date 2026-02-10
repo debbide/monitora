@@ -186,7 +186,13 @@ export async function checkMonitor(monitor: Monitor) {
   // 关键改动：检查完成后，立即计算并持久化 下一次检查时间
   // ---------------------------------------------------------
   let nextIntervalMinutes = monitor.check_interval || 5
-  if ((monitor.check_type === 'http' || monitor.check_type === 'scheduled_webhook') && monitor.check_interval_max && monitor.check_interval_max > monitor.check_interval) {
+
+  if (monitor.feedback_linkage) {
+    // 反馈联动模式：设置一个较大的安全冗余时间 (例如 6 小时)，防止回调没到导致任务永久停滞
+    // 正常情况下，回调会很快回来并覆盖这个时间
+    nextIntervalMinutes = 360 // 6 小时保底
+    console.log(`Monitor ${monitor.name}: Feedback Linkage enabled. Safety fallback set to 6h.`)
+  } else if ((monitor.check_type === 'http' || monitor.check_type === 'scheduled_webhook') && monitor.check_interval_max && monitor.check_interval_max > monitor.check_interval) {
     nextIntervalMinutes = getRandomInterval(monitor.check_interval, monitor.check_interval_max)
     console.log(`Monitor ${monitor.name}: Random interval generated for next run: ${nextIntervalMinutes}m`)
   }

@@ -29,6 +29,8 @@ export interface Monitor {
   next_check_at?: string
   is_active: number
   sort_order: number
+  feedback_linkage?: number
+  feedback_threshold?: number
   created_at: string
   updated_at: string
 }
@@ -112,6 +114,8 @@ export async function createMonitor(monitor: {
   webhook_headers?: Record<string, string>
   webhook_body?: Record<string, any>
   webhook_username?: string
+  feedback_linkage?: boolean | number
+  feedback_threshold?: number
 }): Promise<Monitor> {
   return fetchAPI('/api/monitors', {
     method: 'POST',
@@ -151,6 +155,8 @@ export async function updateMonitor(id: string, monitor: {
   webhook_body?: Record<string, any>
   webhook_username?: string
   is_active?: number
+  feedback_linkage?: boolean | number
+  feedback_threshold?: number
 }): Promise<Monitor> {
   return fetchAPI(`/api/monitors/${id}`, {
     method: 'PUT',

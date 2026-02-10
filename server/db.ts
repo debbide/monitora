@@ -117,6 +117,8 @@ export async function initDatabase(): Promise<Database> {
       next_check_at TEXT,
       is_active INTEGER NOT NULL DEFAULT 1,
       sort_order INTEGER DEFAULT 0,
+      feedback_linkage INTEGER DEFAULT 0,
+      feedback_threshold INTEGER DEFAULT 0,
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       updated_at TEXT NOT NULL DEFAULT (datetime('now'))
     )
@@ -169,6 +171,14 @@ export async function initDatabase(): Promise<Database> {
   } catch (e) { }
   try {
     db.run(`ALTER TABLE monitors ADD COLUMN check_body TEXT`)
+  } catch (e) { }
+
+  // 迁移：为旧数据库添加反馈联动相关字段
+  try {
+    db.run(`ALTER TABLE monitors ADD COLUMN feedback_linkage INTEGER DEFAULT 0`)
+  } catch (e) { }
+  try {
+    db.run(`ALTER TABLE monitors ADD COLUMN feedback_threshold INTEGER DEFAULT 0`)
   } catch (e) { }
 
 

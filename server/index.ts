@@ -59,8 +59,8 @@ app.post('/api/monitors', async (req, res) => {
     const initialNextCheck = new Date(now + (nextInterval * 60 * 1000)).toISOString()
 
     run(
-      `INSERT INTO monitors (id, name, url, check_interval, check_interval_max, check_type, check_method, check_timeout, expected_status_codes, expected_keyword, forbidden_keyword, komari_offline_threshold, tg_chat_id, tg_server_name, tg_offline_keywords, tg_online_keywords, tg_notify_chat_id, webhook_url, webhook_content_type, webhook_headers, webhook_body, webhook_username, check_content_type, check_headers, check_body, next_check_at, is_active)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`,
+      `INSERT INTO monitors (id, name, url, check_interval, check_interval_max, check_type, check_method, check_timeout, expected_status_codes, expected_keyword, forbidden_keyword, komari_offline_threshold, tg_chat_id, tg_server_name, tg_offline_keywords, tg_online_keywords, tg_notify_chat_id, webhook_url, webhook_content_type, webhook_headers, webhook_body, webhook_username, check_content_type, check_headers, check_body, next_check_at, is_active, feedback_linkage, feedback_threshold)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)`,
       [
         id,
         body.name,
@@ -87,7 +87,9 @@ app.post('/api/monitors', async (req, res) => {
         body.check_content_type || 'application/json',
         body.check_headers && typeof body.check_headers === 'object' ? JSON.stringify(body.check_headers) : (body.check_headers || null),
         body.check_body && typeof body.check_body === 'object' ? JSON.stringify(body.check_body) : (body.check_body || null),
-        initialNextCheck
+        initialNextCheck,
+        body.feedback_linkage ? 1 : 0,
+        parseInt(body.feedback_threshold) || 0
       ]
     )
 
@@ -174,7 +176,9 @@ app.put('/api/monitors/:id', (req, res) => {
         check_body = ?,
         is_active = ?,
         updated_at = ?,
-        next_check_at = ?
+        next_check_at = ?,
+        feedback_linkage = ?,
+        feedback_threshold = ?
       WHERE id = ?`,
       [
         body.name,
@@ -204,6 +208,8 @@ app.put('/api/monitors/:id', (req, res) => {
         body.is_active !== undefined ? body.is_active : 1,
         new Date().toISOString(),
         resetNextCheck,
+        body.feedback_linkage ? 1 : 0,
+        parseInt(body.feedback_threshold) || 0,
         id
       ]
     )
@@ -1126,6 +1132,84 @@ app.post('/api/nezha-notify-v1', async (req, res) => {
   }
 })
 
+
+// ==========================================
+// 反馈联动模式 (Feedback Linkage Mode) 回调
+// ==========================================
+app.post('/api/callback/:monitorId', async (req, res) => {
+  try {
+    const { monitorId } = req.params
+    const { remaining_time, status, message } = req.body
+
+    // 1. 获取监控项
+    const monitor = queryFirst('SELECT * FROM monitors WHERE id = ?', [monitorId]) as Monitor
+    if (!monitor) {
+      return res.status(404).json({ error: '监控项不存在' })
+    }
+
+    console.log(`📡 收到反馈联动回调: [${monitor.name}] 剩余时间: ${remaining_time}s, 状态: ${status || '无'}`)
+
+    // 2. 计算下一次检查时间
+    const now = Date.now()
+    let nextCheckAt: string
+
+    // 转换为秒的阈值
+    const thresholdSeconds = (monitor.feedback_threshold || 0) * 3600
+
+    if (monitor.feedback_linkage && remaining_time !== undefined && remaining_time > thresholdSeconds) {
+      // 剩余时间充足，等待到接近阈值时再试
+      // 即：现在 + (剩余时间 - 阈值)
+      const waitSeconds = remaining_time - thresholdSeconds
+      nextCheckAt = new Date(now + waitSeconds * 1000).toISOString()
+    } else {
+      // 已经进入续期窗口，或者未开启联动，或者没有返回有效时间
+      // 使用监控项自带的随机间隔重试
+      const checkInterval = monitor.check_interval || 5
+      const checkIntervalMax = monitor.check_interval_max
+      let nextInterval = checkInterval
+      if (checkIntervalMax && checkIntervalMax > checkInterval) {
+        nextInterval = Math.floor(Math.random() * (checkIntervalMax - checkInterval + 1)) + checkInterval
+      }
+      nextCheckAt = new Date(now + nextInterval * 60 * 1000).toISOString()
+    }
+
+    // 3. 更新监控项状态和下次检查时间
+    run(
+      'UPDATE monitors SET next_check_at = ?, updated_at = ? WHERE id = ?',
+      [nextCheckAt, new Date().toISOString(), monitorId]
+    )
+
+    // 4. 记录一次 Check (作为被动更新的凭据)
+    // 如果返回了 status，以 status 为准；否则根据 remaining_time > 0 判断
+    const isSuccess = status ? (status === 'success' || status === 'up') : (remaining_time !== undefined && remaining_time > 0)
+
+    const checkData: MonitorCheck = {
+      monitor_id: monitorId,
+      status: isSuccess ? 'up' : 'down',
+      response_time: 0,
+      status_code: isSuccess ? 200 : 500,
+      error_message: message || (remaining_time !== undefined ? `收到反馈: 剩余 ${remaining_time}s` : '收到反馈回调'),
+      checked_at: new Date().toISOString()
+    }
+    saveCheck(checkData)
+
+    // 5. 如果状态是失败，触发告警逻辑
+    if (!isSuccess) {
+      await handleDownStatus(monitor, checkData)
+    } else {
+      await handleUpStatus(monitor, checkData)
+    }
+
+    res.json({
+      success: true,
+      message: '反馈已接收',
+      next_check_at: nextCheckAt
+    })
+  } catch (error: any) {
+    console.error('Error processing callback:', error)
+    res.status(500).json({ error: error.message })
+  }
+})
 
 // 手动触发检查
 app.get('/trigger', async (req, res) => {
