@@ -37,16 +37,6 @@ export async function checkAllMonitors() {
           [monitor.id]
         ) as { checked_at: string } | undefined
 
-<<<<<<< HEAD
-      // HTTP模式或定时Webhook模式，且设置了最大间隔，使用随机间隔
-      if ((monitor.check_type === 'http' || monitor.check_type === 'scheduled_webhook') && monitor.check_interval_max && monitor.check_interval_max > monitor.check_interval) {
-        // 使用缓存的间隔，如果没有则生成新的
-        if (nextCheckIntervals.has(monitor.id)) {
-          checkIntervalMinutes = nextCheckIntervals.get(monitor.id)!
-        } else {
-          checkIntervalMinutes = getRandomInterval(monitor.check_interval, monitor.check_interval_max)
-          nextCheckIntervals.set(monitor.id, checkIntervalMinutes)
-=======
         if (lastCheck) {
           // 基础间隔（分钟）
           let intervalMinutes = monitor.check_interval || 5
@@ -55,7 +45,6 @@ export async function checkAllMonitors() {
             intervalMinutes = getRandomInterval(monitor.check_interval, monitor.check_interval_max)
           }
           nextCheck = new Date(lastCheck.checked_at).getTime() + (intervalMinutes * 60 * 1000)
->>>>>>> feature/nezha-integration
         }
 
         // 立即保存到 DB，防止重复计算
@@ -73,16 +62,6 @@ export async function checkAllMonitors() {
         }
       }
 
-<<<<<<< HEAD
-      // 执行检查前，为下次生成新的随机间隔
-      if ((monitor.check_type === 'http' || monitor.check_type === 'scheduled_webhook') && monitor.check_interval_max && monitor.check_interval_max > monitor.check_interval) {
-        const newInterval = getRandomInterval(monitor.check_interval, monitor.check_interval_max)
-        nextCheckIntervals.set(monitor.id, newInterval)
-        console.log(`Monitor ${monitor.name}: next check in ${newInterval} minutes (random ${monitor.check_interval}-${monitor.check_interval_max})`)
-      }
-
-=======
->>>>>>> feature/nezha-integration
       // 执行检查
       await checkMonitor(monitor)
     }
@@ -164,39 +143,11 @@ export async function checkMonitor(monitor: Monitor) {
 
   const responseTime = Date.now() - startTime
 
-<<<<<<< HEAD
-  // 针对 Scheduled Webhook 的特殊处理：每次执行都发送通知（无论成功失败）
-  if (checkType === 'scheduled_webhook' && monitor.tg_notify_chat_id) {
-    const timeStr = new Date().toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' })
-    const isSuccess = status === 'up'
-    const emoji = isSuccess ? '🟢' : '🔴'
-    const title = isSuccess ? '定时任务执行成功' : '定时任务执行失败'
-    const statusText = isSuccess ? `HTTP ${statusCode}` : (errorMessage || `HTTP ${statusCode}`)
-
-    const msg = [
-      `${emoji} *${title}*`,
-      ``,
-      `📊 *任务:* ${monitor.name}`,
-      `📡 *结果:* ${statusText}`,
-      `⏱ *耗时:* ${responseTime}ms`,
-      ``,
-      `\`⏰ ${timeStr}\``
-    ].join('\n')
-
-    await sendTgMessage(monitor.tg_notify_chat_id, msg, {
-      reply_markup: {
-        inline_keyboard: [
-          [{ text: '🔄 立即重试', callback_data: `retry_scheduled:${monitor.id}` }]
-        ]
-      }
-    })
-=======
   // 反馈联动类型的特殊处理：成功通常意味着 remaining_time > 0
   if (checkType === 'feedback_linkage') {
     // 主动检查（触发脚本）时，状态通常标记为 up，直到回调返回故障
     // 这里保持默认逻辑，如果 HTTP 触发成功即为 up
     if (errorMessage === '') status = 'up'
->>>>>>> feature/nezha-integration
   }
 
   const checkData: MonitorCheck = {
@@ -281,43 +232,6 @@ async function checkHTTP(monitor: Monitor, timeout: number): Promise<{
 
     const method = monitor.check_method || 'GET'
 
-<<<<<<< HEAD
-    const headers: Record<string, string> = {
-      'User-Agent': 'UptimeMonitor/1.0'
-    }
-
-    if (monitor.check_content_type) {
-      headers['Content-Type'] = monitor.check_content_type
-    }
-
-    if (monitor.check_headers) {
-      try {
-        const customHeaders = typeof monitor.check_headers === 'string'
-          ? JSON.parse(monitor.check_headers)
-          : monitor.check_headers
-        Object.assign(headers, customHeaders)
-      } catch (e) {
-        console.error('Failed to parse check_headers', e)
-      }
-    }
-
-    const fetchOptions: RequestInit = {
-      method,
-      signal: controller.signal,
-      redirect: 'follow',
-      headers
-    }
-
-    if (method !== 'GET' && method !== 'HEAD' && monitor.check_body) {
-      // check_body is likely a JSON string from DB
-      fetchOptions.body = typeof monitor.check_body === 'string'
-        ? monitor.check_body
-        : JSON.stringify(monitor.check_body)
-    }
-
-    const response = await fetch(monitor.url, {
-      ...fetchOptions
-=======
     const headers = {
       'User-Agent': 'UptimeMonitor/1.0',
       ...(monitor.check_content_type ? { 'Content-Type': monitor.check_content_type } : {}),
@@ -340,7 +254,6 @@ async function checkHTTP(monitor: Monitor, timeout: number): Promise<{
       headers,
       body: requestBody,
       redirect: 'follow'
->>>>>>> feature/nezha-integration
     })
 
     clearTimeout(timeoutId)

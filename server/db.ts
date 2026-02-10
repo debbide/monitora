@@ -125,78 +125,31 @@ export async function initDatabase(): Promise<Database> {
     )
   `)
 
-  // 迁移：为旧数据库添加 check_interval_max 字段
-  try {
-    db.run(`ALTER TABLE monitors ADD COLUMN check_interval_max INTEGER`)
-  } catch (e) {
-    // 字段已存在，忽略错误
+  // 确保所有必要字段都通过迁移存在
+  const columns = [
+    { name: 'check_interval_max', type: 'INTEGER' },
+    { name: 'next_check_at', type: 'TEXT' },
+    { name: 'sort_order', type: 'INTEGER DEFAULT 0' },
+    { name: 'tg_chat_id', type: 'TEXT' },
+    { name: 'tg_server_name', type: 'TEXT' },
+    { name: 'tg_offline_keywords', type: 'TEXT' },
+    { name: 'tg_online_keywords', type: 'TEXT' },
+    { name: 'tg_notify_chat_id', type: 'TEXT' },
+    { name: 'check_content_type', type: 'TEXT DEFAULT "application/json"' },
+    { name: 'check_headers', type: 'TEXT' },
+    { name: 'check_body', type: 'TEXT' },
+    { name: 'feedback_linkage', type: 'INTEGER DEFAULT 0' },
+    { name: 'feedback_threshold', type: 'INTEGER DEFAULT 0' },
+    { name: 'feedback_threshold_max', type: 'INTEGER' }
+  ]
+
+  for (const col of columns) {
+    try {
+      db.run(`ALTER TABLE monitors ADD COLUMN ${col.name} ${col.type}`)
+    } catch (e) {
+      // 字段已存在，忽略错误
+    }
   }
-
-  // 迁移：为旧数据库添加 next_check_at 字段
-  try {
-    db.run(`ALTER TABLE monitors ADD COLUMN next_check_at TEXT`)
-  } catch (e) {
-    // 字段已存在，忽略错误
-  }
-
-  // 迁移：为旧数据库添加 sort_order 字段
-  try {
-    db.run(`ALTER TABLE monitors ADD COLUMN sort_order INTEGER DEFAULT 0`)
-  } catch (e) {
-    // 字段已存在，忽略错误
-  }
-
-  // 迁移：为旧数据库添加 Telegram 相关字段
-  try {
-    db.run(`ALTER TABLE monitors ADD COLUMN tg_chat_id TEXT`)
-  } catch (e) { }
-  try {
-    db.run(`ALTER TABLE monitors ADD COLUMN tg_server_name TEXT`)
-  } catch (e) { }
-  try {
-    db.run(`ALTER TABLE monitors ADD COLUMN tg_offline_keywords TEXT`)
-  } catch (e) { }
-  try {
-    db.run(`ALTER TABLE monitors ADD COLUMN tg_online_keywords TEXT`)
-  } catch (e) { }
-  try {
-    db.run(`ALTER TABLE monitors ADD COLUMN tg_notify_chat_id TEXT`)
-  } catch (e) { }
-
-<<<<<<< HEAD
-  try {
-    db.run(`ALTER TABLE monitors ADD COLUMN check_content_type TEXT`)
-  } catch (e) { }
-
-  try {
-    db.run(`ALTER TABLE monitors ADD COLUMN check_headers TEXT`)
-  } catch (e) { }
-
-=======
-  // 迁移：为旧数据库添加 Request Config 相关字段
-  try {
-    db.run(`ALTER TABLE monitors ADD COLUMN check_content_type TEXT DEFAULT 'application/json'`)
-  } catch (e) { }
-  try {
-    db.run(`ALTER TABLE monitors ADD COLUMN check_headers TEXT`)
-  } catch (e) { }
->>>>>>> feature/nezha-integration
-  try {
-    db.run(`ALTER TABLE monitors ADD COLUMN check_body TEXT`)
-  } catch (e) { }
-
-<<<<<<< HEAD
-=======
-  // 迁移：为旧数据库添加反馈联动相关字段
-  try {
-    db.run(`ALTER TABLE monitors ADD COLUMN feedback_threshold INTEGER DEFAULT 0`)
-  } catch (e) { }
-  try {
-    db.run(`ALTER TABLE monitors ADD COLUMN feedback_threshold_max INTEGER`)
-  } catch (e) { }
-
-
->>>>>>> feature/nezha-integration
 
   db.run(`
     CREATE TABLE IF NOT EXISTS monitor_checks (

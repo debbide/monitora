@@ -6,21 +6,16 @@ export interface Monitor {
   url: string
   check_interval: number
   check_interval_max: number | null
-<<<<<<< HEAD
-  check_type: 'http' | 'tcp' | 'komari' | 'telegram' | 'scheduled_webhook'
-  check_method: 'GET' | 'HEAD' | 'POST'
-=======
   check_type: 'http' | 'tcp' | 'komari' | 'komari_webhook' | 'nezha_webhook' | 'telegram' | 'scheduled_webhook' | 'feedback_linkage'
   check_method: 'GET' | 'HEAD' | 'POST' | 'PUT' | 'PATCH'
->>>>>>> feature/nezha-integration
   check_timeout: number
   expected_status_codes: string
   expected_keyword: string | null
   forbidden_keyword: string | null
   komari_offline_threshold: number
-  check_content_type?: string | null
-  check_headers?: string | null
-  check_body?: string | null
+  check_content_type: string | null
+  check_headers: string | null
+  check_body: string | null
   tg_chat_id: string | null
   tg_server_name: string | null
   tg_offline_keywords: string | null
@@ -31,13 +26,7 @@ export interface Monitor {
   webhook_headers: string | null
   webhook_body: string | null
   webhook_username: string | null
-<<<<<<< HEAD
-  check_content_type: string | null
-  check_headers: string | null
-  check_body: string | null
-=======
   next_check_at?: string
->>>>>>> feature/nezha-integration
   is_active: number
   sort_order: number
   feedback_linkage?: number
@@ -106,13 +95,8 @@ export async function createMonitor(monitor: {
   url?: string
   check_interval?: number
   check_interval_max?: number | null
-<<<<<<< HEAD
-  check_type?: 'http' | 'tcp' | 'komari' | 'komari_webhook' | 'telegram' | 'scheduled_webhook'
-  check_method?: 'GET' | 'HEAD' | 'POST'
-=======
-  check_type?: 'http' | 'tcp' | 'komari' | 'komari_webhook' | 'nezha_webhook' | 'telegram' | 'scheduled_webhook'
+  check_type?: 'http' | 'tcp' | 'komari' | 'komari_webhook' | 'nezha_webhook' | 'telegram' | 'scheduled_webhook' | 'feedback_linkage'
   check_method?: 'GET' | 'HEAD' | 'POST' | 'PUT' | 'PATCH'
->>>>>>> feature/nezha-integration
   check_timeout?: number
   expected_status_codes?: string
   expected_keyword?: string
@@ -131,15 +115,9 @@ export async function createMonitor(monitor: {
   webhook_headers?: Record<string, string>
   webhook_body?: Record<string, any>
   webhook_username?: string
-<<<<<<< HEAD
-  check_content_type?: string
-  check_headers?: Record<string, string>
-  check_body?: Record<string, any>
-=======
   feedback_linkage?: boolean | number
   feedback_threshold?: number
   feedback_threshold_max?: number | null
->>>>>>> feature/nezha-integration
 }): Promise<Monitor> {
   return fetchAPI('/api/monitors', {
     method: 'POST',
@@ -158,13 +136,8 @@ export async function updateMonitor(id: string, monitor: {
   url?: string
   check_interval?: number
   check_interval_max?: number | null
-<<<<<<< HEAD
-  check_type?: 'http' | 'tcp' | 'komari' | 'komari_webhook' | 'telegram' | 'scheduled_webhook'
-  check_method?: 'GET' | 'HEAD' | 'POST'
-=======
-  check_type?: 'http' | 'tcp' | 'komari' | 'komari_webhook' | 'nezha_webhook' | 'telegram' | 'scheduled_webhook'
+  check_type?: 'http' | 'tcp' | 'komari' | 'komari_webhook' | 'nezha_webhook' | 'telegram' | 'scheduled_webhook' | 'feedback_linkage'
   check_method?: 'GET' | 'HEAD' | 'POST' | 'PUT' | 'PATCH'
->>>>>>> feature/nezha-integration
   check_timeout?: number
   expected_status_codes?: string
   expected_keyword?: string
@@ -183,9 +156,6 @@ export async function updateMonitor(id: string, monitor: {
   webhook_headers?: Record<string, string>
   webhook_body?: Record<string, any>
   webhook_username?: string
-  check_content_type?: string
-  check_headers?: Record<string, string>
-  check_body?: Record<string, any>
   is_active?: number
   feedback_linkage?: boolean | number
   feedback_threshold?: number

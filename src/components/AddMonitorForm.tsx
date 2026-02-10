@@ -11,11 +11,6 @@ export default function AddMonitorForm({ onSuccess, onCancel, editMonitor }: Add
   const [name, setName] = useState('')
   const [url, setUrl] = useState('')
 
-<<<<<<< HEAD
-  const [enableRandomInterval, setEnableRandomInterval] = useState(false)
-  const [checkType, setCheckType] = useState<'http' | 'tcp' | 'komari' | 'komari_webhook' | 'telegram' | 'scheduled_webhook'>('http')
-  const [checkMethod, setCheckMethod] = useState<'GET' | 'HEAD' | 'POST'>('GET')
-=======
   // Scheduling State
   const [scheduleMode, setScheduleMode] = useState<'fixed' | 'random'>('fixed')
 
@@ -31,7 +26,6 @@ export default function AddMonitorForm({ onSuccess, onCancel, editMonitor }: Add
 
   const [checkType, setCheckType] = useState<'http' | 'tcp' | 'komari' | 'komari_webhook' | 'nezha_webhook' | 'telegram' | 'scheduled_webhook' | 'feedback_linkage'>('http')
   const [checkMethod, setCheckMethod] = useState<'GET' | 'HEAD' | 'POST' | 'PUT' | 'PATCH'>('GET')
->>>>>>> feature/nezha-integration
   const [checkTimeout, setCheckTimeout] = useState('30')
   const [expectedStatusCodes, setExpectedStatusCodes] = useState('200,201,204,301,302')
   const [expectedKeyword, setExpectedKeyword] = useState('')
@@ -54,25 +48,9 @@ export default function AddMonitorForm({ onSuccess, onCancel, editMonitor }: Add
   const [headers, setHeaders] = useState('')
   const [body, setBody] = useState('')
   const [username, setUsername] = useState('')
-<<<<<<< HEAD
-  // Request Config (HTTP/Webhook Trigger)
-  const [checkContentType, setCheckContentType] = useState('application/json')
-  const [checkHeaders, setCheckHeaders] = useState('')
-  const [checkBody, setCheckBody] = useState('')
-
-  // Scheduling Helper State
-  const [schedDays, setSchedDays] = useState('0')
-  const [schedHours, setSchedHours] = useState('0')
-  const [schedMinutes, setSchedMinutes] = useState('5')
-  const [randomMin, setRandomMin] = useState('5')
-  const [randomMax, setRandomMax] = useState('10')
-  const [randomUnit, setRandomUnit] = useState<'minute' | 'hour' | 'day'>('minute')
-
-=======
   const [feedbackLinkage, setFeedbackLinkage] = useState(false)
   const [feedbackThreshold, setFeedbackThreshold] = useState('24')
   const [feedbackThresholdMax, setFeedbackThresholdMax] = useState('')
->>>>>>> feature/nezha-integration
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   const isEditMode = !!editMonitor
@@ -81,9 +59,6 @@ export default function AddMonitorForm({ onSuccess, onCancel, editMonitor }: Add
     if (editMonitor) {
       setName(editMonitor.name)
       setUrl(editMonitor.url)
-<<<<<<< HEAD
-      setEnableRandomInterval(!!editMonitor.check_interval_max)
-=======
 
       // Initialize Scheduling Mode
       if (editMonitor.check_interval_max && editMonitor.check_interval_max > editMonitor.check_interval) {
@@ -126,7 +101,6 @@ export default function AddMonitorForm({ onSuccess, onCancel, editMonitor }: Add
         setRandomUnit('minutes')
       }
 
->>>>>>> feature/nezha-integration
       setCheckType(editMonitor.check_type || 'http')
       setCheckMethod(editMonitor.check_method || 'GET')
       setCheckTimeout(String(editMonitor.check_timeout || 30))
@@ -149,36 +123,9 @@ export default function AddMonitorForm({ onSuccess, onCancel, editMonitor }: Add
       setHeaders(editMonitor.webhook_headers || '')
       setBody(editMonitor.webhook_body || '')
       setUsername(editMonitor.webhook_username || '')
-<<<<<<< HEAD
-      setCheckContentType(editMonitor.check_content_type || 'application/json')
-      setCheckHeaders(editMonitor.check_headers || '')
-      setCheckBody(editMonitor.check_body || '')
-
-      // Parse Interval for UI
-      if (editMonitor.check_interval_max) {
-        // Random Mode
-        setEnableRandomInterval(true)
-        setRandomMin(String(editMonitor.check_interval))
-        setRandomMax(String(editMonitor.check_interval_max))
-        // Auto-detect unit? For now default to minute or check magnitude
-        // Simple logic: default to minute
-        setRandomUnit('minute')
-      } else {
-        // Fixed Mode - Decompose to D/H/M
-        const totalMins = editMonitor.check_interval
-        const d = Math.floor(totalMins / 1440)
-        const h = Math.floor((totalMins % 1440) / 60)
-        const m = totalMins % 60
-        setSchedDays(String(d))
-        setSchedHours(String(h))
-        setSchedMinutes(String(m))
-        setEnableRandomInterval(false)
-      }
-=======
       setFeedbackLinkage(editMonitor.feedback_linkage === 1 || editMonitor.check_type === 'feedback_linkage')
       setFeedbackThreshold(String(editMonitor.feedback_threshold || 24))
       setFeedbackThresholdMax(editMonitor.feedback_threshold_max ? String(editMonitor.feedback_threshold_max) : '')
->>>>>>> feature/nezha-integration
     }
   }, [editMonitor])
 
@@ -258,29 +205,6 @@ export default function AddMonitorForm({ onSuccess, onCancel, editMonitor }: Add
 
     setIsSubmitting(true)
     try {
-<<<<<<< HEAD
-      // Calculate Interval
-      let intervalNum = 5
-      let intervalMaxNum = null
-
-      if (enableRandomInterval) {
-        let multiplier = 1
-        if (randomUnit === 'hour') multiplier = 60
-        if (randomUnit === 'day') multiplier = 1440
-
-        intervalNum = Math.floor(parseFloat(randomMin) * multiplier) || 5
-        intervalMaxNum = Math.floor(parseFloat(randomMax) * multiplier) || (intervalNum + 5)
-
-        if (intervalMaxNum <= intervalNum) {
-          intervalMaxNum = intervalNum + 1 // Ensure max > min
-        }
-      } else {
-        const d = parseInt(schedDays) || 0
-        const h = parseInt(schedHours) || 0
-        const m = parseInt(schedMinutes) || 0
-        intervalNum = (d * 1440) + (h * 60) + m
-        if (intervalNum < 1) intervalNum = 1 // Minimum 1 minute
-=======
       let finalInterval = 5
       let intervalMaxNum = null
 
@@ -309,7 +233,6 @@ export default function AddMonitorForm({ onSuccess, onCancel, editMonitor }: Add
           // Fallback to fixed if max <= min
           intervalMaxNum = null
         }
->>>>>>> feature/nezha-integration
       }
 
       const timeoutNum = parseInt(checkTimeout) || 30
@@ -318,13 +241,8 @@ export default function AddMonitorForm({ onSuccess, onCancel, editMonitor }: Add
       const monitorData = {
         name: name.trim(),
         url: checkType === 'telegram' ? '' : url.trim(),
-<<<<<<< HEAD
-        check_interval: intervalNum,
-        check_interval_max: (checkType === 'http' || checkType === 'scheduled_webhook') && enableRandomInterval ? intervalMaxNum : null,
-=======
         check_interval: finalInterval,
         check_interval_max: intervalMaxNum,
->>>>>>> feature/nezha-integration
         check_type: checkType,
         check_method: checkMethod,
         check_timeout: timeoutNum,
@@ -342,19 +260,12 @@ export default function AddMonitorForm({ onSuccess, onCancel, editMonitor }: Add
         webhook_headers: Object.keys(parsedHeaders).length > 0 ? parsedHeaders : undefined,
         webhook_body: Object.keys(parsedBody).length > 0 ? parsedBody : undefined,
         webhook_username: username.trim() || undefined,
-<<<<<<< HEAD
-        check_content_type: checkContentType,
-        check_headers: checkHeaders.trim() ? JSON.parse(checkHeaders) : undefined,
-        check_body: checkBody.trim() ? JSON.parse(checkBody) : undefined
-      }
-=======
         check_headers: Object.keys(parsedCheckHeaders).length > 0 ? parsedCheckHeaders : undefined,
         check_body: Object.keys(parsedCheckBody).length > 0 ? parsedCheckBody : undefined,
         feedback_linkage: (feedbackLinkage || checkType === 'feedback_linkage') ? 1 : 0,
         feedback_threshold: parseInt(feedbackThreshold) || 0,
         feedback_threshold_max: feedbackThresholdMax.trim() ? parseInt(feedbackThresholdMax) : null,
       } as any
->>>>>>> feature/nezha-integration
 
       if (isEditMode && editMonitor) {
         await updateMonitor(editMonitor.id, monitorData)
@@ -376,20 +287,13 @@ export default function AddMonitorForm({ onSuccess, onCancel, editMonitor }: Add
   function resetForm() {
     setName('')
     setUrl('')
-<<<<<<< HEAD
-=======
     setScheduleMode('fixed')
->>>>>>> feature/nezha-integration
     setSchedDays('0')
     setSchedHours('0')
     setSchedMinutes('5')
     setRandomMin('5')
     setRandomMax('10')
-<<<<<<< HEAD
-    setEnableRandomInterval(false)
-=======
     setRandomUnit('minutes')
->>>>>>> feature/nezha-integration
     setCheckType('http')
     setCheckMethod('GET')
     setCheckTimeout('30')
@@ -411,15 +315,9 @@ export default function AddMonitorForm({ onSuccess, onCancel, editMonitor }: Add
     setContentType('application/json')
     setHeaders('')
     setUsername('')
-<<<<<<< HEAD
-    setCheckContentType('application/json')
-    setCheckHeaders('')
-    setCheckBody('')
-=======
     setFeedbackLinkage(false)
     setFeedbackThreshold('24')
     setFeedbackThresholdMax('')
->>>>>>> feature/nezha-integration
   }
 
   return (
@@ -439,11 +337,7 @@ export default function AddMonitorForm({ onSuccess, onCancel, editMonitor }: Add
           />
         </div>
 
-<<<<<<< HEAD
-        {checkType !== 'telegram' && checkType !== 'komari_webhook' && checkType !== 'scheduled_webhook' && (
-=======
         {checkType !== 'telegram' && checkType !== 'komari_webhook' && checkType !== 'nezha_webhook' && checkType !== 'scheduled_webhook' && checkType !== 'feedback_linkage' && (
->>>>>>> feature/nezha-integration
           <div className="form-group">
             <label htmlFor="url">
               {checkType === 'komari' ? 'Komari API 地址' : '网站URL'}
@@ -625,10 +519,7 @@ export default function AddMonitorForm({ onSuccess, onCancel, editMonitor }: Add
               <option value="nezha_webhook">哪吒 (Nezha) Webhook 监控</option>
               <option value="telegram">Telegram 群组监控</option>
               <option value="scheduled_webhook">定时触发 (Webhook/Cron)</option>
-<<<<<<< HEAD
-=======
               <option value="feedback_linkage">反馈联动监控 (Feedback Linkage)</option>
->>>>>>> feature/nezha-integration
             </select>
           </div>
 
@@ -713,20 +604,6 @@ export default function AddMonitorForm({ onSuccess, onCancel, editMonitor }: Add
             </div>
           )}
 
-<<<<<<< HEAD
-        {(checkType === 'http' || checkType === 'tcp' || checkType === 'komari' || checkType === 'scheduled_webhook') && (
-          <div className="form-group" style={{ marginBottom: '16px', marginTop: '16px' }}>
-            <label className="checkbox-label">
-              <input
-                type="checkbox"
-                checked={enableRandomInterval}
-                onChange={(e) => setEnableRandomInterval(e.target.checked)}
-              />
-              启用随机间隔 (Random Interval)
-            </label>
-            <span className="form-hint" style={{ fontSize: '12px', color: '#888' }}>
-              在最小和最大时间之间随机波动，模拟真实行为
-=======
           <div className="form-row">
             <div className="form-group">
               <label htmlFor="checkContentType">Content-Type</label>
@@ -882,7 +759,6 @@ export default function AddMonitorForm({ onSuccess, onCancel, editMonitor }: Add
             />
             <span className="form-hint">
               当收到 Komari 通知时，会匹配此名称触发告警和 Webhook（需先在 📡 设置启用接收）
->>>>>>> feature/nezha-integration
             </span>
           </div>
           <div className="form-group">
@@ -896,195 +772,6 @@ export default function AddMonitorForm({ onSuccess, onCancel, editMonitor }: Add
         </div>
       )}
 
-<<<<<<< HEAD
-        {(checkType === 'http' || checkType === 'tcp' || checkType === 'komari' || checkType === 'scheduled_webhook') && (
-          <div className="form-row" style={{ alignItems: 'flex-start' }}>
-            {enableRandomInterval ? (
-              // Random Interval Mode
-              <div className="form-group" style={{ flex: 1 }}>
-                <label>随机间隔范围</label>
-                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                  <input
-                    type="number"
-                    min="1"
-                    value={randomMin}
-                    onChange={(e) => setRandomMin(e.target.value)}
-                    placeholder="Min"
-                    style={{ width: '80px' }}
-                  />
-                  <span>-</span>
-                  <input
-                    type="number"
-                    min="1"
-                    value={randomMax}
-                    onChange={(e) => setRandomMax(e.target.value)}
-                    placeholder="Max"
-                    style={{ width: '80px' }}
-                  />
-                  <select
-                    value={randomUnit}
-                    onChange={(e) => setRandomUnit(e.target.value as any)}
-                    style={{ width: '100px' }}
-                  >
-                    <option value="minute">分钟</option>
-                    <option value="hour">小时</option>
-                    <option value="day">天</option>
-                  </select>
-                </div>
-              </div>
-            ) : (
-              // Fixed Interval Mode (Composite)
-              <div className="form-group" style={{ flex: 1 }}>
-                <label>检测频率 (每隔)</label>
-                <div style={{ display: 'flex', gap: '8px' }}>
-                  <div style={{ display: 'flex', flexDirection: 'column' }}>
-                    <input type="number" min="0" value={schedDays} onChange={e => setSchedDays(e.target.value)} />
-                    <span style={{ fontSize: '10px', textAlign: 'center' }}>天</span>
-                  </div>
-                  <div style={{ display: 'flex', flexDirection: 'column' }}>
-                    <input type="number" min="0" value={schedHours} onChange={e => setSchedHours(e.target.value)} />
-                    <span style={{ fontSize: '10px', textAlign: 'center' }}>小时</span>
-                  </div>
-                  <div style={{ display: 'flex', flexDirection: 'column' }}>
-                    <input type="number" min="0" value={schedMinutes} onChange={e => setSchedMinutes(e.target.value)} />
-                    <span style={{ fontSize: '10px', textAlign: 'center' }}>分钟</span>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            <div className="form-group" style={{ width: '120px' }}>
-              <label htmlFor="checkTimeout">超时 (秒)</label>
-              <input
-                id="checkTimeout"
-                type="number"
-                min="5"
-                max="120"
-                value={checkTimeout}
-                onChange={(e) => setCheckTimeout(e.target.value)}
-              />
-            </div>
-          </div>
-        )}
-
-        {(checkType === 'http' || checkType === 'scheduled_webhook') && (
-          <div className="form-section">
-            <h4>请求配置 (Body & Headers)</h4>
-
-            {checkType === 'scheduled_webhook' && (
-              <>
-                <div className="form-group">
-                  <label htmlFor="url">触发地址 (URL)</label>
-                  <input
-                    id="url"
-                    type="text"
-                    value={url}
-                    onChange={(e) => setUrl(e.target.value)}
-                    placeholder="https://example.com 或 example.com:8080"
-                    required
-                  />
-                  <span className="form-hint">填写需要触发的 Webhook 地址 (如 GitHub Dispatch URL)</span>
-                </div>
-                <div className="form-group">
-                  <label htmlFor="checkMethod">请求方法</label>
-                  <select
-                    id="checkMethod"
-                    value={checkMethod}
-                    onChange={(e) => setCheckMethod(e.target.value as 'GET' | 'HEAD' | 'POST')}
-                  >
-                    <option value="GET">GET</option>
-                    <option value="HEAD">HEAD</option>
-                    <option value="POST">POST</option>
-                  </select>
-                </div>
-              </>
-            )}
-            <div className="form-group">
-              <label htmlFor="checkContentType">Content-Type</label>
-              <input
-                id="checkContentType"
-                type="text"
-                value={checkContentType}
-                onChange={(e) => setCheckContentType(e.target.value)}
-                placeholder="application/json"
-              />
-            </div>
-            <div className="form-group">
-              <label htmlFor="checkHeaders">请求头 (JSON 格式)</label>
-              <textarea
-                id="checkHeaders"
-                value={checkHeaders}
-                onChange={(e) => setCheckHeaders(e.target.value)}
-                placeholder='{"Authorization": "Bearer token"}'
-                rows={3}
-              />
-            </div>
-            <div className="form-group">
-              <label htmlFor="checkBody">请求体 (JSON 格式)</label>
-              <textarea
-                id="checkBody"
-                value={checkBody}
-                onChange={(e) => setCheckBody(e.target.value)}
-                placeholder='{"key": "value"}'
-                rows={4}
-              />
-            </div>
-          </div>
-        )}
-
-        {checkType === 'scheduled_webhook' && (
-          <div className="form-section">
-            <h4>通知配置 (Telegram)</h4>
-            <div className="form-group">
-              <label htmlFor="tgNotifyChatId">TG 通知群组 ID</label>
-              <div style={{ display: 'flex', gap: '8px' }}>
-                <input
-                  id="tgNotifyChatId"
-                  type="text"
-                  value={tgNotifyChatId}
-                  onChange={(e) => setTgNotifyChatId(e.target.value)}
-                  placeholder="例如: -1001234567890"
-                  style={{ flex: 1 }}
-                />
-                <button
-                  type="button"
-                  className="btn-secondary"
-                  onClick={async () => {
-                    if (!tgNotifyChatId.trim()) {
-                      alert('请先输入群组 ID')
-                      return
-                    }
-                    try {
-                      const result = await testTelegramChat(tgNotifyChatId.trim())
-                      alert(result.message)
-                    } catch (err: any) {
-                      alert('测试失败: ' + err.message)
-                    }
-                  }}
-                  style={{ whiteSpace: 'nowrap' }}
-                >
-                  📡 测试连接
-                </button>
-              </div>
-              <span className="form-hint">每次执行任务都会向此群组发送通知（包含重试按钮）</span>
-            </div>
-          </div>
-        )}
-
-        {(checkType === 'http' || checkType === 'scheduled_webhook') && (
-          <>
-            <div className="form-group">
-              <label htmlFor="expectedStatusCodes">期望状态码（逗号分隔）</label>
-              <input
-                id="expectedStatusCodes"
-                type="text"
-                value={expectedStatusCodes}
-                onChange={(e) => setExpectedStatusCodes(e.target.value)}
-                placeholder="200,201,204,301,302"
-              />
-              <span className="form-hint">返回这些状态码视为正常</span>
-            </div>
-=======
       {checkType === 'nezha_webhook' && (
         <div className="form-section">
           <h4>Nezha Webhook Configuration</h4>
@@ -1113,7 +800,6 @@ export default function AddMonitorForm({ onSuccess, onCancel, editMonitor }: Add
           </div>
         </div>
       )}
->>>>>>> feature/nezha-integration
 
       {checkType === 'scheduled_webhook' && (
         <div className="form-section">
