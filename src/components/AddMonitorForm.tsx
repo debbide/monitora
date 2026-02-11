@@ -584,6 +584,43 @@ export default function AddMonitorForm({ onSuccess, onCancel, editMonitor }: Add
             </span>
           </div>
 
+          <div className="form-group" style={{ background: 'var(--bg-secondary)', padding: '16px', borderRadius: '12px', border: '1px solid var(--border-color)', marginTop: '16px' }}>
+            <h5 style={{ margin: '0 0 12px 0', fontSize: '1rem' }}>📢 通知配置 (Notification)</h5>
+            <div className="form-group" style={{ marginBottom: 0 }}>
+              <label htmlFor="tgNotifyChatId_fl">Telegram 通知群组 ID</label>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <input
+                  id="tgNotifyChatId_fl"
+                  type="text"
+                  value={tgNotifyChatId}
+                  onChange={(e) => setTgNotifyChatId(e.target.value)}
+                  placeholder="例如: -1001234567890"
+                  style={{ flex: 1 }}
+                />
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  onClick={async () => {
+                    if (!tgNotifyChatId.trim()) {
+                      alert('请先输入群组 ID')
+                      return
+                    }
+                    try {
+                      const result = await testTelegramChat(tgNotifyChatId.trim())
+                      alert(result.message)
+                    } catch (err: any) {
+                      alert('测试失败: ' + err.message)
+                    }
+                  }}
+                  style={{ whiteSpace: 'nowrap' }}
+                >
+                  📡 测试
+                </button>
+              </div>
+              <span className="form-hint">续期成功或失败时，将通过 Telegram 发送通知到此群组</span>
+            </div>
+          </div>
+
           <div className="form-group" style={{ background: 'var(--bg-tertiary)', padding: '16px', borderRadius: '12px', marginTop: '16px', border: '1px solid var(--border-color)' }}>
             <h5 style={{ margin: '0 0 12px 0', fontSize: '1rem' }}>📡 脚本对接指引 (Callback Guide)</h5>
             <label>通用回调接口 (通过关键词匹配)</label>

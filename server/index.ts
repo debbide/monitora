@@ -1252,6 +1252,40 @@ async function handleFeedbackCallback(monitor: Monitor, remaining_time: number, 
       await handleUpStatus(monitor, checkData)
     }
 
+    // 4. 发送 TG 通知（带重试按钮）
+    if (monitor.tg_notify_chat_id) {
+      const timeStr = new Date().toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' })
+      const icon = isSuccess ? '✅' : '❌'
+      const statusText = isSuccess ? '成功' : '失败'
+      const remainHours = remaining_time !== undefined ? (remaining_time / 3600).toFixed(2) : '未知'
+
+      const msg = [
+        `${icon} *反馈联动回调: ${statusText}*`,
+        ``,
+        `📋 *任务:* ${monitor.name}`,
+        `⏱ *剩余时间:* ${remainHours}h`,
+        `🎯 *触发点:* ${triggerPointHours.toFixed(2)}h`,
+        remaining_time !== undefined && remaining_time > triggerPointSeconds
+          ? `⏳ *状态:* 未到触发点，等待中`
+          : `🔥 *状态:* 已到触发点，准备执行`,
+        message ? `💬 *备注:* ${message}` : '',
+        ``,
+        `\`⏰ ${timeStr}\``
+      ].filter(Boolean).join('\n')
+
+      try {
+        await sendTgMessage(monitor.tg_notify_chat_id, msg, {
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: '🔄 立即重试', callback_data: `retry_scheduled:${monitor.id}` }]
+            ]
+          }
+        })
+      } catch (tgErr) {
+        console.error('发送反馈联动 TG 通知失败:', tgErr)
+      }
+    }
+
     return res.json({
       success: true,
       matched_monitor: monitor.name,
