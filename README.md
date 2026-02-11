@@ -162,17 +162,34 @@ docker-compose up -d
     *   **触发阈值**：基准剩余时间（如填 `24` 小时）。
     *   **波动范围**：防止规律性行为（如填 `2-4` 小时）。
 3.  **脚本集成**：
-    在你的保活脚本中，执行完续期逻辑后，通过 API 告知面板。
+    在你的脚本执行完续期逻辑后，通过 API 告知面板。
 
-    - **接口地址**: `http://你的IP:3000/api/callback`
-    - **请求方式**: `POST`
-    - **Payload**:
-      ```json
-      {
-        "server_name": "MyNode-01",
-        "remaining_time": 86400,
-        "status": "up"
-      }
+    - **接口地址**: `https://你的域名/api/callback`
+    - **Python 示例**:
+      ```python
+      import requests
+
+      def notify_cloudeye(server_name, remaining_seconds):
+          # 替换为你的 CloudEye 域名
+          url = "https://你的域名/api/callback"
+          payload = {
+              "server_name": server_name,
+              "remaining_time": remaining_seconds,
+              "status": "up" # 标记为正常
+          }
+          try:
+              requests.post(url, json=payload, timeout=10)
+          except Exception as e:
+              print(f"CloudEye 通知失败: {e}")
+
+      # 在脚本续期成功后调用
+      notify_cloudeye("MyNode-01", 86400)
+      ```
+    - **Shell 示例 (cURL)**:
+      ```bash
+      curl -X POST https://你的域名/api/callback \
+        -H "Content-Type: application/json" \
+        -d '{"server_name": "MyNode-01", "remaining_time": 86400, "status": "up"}'
       ```
 4.  **TG 联动**：配置专属通知群组，每次成功或失败都会收到详细通知，并带有 **立即重试** 按钮。
 
