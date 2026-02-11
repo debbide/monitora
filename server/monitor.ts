@@ -94,8 +94,9 @@ export async function checkMonitor(monitor: Monitor) {
       status = result.success ? 'up' : 'down'
       errorMessage = result.error || ''
       statusCode = result.statusCode
-    } else if (checkType === 'scheduled_webhook') {
-      // 复用 HTTP 检查逻辑
+    } else if (checkType === 'scheduled_webhook' || checkType === 'feedback_linkage') {
+      // 复用 HTTP 检查逻辑（仅检查状态码，不做关键词匹配）
+      // feedback_linkage 的 expected_keyword 是用于回调匹配，不是响应体匹配
       const result = await checkHTTP(monitor, timeout)
       statusCode = result.statusCode
       if (result.success && result.statusCode >= 200 && result.statusCode < 300) {
