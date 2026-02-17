@@ -79,9 +79,9 @@ export async function checkMonitor(monitor: Monitor) {
   const timeout = (monitor.check_timeout || 30) * 1000
   const checkType = monitor.check_type || 'http'
 
-  // Telegram 类型不执行主动检查，只通过消息被动更新状态
-  if (checkType === 'telegram') {
-    return // 跳过，状态由 telegram.ts 处理
+  // 被动模式类型不执行主动检查，只通过外部 Webhook/消息被动更新状态
+  if (checkType === 'telegram' || checkType === 'komari_webhook' || checkType === 'nezha_webhook') {
+    return // 跳过，状态由外部推送处理
   }
 
   try {
