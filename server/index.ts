@@ -1090,9 +1090,20 @@ app.post('/api/nezha-notify-v1', async (req, res) => {
     // 3. 全局 TG 通知
     if (chatId) {
       const icon = isOffline ? '🔴' : '🟢'
-      const title = isOffline ? '服务器离线报警' : '服务器恢复通知'
-      // 使用更紧凑的排版
-      const fullMsg = `${icon} *[Nezha] ${title}*\n\n🖥️ **${serverName}**\n📜 ${text}\n\n🕒 ${timeStr}`
+      const title = isOffline ? 'Nezha 离线通知' : 'Nezha 恢复通知'
+      const statusText = isOffline ? 'Offline 🔴' : 'Online 🟢'
+      const fullMsg = [
+        `${icon} *${title}*`,
+        ``,
+        `📋 *标题:* ${isOffline ? 'Offline' : 'Recovery'}`,
+        `📝 *内容:* ${text}`,
+        ``,
+        `🖥️ *主机名称:* ${serverName}`,
+        `🔄 *运行状态:* ${statusText}`,
+        `📨 *消息回执:* ✅`,
+        ``,
+        `\`⏰ ${timeStr}\``
+      ].join('\n')
       await sendTgMessage(chatId, fullMsg)
     }
 
@@ -1135,6 +1146,33 @@ app.post('/api/nezha-notify-v1', async (req, res) => {
         }
         saveCheck(checkData)
         await handleUpStatus(matchedMonitor, checkData)
+      }
+
+      // 匹配监控项后，发送详细 TG 通知（带重发按钮）
+      if (matchedMonitor.tg_notify_chat_id) {
+        const icon = isOffline ? '🔴' : '🟢'
+        const title = isOffline ? 'Nezha 离线通知' : 'Nezha 恢复通知'
+        const statusText = isOffline ? 'Offline 🔴' : 'Online 🟢'
+        const detailMsg = [
+          `${icon} *${title}*`,
+          ``,
+          `📋 *标题:* ${isOffline ? 'Offline' : 'Recovery'}`,
+          `📝 *内容:* ${text}`,
+          ``,
+          `🖥️ *主机名称:* ${serverName}`,
+          `🔄 *运行状态:* ${statusText}`,
+          `📨 *消息回执:* ✅`,
+          `🔍 *匹配监控:* ${matchedMonitor.name}`,
+          ``,
+          `\`⏰ ${timeStr}\``
+        ].join('\n')
+        await sendTgMessage(matchedMonitor.tg_notify_chat_id, detailMsg, {
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: '⏰ 重发 Webhook', callback_data: `retry_webhook:${matchedMonitor.id}` }]
+            ]
+          }
+        })
       }
     }
 
