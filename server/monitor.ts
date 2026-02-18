@@ -474,7 +474,7 @@ export async function handleUpStatus(monitor: Monitor, check: MonitorCheck) {
       [resolvedAt, durationSeconds, incident.id]
     )
 
-    if (monitor.webhook_url) {
+    if (monitor.webhook_url && monitor.check_type !== 'nezha_webhook') {
       await sendWebhookNotification(monitor, {
         monitor_id: monitor.id,
         status: 'up',
