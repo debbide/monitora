@@ -1074,10 +1074,18 @@ app.post('/api/nezha-notify-v1', async (req, res) => {
       return res.json({ success: true, message: 'Nezha 通知接收已禁用' })
     }
 
-    // 2. 解析状态 (简单关键词匹配)
+    // 2. 解析状态 (优先判断恢复，防止哪吒"缝合怪"消息误判)
+    // 哪吒恢复消息格式: "[恢复] server(ip) offline" —— 同时包含"恢复"和"offline"
+    // 必须优先检查恢复关键词，命中后不再检查离线关键词
     const textLower = text.toLowerCase()
-    const isOffline = textLower.includes('离线') || textLower.includes('offline') || textLower.includes('down')
-    const isRecovery = textLower.includes('上线') || textLower.includes('online') || textLower.includes('up') || textLower.includes('恢复')
+    let isOffline = false
+    let isRecovery = false
+
+    if (textLower.includes('恢复') || textLower.includes('上线') || textLower.includes('recovery') || textLower.includes('online')) {
+      isRecovery = true
+    } else if (textLower.includes('离线') || textLower.includes('offline') || textLower.includes('down')) {
+      isOffline = true
+    }
 
     if (!isOffline && !isRecovery) {
       return res.json({ success: true, message: '未识别的状态变化，忽略' })
