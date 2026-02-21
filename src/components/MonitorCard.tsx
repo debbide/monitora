@@ -65,7 +65,6 @@ export default function MonitorCard({ monitor, onUpdate, onEdit }: MonitorCardPr
   const modeLabelMap: Record<string, string> = {
     http: 'HTTP',
     tcp: 'TCP',
-    komari: 'KOMARI',
     komari_webhook: 'KOMARI-WH',
     nezha_webhook: 'NEZHA-WH',
     telegram: 'TG',
