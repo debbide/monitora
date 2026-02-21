@@ -1,7 +1,15 @@
 import { useState, useEffect } from 'react'
 import { toast } from 'react-hot-toast'
 import { AreaChart, Area, ResponsiveContainer, Tooltip } from 'recharts'
-import { Monitor, MonitorCheck, KomariServer, deleteMonitor, testWebhook, checkNow, getKomariStatus } from '../lib/api'
+import {
+  Monitor,
+  MonitorCheck,
+  KomariServer,
+  deleteMonitor,
+  testWebhook,
+  checkNow,
+  getKomariStatus
+} from '../lib/api'
 
 // 从国旗 emoji 提取国家代码
 function extractCountryCode(region: string): string {
@@ -11,7 +19,7 @@ function extractCountryCode(region: string): string {
     const flag = match[0]
     // 将 regional indicator 转换为字母
     const chars = [...flag]
-    const code = chars.map(c => String.fromCharCode(c.codePointAt(0)! - 0x1F1E6 + 65)).join('')
+    const code = chars.map(c => String.fromCharCode(c.codePointAt(0)! - 0x1f1e6 + 65)).join('')
     return code.toLowerCase()
   }
   // 如果是普通国家代码
@@ -38,20 +46,40 @@ export default function MonitorCard({ monitor, onUpdate, onEdit }: MonitorCardPr
   const [isLoadingServers, setIsLoadingServers] = useState(false)
 
   // 对于 Komari 监控，使用实时服务器状态来判断
-  const komariRealTimeStatus = monitor.check_type === 'komari' && komariServers.length > 0
-    ? (komariServers.every(s => s.is_online) ? 'up' : 'down')
-    : null
+  const komariRealTimeStatus =
+    monitor.check_type === 'komari' && komariServers.length > 0
+      ? komariServers.every(s => s.is_online)
+        ? 'up'
+        : 'down'
+      : null
 
   // 优先使用 Komari 实时状态，否则使用 latestCheck
   const status = komariRealTimeStatus || monitor.latestCheck?.status || 'unknown'
   const statusColor = status === 'up' ? '#10b981' : status === 'down' ? '#ef4444' : '#6b7280'
   const statusText = status === 'up' ? '正常' : status === 'down' ? '故障' : '未知'
+  const displayUrl = monitor.url || monitor.webhook_url || ''
+  const hideNextCheck =
+    monitor.check_type === 'telegram' ||
+    monitor.check_type === 'komari_webhook' ||
+    monitor.check_type === 'nezha_webhook'
+  const modeLabelMap: Record<string, string> = {
+    http: 'HTTP',
+    tcp: 'TCP',
+    komari: 'KOMARI',
+    komari_webhook: 'KOMARI-WH',
+    nezha_webhook: 'NEZHA-WH',
+    telegram: 'TG',
+    scheduled_webhook: 'CRON',
+    feedback_linkage: 'FB-LINK'
+  }
+  const modeLabel = modeLabelMap[monitor.check_type]
 
   // 准备图表数据
-  const chartData = monitor.recentChecks?.map(check => ({
-    time: new Date(check.checked_at).toLocaleTimeString(),
-    value: check.response_time
-  })) || []
+  const chartData =
+    monitor.recentChecks?.map(check => ({
+      time: new Date(check.checked_at).toLocaleTimeString(),
+      value: check.response_time
+    })) || []
 
   useEffect(() => {
     if (monitor.check_type === 'komari') {
@@ -141,33 +169,28 @@ export default function MonitorCard({ monitor, onUpdate, onEdit }: MonitorCardPr
           >
             {isChecking ? '⏳' : '🔄'}
           </button>
-          <button
-            className="btn-icon"
-            onClick={onEdit}
-            title="编辑"
-          >
+          <button className="btn-icon" onClick={onEdit} title="编辑">
             ✏️
           </button>
-          <button
-            className="btn-icon"
-            onClick={handleDelete}
-            disabled={isDeleting}
-            title="删除"
-          >
+          <button className="btn-icon" onClick={handleDelete} disabled={isDeleting} title="删除">
             🗑️
           </button>
         </div>
       </div>
 
-      <h3 className="monitor-name">{monitor.name}</h3>
-      <a
-        href={monitor.url}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="monitor-url"
-      >
-        {monitor.url}
-      </a>
+      <div className="monitor-title-row">
+        <h3 className="monitor-name">{monitor.name}</h3>
+        {modeLabel && (
+          <span className={`mode-badge mode-${monitor.check_type}`} title={`模式: ${modeLabel}`}>
+            {modeLabel}
+          </span>
+        )}
+      </div>
+      {displayUrl && (
+        <a href={displayUrl} target="_blank" rel="noopener noreferrer" className="monitor-url">
+          {displayUrl}
+        </a>
+      )}
 
       <div className="monitor-stats">
         <div className="stat">
@@ -176,17 +199,26 @@ export default function MonitorCard({ monitor, onUpdate, onEdit }: MonitorCardPr
         </div>
         <div className="stat">
           <span className="stat-label">响应时间</span>
-          <span className="stat-value" style={{
-            color: (monitor.latestCheck?.response_time || 0) > 1000 ? '#f59e0b' : 'inherit'
-          }}>
+          <span
+            className="stat-value"
+            style={{
+              color: (monitor.latestCheck?.response_time || 0) > 1000 ? '#f59e0b' : 'inherit'
+            }}
+          >
             {monitor.latestCheck?.response_time || 0}ms
           </span>
         </div>
         <div className="stat">
           <span className="stat-label">状态码</span>
-          <span className="stat-value" style={{
-            color: monitor.latestCheck?.status_code && monitor.latestCheck.status_code >= 400 ? '#ef4444' : 'inherit'
-          }}>
+          <span
+            className="stat-value"
+            style={{
+              color:
+                monitor.latestCheck?.status_code && monitor.latestCheck.status_code >= 400
+                  ? '#ef4444'
+                  : 'inherit'
+            }}
+          >
             {monitor.latestCheck?.status_code || '-'}
           </span>
         </div>
@@ -255,7 +287,9 @@ export default function MonitorCard({ monitor, onUpdate, onEdit }: MonitorCardPr
                     src={getFlagUrl(server.region)}
                     alt={server.region}
                     className="server-flag"
-                    onError={(e) => { e.currentTarget.style.display = 'none' }}
+                    onError={e => {
+                      e.currentTarget.style.display = 'none'
+                    }}
                   />
                   <span className="server-name">{server.name}</span>
                   <span className="server-time">{server.minutes_ago}分钟前</span>
@@ -273,18 +307,33 @@ export default function MonitorCard({ monitor, onUpdate, onEdit }: MonitorCardPr
           <span className="last-check">
             最后检查: {new Date(monitor.latestCheck.checked_at).toLocaleString('zh-CN')}
           </span>
-          {monitor.next_check_at && (
-            <span className="next-check" style={{ display: 'block', marginTop: '4px', fontSize: '0.9em', color: '#888' }}>
+          {monitor.next_check_at && !hideNextCheck && (
+            <span
+              className="next-check"
+              style={{ display: 'block', marginTop: '4px', fontSize: '0.9em', color: '#888' }}
+            >
               下次执行: {new Date(monitor.next_check_at).toLocaleString('zh-CN')}
+            </span>
+          )}
+          {monitor.next_check_at && hideNextCheck && (
+            <span
+              className="next-check"
+              style={{
+                display: 'block',
+                marginTop: '4px',
+                fontSize: '0.9em',
+                color: '#888',
+                visibility: 'hidden'
+              }}
+            >
+              占位
             </span>
           )}
         </div>
       )}
 
       {monitor.latestCheck?.error_message && status === 'down' && (
-        <div className="monitor-error">
-          错误: {monitor.latestCheck.error_message}
-        </div>
+        <div className="monitor-error">错误: {monitor.latestCheck.error_message}</div>
       )}
 
       <div className="monitor-webhook-test">
