@@ -225,10 +225,42 @@ docker-compose up -d
 
 ---
 
-## 🛠️ API 接口
+## 🔌 WebTask 浏览器插件联动 (透明 webhook 代理)
+
+CloudEye 现已支持作为 **WebTask 自动化脚本插件** 的任务调度中心。
+面板作为透明中转站，将原生的离线 Webhook 报警持久化下发给浏览器插件执行自动化任务（例如服务器重启等）。
+
+### 1. 监控面板侧配置
+当你要让某个监控掉线时触发浏览器的 WebTask 任务，只需按照以下方式设置该监控：
+1. **Webhook URL 填入本控制台的中转地址**（替换为您的实际 IP 或域名）：
+   ```http
+   http://127.0.0.1:3000/api/webtask/queue
+   ```
+2. **Webhook Body (自定义请求体)** 按照 WebTask 插件接收的协议格式填写：
+   ```json
+   {
+     "task": "minestrator_restart",
+     "data": {
+       "serverId": "421301"
+     }
+   }
+   ```
+> 面板会在该监控报警时，将这串 JSON 原封不动放入 SQLite 的缓冲队列待命。
+
+### 2. WebTask 插件侧配置
+在浏览器插件端，无需特别鉴权，只需将**基地址**（Webhook URL）指向面板：
+- **基地址 (Webhook URL)**: `http://<您的面板IP或域名>:3000/api/webtask`
+
+插件内部会自动拼接以下路径进行工作：
+- `GET /api/webtask/pending`：轮询领取等待执行的任务。
+- `POST /api/webtask/report`：执行完毕后上报结果。面板收到汇报将自动发送至 Telegram 报警群组。
+
+---
+
+## 🛠️ 其他 API 接口
 
 - `GET /api/monitors`: 获取所有监控项状态。
-- `GET /poll?since=0`: 获取最新的刷新指令。
+- `GET /poll?since=0`: 获取最新的 SSE 刷新指令。
 - `POST /api/check-now`: 强制立即触发任务。
 
 ## ⚙️ 环境变量
