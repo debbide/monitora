@@ -246,19 +246,13 @@ CloudEye 现已支持作为 **WebTask 自动化脚本插件** 的任务调度中
 
 ### 2. WebTask 插件侧配置
 在浏览器插件端，无需特别鉴权，只需将**基地址**（Webhook URL）指向面板：
-- **基地址 (Webhook URL)**: `http://<您的面板IP或域名>:3000/api/webtask`
+- **基地址 (Webhook URL)**: `http://<您的面板IP或域名>:3000`
 
 插件内部会自动拼接以下路径进行工作：
 - `GET /api/webtask/pending`：轮询领取等待执行的任务。
 - `POST /api/webtask/report`：执行完毕后上报结果。面板收到汇报将自动发送至 Telegram 报警群组。
 
 ---
-
-## 🛠️ 其他 API 接口
-
-- `GET /api/monitors`: 获取所有监控项状态。
-- `GET /poll?since=0`: 获取最新的 SSE 刷新指令。
-- `POST /api/check-now`: 强制立即触发任务。
 
 ## ⚙️ 环境变量
 
