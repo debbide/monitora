@@ -1407,9 +1407,12 @@ app.post('/api/webtask/report', async (req, res) => {
   try {
     const { task, success, message, variables } = req.body
 
-    // 尝试获取 Komari 全局通知群组 ID，如果没配，说明没地方发
-    const chatIdResult = queryFirst("SELECT value FROM system_settings WHERE key = 'komari_notify_chat_id'") as { value: string } | null
-    const chatId = chatIdResult?.value
+    // 优先从 variables 里取插件指定的 tg_notify_chat_id，如果没有，再找 Komari 全局通知群组 ID
+    let chatId = variables?.tg_notify_chat_id
+    if (!chatId) {
+      const chatIdResult = queryFirst("SELECT value FROM system_settings WHERE key = 'komari_notify_chat_id'") as { value: string } | null
+      chatId = chatIdResult?.value
+    }
 
     if (chatId) {
       const timeStr = new Date().toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' })
@@ -1419,6 +1422,8 @@ app.post('/api/webtask/report', async (req, res) => {
       let varsInfo: string[] = []
       if (variables && typeof variables === 'object') {
         for (const [key, value] of Object.entries(variables)) {
+          // 不在 TG 消息体里显示这个内部路由用的 ID
+          if (key === 'tg_notify_chat_id') continue;
           varsInfo.push(`🔹 *${key}:* ${value}`)
         }
       }
