@@ -182,6 +182,17 @@ export async function initDatabase(): Promise<Database> {
   db.run(`CREATE INDEX IF NOT EXISTS idx_monitor_checks_checked_at ON monitor_checks(checked_at DESC)`)
   db.run(`CREATE INDEX IF NOT EXISTS idx_incidents_monitor_id ON incidents(monitor_id)`)
 
+  // WebTask 任务队列持久化表
+  db.run(`
+    CREATE TABLE IF NOT EXISTS webtasks (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      payload TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'pending',
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    )
+  `)
+  db.run(`CREATE INDEX IF NOT EXISTS idx_webtasks_status ON webtasks(status)`)
+
   // 保存数据库
   saveDatabase()
 

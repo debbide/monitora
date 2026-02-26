@@ -1364,6 +1364,85 @@ async function handleFeedbackCallback(monitor: Monitor, remaining_time: number, 
   }
 }
 
+// ==========================================
+// WebTask 插件工作流中转服务
+// ==========================================
+
+// 1. 接收面板自己发出的 Webhook 任务并持久化入队
+app.post('/api/webtask/queue', (req, res) => {
+  try {
+    const payload = JSON.stringify(req.body)
+    run("INSERT INTO webtasks (payload, status, created_at) VALUES (?, 'pending', datetime('now'))", [payload])
+    res.json({ success: true, message: 'WebTask has been queued' })
+  } catch (error: any) {
+    res.status(500).json({ error: error.message })
+  }
+})
+
+// 2. 插件轮询拉取待处理任务
+app.get('/api/webtask/pending', (req, res) => {
+  try {
+    // 找出最早的一条未处理任务
+    const taskRecord = queryFirst("SELECT * FROM webtasks WHERE status = 'pending' ORDER BY id ASC LIMIT 1") as any
+    if (taskRecord) {
+      // 从数据库中彻底删除以表示已领取，保证即使多开插件也不会重复领取
+      run("DELETE FROM webtasks WHERE id = ?", [taskRecord.id])
+      let payload
+      try {
+        payload = JSON.parse(taskRecord.payload)
+      } catch (e) {
+        payload = { task: null }
+      }
+      res.json(payload)
+    } else {
+      res.json({ task: null })
+    }
+  } catch (error: any) {
+    res.status(500).json({ error: error.message })
+  }
+})
+
+// 3. 插件上报执行结果
+app.post('/api/webtask/report', async (req, res) => {
+  try {
+    const { task, success, message, variables } = req.body
+
+    // 尝试获取 Komari 全局通知群组 ID，如果没配，说明没地方发
+    const chatIdResult = queryFirst("SELECT value FROM system_settings WHERE key = 'komari_notify_chat_id'") as { value: string } | null
+    const chatId = chatIdResult?.value
+
+    if (chatId) {
+      const timeStr = new Date().toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' })
+      const statusIcon = success ? '✅' : '❌'
+      const statusText = success ? '执行成功' : '执行失败'
+
+      let serverIdInfo = ''
+      if (variables && variables.serverId) {
+        serverIdInfo = `💻 *目标:* ${variables.serverId}`
+      } else if (variables && variables.server_name) {
+        serverIdInfo = `💻 *目标:* ${variables.server_name}`
+      }
+
+      const tgMsg = [
+        `🤖 *WebTask 插件执行报告*`,
+        ``,
+        `⚙️ *任务命令:* \`${task || '未知任务'}\``,
+        `📊 *执行状态:* ${statusIcon} ${statusText}`,
+        `💬 *结果信息:* ${message || '无'}`,
+        serverIdInfo,
+        ``,
+        `\`⏰ ${timeStr}\``
+      ].filter(Boolean).join('\n')
+
+      await sendTgMessage(chatId, tgMsg)
+    }
+
+    res.json({ success: true, message: 'Report received and pushed to TG' })
+  } catch (error: any) {
+    res.status(500).json({ error: error.message })
+  }
+})
+
 // 手动触发检查
 app.get('/trigger', async (req, res) => {
   await checkAllMonitors()

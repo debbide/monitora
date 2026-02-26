@@ -590,13 +590,14 @@
 }
 
 .monitor-name {
-  font-size: 1rem;
-  font-weight: 700;
+  font-size: 1.05rem;
+  font-weight: 750;
   color: var(--color-text);
+  text-shadow: 0 1px 8px rgba(56, 189, 248, 0.08);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  letter-spacing: 0.2px;
+  letter-spacing: 0.3px;
 }
 
 .mode-badge {

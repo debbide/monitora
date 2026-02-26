@@ -51,3 +51,4 @@ coverage
 *.temp
 .cache
 
+push.py
