@@ -1416,11 +1416,11 @@ app.post('/api/webtask/report', async (req, res) => {
       const statusIcon = success ? '✅' : '❌'
       const statusText = success ? '执行成功' : '执行失败'
 
-      let serverIdInfo = ''
-      if (variables && variables.serverId) {
-        serverIdInfo = `💻 *目标:* ${variables.serverId}`
-      } else if (variables && variables.server_name) {
-        serverIdInfo = `💻 *目标:* ${variables.server_name}`
+      let varsInfo: string[] = []
+      if (variables && typeof variables === 'object') {
+        for (const [key, value] of Object.entries(variables)) {
+          varsInfo.push(`🔹 *${key}:* ${value}`)
+        }
       }
 
       const tgMsg = [
@@ -1429,7 +1429,7 @@ app.post('/api/webtask/report', async (req, res) => {
         `⚙️ *任务命令:* \`${task || '未知任务'}\``,
         `📊 *执行状态:* ${statusIcon} ${statusText}`,
         `💬 *结果信息:* ${message || '无'}`,
-        serverIdInfo,
+        ...varsInfo,
         ``,
         `\`⏰ ${timeStr}\``
       ].filter(Boolean).join('\n')
