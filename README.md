@@ -236,13 +236,10 @@ CloudEye 现已支持作为 **WebTask 自动化脚本插件** 的任务调度中
    ```http
    http://127.0.0.1:3000/api/webtask/queue
    ```
-2. **Webhook Body (自定义请求体)** 按照 WebTask 插件接收的协议格式填写：
+2. **Webhook Body (自定义请求体)** 按照 WebTask 插件能识别的极简格式填写（仅传任务名触发即可）：
    ```json
    {
-     "task": "minestrator_restart",
-     "data": {
-       "serverId": "421301"
-     }
+     "task": "minestrator_restart"
    }
    ```
 > 面板会在该监控报警时，将这串 JSON 原封不动放入 SQLite 的缓冲队列待命。
