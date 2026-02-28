@@ -473,7 +473,7 @@ export async function handleDownStatus(monitor: Monitor, check: MonitorCheck) {
       new Date().toISOString()
     ])
 
-    if (monitor.webhook_url) {
+    if (monitor.webhook_url && monitor.check_type !== 'nezha_webhook') {
       await sendWebhookNotification(monitor, check, 'down')
     }
 

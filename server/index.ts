@@ -15,7 +15,7 @@ import {
   handleDownStatus,
   handleUpStatus
 } from './monitor.js'
-import { processWebhookBody } from './webhook-sender.js'
+import { processWebhookBody, sendWebhookNotification } from './webhook-sender.js'
 import {
   initTelegramBot,
   getTelegramBotStatus,
@@ -1303,6 +1303,37 @@ app.post('/api/nezha-notify-v1', async (req, res) => {
         }
         saveCheck(checkData)
         await handleDownStatus(matchedMonitor, checkData)
+
+        // 发送 Webhook 并回报执行结果到 TG（Nezha）
+        if (matchedMonitor.webhook_url) {
+          let webhookSuccess = false
+          let webhookError = ''
+
+          try {
+            const result = await sendWebhookNotification(matchedMonitor, checkData, 'down')
+            webhookSuccess = result.success
+            if (!webhookSuccess) {
+              webhookError = result.error || 'Unknown error'
+            }
+          } catch (err: any) {
+            webhookError = err.message || 'Unknown error'
+          }
+
+          if (chatId) {
+            const resultEmoji = webhookSuccess ? '✅' : '❌'
+            const resultText = webhookSuccess ? '成功' : `失败: ${webhookError}`
+            const webhookResultMsg = [
+              `📤 *Webhook 执行结果*`,
+              ``,
+              `🖥️ *监控项:* ${matchedMonitor.name}`,
+              `${resultEmoji} *状态:* ${resultText}`,
+              `🔗 *URL:* ${matchedMonitor.webhook_url.substring(0, 50)}...`,
+              ``,
+              `\`⏰ ${timeStr}\``
+            ].join('\n')
+            await sendTgMessage(chatId, webhookResultMsg)
+          }
+        }
 
         // 发带"匹配监控"和"重发 Webhook"按钮的通知
         if (chatId) {
