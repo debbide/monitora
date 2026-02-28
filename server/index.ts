@@ -6,9 +6,25 @@ import { fileURLToPath } from 'url'
 import crypto from 'crypto'
 import { initDatabase, queryAll, queryFirst, run } from './db.js'
 import { Monitor, MonitorCheck } from './types.js'
-import { checkAllMonitors, checkMonitor, hashPassword, verifyPassword, saveCheck, handleDownStatus, handleUpStatus } from './monitor.js'
+import {
+  checkAllMonitors,
+  checkMonitor,
+  hashPassword,
+  verifyPassword,
+  saveCheck,
+  handleDownStatus,
+  handleUpStatus
+} from './monitor.js'
 import { processWebhookBody } from './webhook-sender.js'
-import { initTelegramBot, getTelegramBotStatus, stopTelegramBot, setTgBotToken, getTgBotToken, testChatConnection, sendTgMessage } from './telegram.js'
+import {
+  initTelegramBot,
+  getTelegramBotStatus,
+  stopTelegramBot,
+  setTgBotToken,
+  getTgBotToken,
+  testChatConnection,
+  sendTgMessage
+} from './telegram.js'
 import { addClient, broadcastRefresh, getClientCount, getClients, pollRefresh } from './sse.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -53,10 +69,15 @@ app.post('/api/monitors', async (req, res) => {
     const checkIntervalMax = body.check_interval_max ? parseInt(body.check_interval_max) : null
     let nextInterval = checkInterval
 
-    if ((body.check_type === 'http' || body.check_type === 'scheduled_webhook') && checkIntervalMax && checkIntervalMax > checkInterval) {
-      nextInterval = Math.floor(Math.random() * (checkIntervalMax - checkInterval + 1)) + checkInterval
+    if (
+      (body.check_type === 'http' || body.check_type === 'scheduled_webhook') &&
+      checkIntervalMax &&
+      checkIntervalMax > checkInterval
+    ) {
+      nextInterval =
+        Math.floor(Math.random() * (checkIntervalMax - checkInterval + 1)) + checkInterval
     }
-    const initialNextCheck = new Date(now + (nextInterval * 60 * 1000)).toISOString()
+    const initialNextCheck = new Date(now + nextInterval * 60 * 1000).toISOString()
 
     run(
       `INSERT INTO monitors (
@@ -82,8 +103,12 @@ app.post('/api/monitors', async (req, res) => {
         body.forbidden_keyword || null,
         parseInt(body.komari_offline_threshold) || 3,
         body.check_content_type || 'application/json',
-        body.check_headers && typeof body.check_headers === 'object' ? JSON.stringify(body.check_headers) : (body.check_headers || null),
-        body.check_body && typeof body.check_body === 'object' ? JSON.stringify(body.check_body) : (body.check_body || null),
+        body.check_headers && typeof body.check_headers === 'object'
+          ? JSON.stringify(body.check_headers)
+          : body.check_headers || null,
+        body.check_body && typeof body.check_body === 'object'
+          ? JSON.stringify(body.check_body)
+          : body.check_body || null,
         body.tg_chat_id || null,
         body.tg_server_name || null,
         body.tg_offline_keywords || null,
@@ -91,8 +116,12 @@ app.post('/api/monitors', async (req, res) => {
         body.tg_notify_chat_id || null,
         body.webhook_url || null,
         body.webhook_content_type || 'application/json',
-        body.webhook_headers && typeof body.webhook_headers === 'object' ? JSON.stringify(body.webhook_headers) : (body.webhook_headers || null),
-        body.webhook_body && typeof body.webhook_body === 'object' ? JSON.stringify(body.webhook_body) : (body.webhook_body || null),
+        body.webhook_headers && typeof body.webhook_headers === 'object'
+          ? JSON.stringify(body.webhook_headers)
+          : body.webhook_headers || null,
+        body.webhook_body && typeof body.webhook_body === 'object'
+          ? JSON.stringify(body.webhook_body)
+          : body.webhook_body || null,
         body.webhook_username || null,
         initialNextCheck,
         body.feedback_linkage || body.check_type === 'feedback_linkage' ? 1 : 0,
@@ -106,7 +135,11 @@ app.post('/api/monitors', async (req, res) => {
 
     // 不再立即执行 checkMonitor(monitor)，而是等待 next_check_at
     if (monitor) {
-      if (monitor.check_type === 'telegram' || monitor.check_type === 'komari_webhook') {
+      if (
+        monitor.check_type === 'telegram' ||
+        monitor.check_type === 'komari_webhook' ||
+        monitor.check_type === 'nezha_webhook'
+      ) {
         // ... (保持不变) ...
         run(
           `INSERT INTO monitor_checks (monitor_id, status, response_time, status_code, error_message, checked_at)
@@ -152,10 +185,15 @@ app.put('/api/monitors/:id', (req, res) => {
     const checkIntervalMax = body.check_interval_max ? parseInt(body.check_interval_max) : null
     let nextInterval = checkInterval
 
-    if ((body.check_type === 'http' || body.check_type === 'scheduled_webhook') && checkIntervalMax && checkIntervalMax > checkInterval) {
-      nextInterval = Math.floor(Math.random() * (checkIntervalMax - checkInterval + 1)) + checkInterval
+    if (
+      (body.check_type === 'http' || body.check_type === 'scheduled_webhook') &&
+      checkIntervalMax &&
+      checkIntervalMax > checkInterval
+    ) {
+      nextInterval =
+        Math.floor(Math.random() * (checkIntervalMax - checkInterval + 1)) + checkInterval
     }
-    const resetNextCheck = new Date(now + (nextInterval * 60 * 1000)).toISOString()
+    const resetNextCheck = new Date(now + nextInterval * 60 * 1000).toISOString()
 
     run(
       `UPDATE monitors SET
@@ -204,8 +242,12 @@ app.put('/api/monitors/:id', (req, res) => {
         body.forbidden_keyword || null,
         parseInt(body.komari_offline_threshold) || 3,
         body.check_content_type || 'application/json',
-        body.check_headers && typeof body.check_headers === 'object' ? JSON.stringify(body.check_headers) : (body.check_headers || null),
-        body.check_body && typeof body.check_body === 'object' ? JSON.stringify(body.check_body) : (body.check_body || null),
+        body.check_headers && typeof body.check_headers === 'object'
+          ? JSON.stringify(body.check_headers)
+          : body.check_headers || null,
+        body.check_body && typeof body.check_body === 'object'
+          ? JSON.stringify(body.check_body)
+          : body.check_body || null,
         body.tg_chat_id || null,
         body.tg_server_name || null,
         body.tg_offline_keywords || null,
@@ -213,8 +255,12 @@ app.put('/api/monitors/:id', (req, res) => {
         body.tg_notify_chat_id || null,
         body.webhook_url || null,
         body.webhook_content_type || 'application/json',
-        body.webhook_headers && typeof body.webhook_headers === 'object' ? JSON.stringify(body.webhook_headers) : (body.webhook_headers || null),
-        body.webhook_body && typeof body.webhook_body === 'object' ? JSON.stringify(body.webhook_body) : (body.webhook_body || null),
+        body.webhook_headers && typeof body.webhook_headers === 'object'
+          ? JSON.stringify(body.webhook_headers)
+          : body.webhook_headers || null,
+        body.webhook_body && typeof body.webhook_body === 'object'
+          ? JSON.stringify(body.webhook_body)
+          : body.webhook_body || null,
         body.webhook_username || null,
         body.is_active !== undefined ? body.is_active : 1,
         new Date().toISOString(),
@@ -269,10 +315,9 @@ app.get('/api/stats', (req, res) => {
       return res.status(400).json({ error: 'monitor_id required' })
     }
 
-    const total = queryFirst(
-      'SELECT COUNT(*) as count FROM monitor_checks WHERE monitor_id = ?',
-      [monitorId]
-    ) as any
+    const total = queryFirst('SELECT COUNT(*) as count FROM monitor_checks WHERE monitor_id = ?', [
+      monitorId
+    ]) as any
 
     const upCount = queryFirst(
       "SELECT COUNT(*) as count FROM monitor_checks WHERE monitor_id = ? AND status = 'up'",
@@ -390,7 +435,9 @@ app.post('/api/test-webhook', async (req, res) => {
     // 如果是 Komari Webhook 类型，使用全局通知群组发送确认消息
     if (monitor.check_type === 'komari_webhook') {
       try {
-        const chatIdResult = queryFirst("SELECT value FROM system_settings WHERE key = 'komari_notify_chat_id'") as { value: string } | null
+        const chatIdResult = queryFirst(
+          "SELECT value FROM system_settings WHERE key = 'komari_notify_chat_id'"
+        ) as { value: string } | null
         const chatId = chatIdResult?.value || ''
         if (chatId) {
           const webhookConfirmMsg = [
@@ -411,6 +458,35 @@ app.post('/api/test-webhook', async (req, res) => {
         }
       } catch (err) {
         console.error('发送 Komari Webhook TG 确认消息失败:', err)
+      }
+    }
+
+    // 如果是 Nezha Webhook 类型，使用全局通知群组发送确认消息
+    if (monitor.check_type === 'nezha_webhook') {
+      try {
+        const chatIdResult = queryFirst(
+          "SELECT value FROM system_settings WHERE key = 'nezha_notify_chat_id'"
+        ) as { value: string } | null
+        const chatId = chatIdResult?.value || ''
+        if (chatId) {
+          const webhookConfirmMsg = [
+            `📤 *Webhook 测试成功*`,
+            ``,
+            `🖥️ *监控:* ${monitor.name}`,
+            `🔗 *Webhook:* ${monitor.webhook_url.substring(0, 50)}...`,
+            ``,
+            `\`⏰ ${new Date().toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' })}\``
+          ].join('\n')
+          await sendTgMessage(chatId, webhookConfirmMsg, {
+            reply_markup: {
+              inline_keyboard: [
+                [{ text: '🔄 重发 Webhook', callback_data: `retry_webhook:${monitor.id}` }]
+              ]
+            }
+          })
+        }
+      } catch (err) {
+        console.error('发送 Nezha Webhook TG 确认消息失败:', err)
       }
     }
 
@@ -482,10 +558,10 @@ app.post('/api/auth/change-password', async (req, res) => {
 
     const newHash = await hashPassword(new_password)
 
-    run(
-      'UPDATE admin_credentials SET password_hash = ?, updated_at = ? WHERE id = 1',
-      [newHash, new Date().toISOString()]
-    )
+    run('UPDATE admin_credentials SET password_hash = ?, updated_at = ? WHERE id = 1', [
+      newHash,
+      new Date().toISOString()
+    ])
 
     res.json({ success: true })
   } catch (error: any) {
@@ -543,7 +619,11 @@ app.post('/api/webhook/refresh', (req, res) => {
     }
 
     broadcastRefresh(url, 'refresh')
-    res.json({ success: true, message: `Refresh notification sent for ${url}`, clients: getClientCount() })
+    res.json({
+      success: true,
+      message: `Refresh notification sent for ${url}`,
+      clients: getClientCount()
+    })
   } catch (error: any) {
     res.status(500).json({ error: error.message })
   }
@@ -569,10 +649,18 @@ app.get('/poll', (req, res) => {
 // 获取 Komari 通知配置
 app.get('/api/settings/komari-notify', (req, res) => {
   try {
-    const enabled = queryFirst("SELECT value FROM system_settings WHERE key = 'komari_notify_enabled'") as { value: string } | null
-    const chatId = queryFirst("SELECT value FROM system_settings WHERE key = 'komari_notify_chat_id'") as { value: string } | null
-    const webhookUrl = queryFirst("SELECT value FROM system_settings WHERE key = 'komari_notify_webhook_url'") as { value: string } | null
-    const webhookBody = queryFirst("SELECT value FROM system_settings WHERE key = 'komari_notify_webhook_body'") as { value: string } | null
+    const enabled = queryFirst(
+      "SELECT value FROM system_settings WHERE key = 'komari_notify_enabled'"
+    ) as { value: string } | null
+    const chatId = queryFirst(
+      "SELECT value FROM system_settings WHERE key = 'komari_notify_chat_id'"
+    ) as { value: string } | null
+    const webhookUrl = queryFirst(
+      "SELECT value FROM system_settings WHERE key = 'komari_notify_webhook_url'"
+    ) as { value: string } | null
+    const webhookBody = queryFirst(
+      "SELECT value FROM system_settings WHERE key = 'komari_notify_webhook_body'"
+    ) as { value: string } | null
 
     res.json({
       enabled: enabled?.value === '1',
@@ -590,10 +678,22 @@ app.post('/api/settings/komari-notify', (req, res) => {
   try {
     const { enabled, chat_id, webhook_url, webhook_body } = req.body
 
-    run("INSERT OR REPLACE INTO system_settings (key, value, updated_at) VALUES ('komari_notify_enabled', ?, datetime('now'))", [enabled ? '1' : '0'])
-    run("INSERT OR REPLACE INTO system_settings (key, value, updated_at) VALUES ('komari_notify_chat_id', ?, datetime('now'))", [chat_id || ''])
-    run("INSERT OR REPLACE INTO system_settings (key, value, updated_at) VALUES ('komari_notify_webhook_url', ?, datetime('now'))", [webhook_url || ''])
-    run("INSERT OR REPLACE INTO system_settings (key, value, updated_at) VALUES ('komari_notify_webhook_body', ?, datetime('now'))", [webhook_body || ''])
+    run(
+      "INSERT OR REPLACE INTO system_settings (key, value, updated_at) VALUES ('komari_notify_enabled', ?, datetime('now'))",
+      [enabled ? '1' : '0']
+    )
+    run(
+      "INSERT OR REPLACE INTO system_settings (key, value, updated_at) VALUES ('komari_notify_chat_id', ?, datetime('now'))",
+      [chat_id || '']
+    )
+    run(
+      "INSERT OR REPLACE INTO system_settings (key, value, updated_at) VALUES ('komari_notify_webhook_url', ?, datetime('now'))",
+      [webhook_url || '']
+    )
+    run(
+      "INSERT OR REPLACE INTO system_settings (key, value, updated_at) VALUES ('komari_notify_webhook_body', ?, datetime('now'))",
+      [webhook_body || '']
+    )
 
     res.json({ success: true, message: '配置已保存' })
   } catch (error: any) {
@@ -624,24 +724,39 @@ app.post('/api/komari-notify', async (req, res) => {
     const cleanTitle = stripHtml(title || '')
     const cleanMessage = stripHtml(message || '')
 
-    console.log(`📩 收到 Komari 通知: ${cleanTitle || '(无标题)'} - ${cleanMessage?.substring(0, 50) || '(无内容)'}...`)
+    console.log(
+      `📩 收到 Komari 通知: ${cleanTitle || '(无标题)'} - ${cleanMessage?.substring(0, 50) || '(无内容)'}...`
+    )
 
     // 检查是否启用
-    const enabledResult = queryFirst("SELECT value FROM system_settings WHERE key = 'komari_notify_enabled'") as { value: string } | null
+    const enabledResult = queryFirst(
+      "SELECT value FROM system_settings WHERE key = 'komari_notify_enabled'"
+    ) as { value: string } | null
     if (enabledResult?.value !== '1') {
       return res.json({ success: true, message: 'Komari 通知已禁用，忽略' })
     }
 
     // 获取 TG 群组 ID（全局配置）
-    const chatIdResult = queryFirst("SELECT value FROM system_settings WHERE key = 'komari_notify_chat_id'") as { value: string } | null
+    const chatIdResult = queryFirst(
+      "SELECT value FROM system_settings WHERE key = 'komari_notify_chat_id'"
+    ) as { value: string } | null
     const chatId = chatIdResult?.value || ''
 
     const timeStr = new Date().toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' })
 
     // 判断是离线还是恢复（根据关键词）
     const textLower = text.toLowerCase()
-    const isOffline = textLower.includes('离线') || textLower.includes('offline') || textLower.includes('down') || textLower.includes('掉线')
-    const isRecovery = textLower.includes('恢复') || textLower.includes('上线') || textLower.includes('online') || textLower.includes('recovery') || textLower.includes('up')
+    const isOffline =
+      textLower.includes('离线') ||
+      textLower.includes('offline') ||
+      textLower.includes('down') ||
+      textLower.includes('掉线')
+    const isRecovery =
+      textLower.includes('恢复') ||
+      textLower.includes('上线') ||
+      textLower.includes('online') ||
+      textLower.includes('recovery') ||
+      textLower.includes('up')
 
     // 查找所有 Komari Webhook 类型的监控项（被动接收通知）
     const monitors = queryAll(
@@ -655,7 +770,10 @@ app.post('/api/komari-notify', async (req, res) => {
     for (const monitor of monitors) {
       // 使用 expected_keyword 作为服务器名称匹配（与现有逻辑一致）
       const targetServers = monitor.expected_keyword
-        ? monitor.expected_keyword.split(',').map(s => s.trim().toLowerCase()).filter(s => s)
+        ? monitor.expected_keyword
+            .split(',')
+            .map(s => s.trim().toLowerCase())
+            .filter(s => s)
         : []
 
       if (targetServers.length === 0) continue
@@ -673,7 +791,9 @@ app.post('/api/komari-notify', async (req, res) => {
 
     if (isOffline) {
       // ===== 离线通知 =====
-      console.log(`🔴 检测到离线通知${matchedMonitor ? ` (匹配监控: ${matchedMonitor.name}, 服务器: ${matchedServerName})` : ' (未匹配到监控)'}`)
+      console.log(
+        `🔴 检测到离线通知${matchedMonitor ? ` (匹配监控: ${matchedMonitor.name}, 服务器: ${matchedServerName})` : ' (未匹配到监控)'}`
+      )
 
       // 1. 发送 TG 离线消息（使用清理后的内容）
       if (chatId) {
@@ -686,13 +806,24 @@ app.post('/api/komari-notify', async (req, res) => {
           ``,
           `\`⏰ ${timeStr}\``
         ].join('\n')
-        await sendTgMessage(chatId, offlineMsg, matchedMonitor ? {
-          reply_markup: {
-            inline_keyboard: [
-              [{ text: '🔄 重发 Webhook', callback_data: `retry_webhook:${matchedMonitor.id}` }]
-            ]
-          }
-        } : undefined)
+        await sendTgMessage(
+          chatId,
+          offlineMsg,
+          matchedMonitor
+            ? {
+                reply_markup: {
+                  inline_keyboard: [
+                    [
+                      {
+                        text: '🔄 重发 Webhook',
+                        callback_data: `retry_webhook:${matchedMonitor.id}`
+                      }
+                    ]
+                  ]
+                }
+              }
+            : undefined
+        )
       }
 
       // 1.5 如果匹配到监控项，保存检查记录（更新面板状态）
@@ -748,7 +879,9 @@ app.post('/api/komari-notify', async (req, res) => {
           }
 
           if (matchedMonitor.webhook_username) {
-            const encodedAuth = Buffer.from(`${matchedMonitor.webhook_username}:`).toString('base64')
+            const encodedAuth = Buffer.from(`${matchedMonitor.webhook_username}:`).toString(
+              'base64'
+            )
             headers['Authorization'] = `Basic ${encodedAuth}`
           }
 
@@ -795,7 +928,9 @@ app.post('/api/komari-notify', async (req, res) => {
           await sendTgMessage(chatId, webhookResultMsg)
         }
 
-        console.log(`📤 Webhook 调用 (${matchedMonitor.name}): ${webhookSuccess ? '成功' : '失败 - ' + webhookError}`)
+        console.log(
+          `📤 Webhook 调用 (${matchedMonitor.name}): ${webhookSuccess ? '成功' : '失败 - ' + webhookError}`
+        )
       } else if (matchedMonitor) {
         console.log(`⚠️ 监控项 ${matchedMonitor.name} 未配置 Webhook`)
       }
@@ -804,12 +939,15 @@ app.post('/api/komari-notify', async (req, res) => {
         success: true,
         type: 'offline',
         matched_monitor: matchedMonitor?.name || null,
-        message: matchedMonitor ? `离线通知已处理 (${matchedMonitor.name})` : '离线通知已处理（未匹配到监控）'
+        message: matchedMonitor
+          ? `离线通知已处理 (${matchedMonitor.name})`
+          : '离线通知已处理（未匹配到监控）'
       })
-
     } else if (isRecovery) {
       // ===== 恢复通知 =====
-      console.log(`🟢 检测到恢复通知${matchedMonitor ? ` (匹配监控: ${matchedMonitor.name})` : ' (未匹配到监控)'}`)
+      console.log(
+        `🟢 检测到恢复通知${matchedMonitor ? ` (匹配监控: ${matchedMonitor.name})` : ' (未匹配到监控)'}`
+      )
 
       // 仅发送 TG 恢复消息，不调用 Webhook
       if (chatId) {
@@ -841,7 +979,6 @@ app.post('/api/komari-notify', async (req, res) => {
         matched_monitor: matchedMonitor?.name || null,
         message: '恢复通知已处理（未触发 Webhook）'
       })
-
     } else {
       // 未识别的通知类型
       console.log('⚠️ 未识别的通知类型，仅转发到 TG')
@@ -866,7 +1003,6 @@ app.post('/api/komari-notify', async (req, res) => {
   }
 })
 
-
 // 接收 Komari TG 中转服务的 Webhook
 app.post('/api/webhook/komari', async (req, res) => {
   try {
@@ -884,14 +1020,18 @@ app.post('/api/webhook/komari', async (req, res) => {
     for (const monitor of monitors) {
       // 检查是否匹配目标服务器
       const targetServers = monitor.expected_keyword
-        ? monitor.expected_keyword.split(',').map(s => s.trim()).filter(s => s)
+        ? monitor.expected_keyword
+            .split(',')
+            .map(s => s.trim())
+            .filter(s => s)
         : null
 
       // 如果设置了目标服务器，检查是否匹配
       if (targetServers && targetServers.length > 0) {
-        const isTarget = targetServers.some(target =>
-          server_name.toLowerCase().includes(target.toLowerCase()) ||
-          target.toLowerCase().includes(server_name.toLowerCase())
+        const isTarget = targetServers.some(
+          target =>
+            server_name.toLowerCase().includes(target.toLowerCase()) ||
+            target.toLowerCase().includes(server_name.toLowerCase())
         )
         if (!isTarget) continue
       }
@@ -921,10 +1061,10 @@ app.post('/api/webhook/komari', async (req, res) => {
         )
 
         if (!existingIncident) {
-          run(
-            'INSERT INTO incidents (monitor_id, started_at, notified) VALUES (?, ?, 1)',
-            [monitor.id, new Date().toISOString()]
-          )
+          run('INSERT INTO incidents (monitor_id, started_at, notified) VALUES (?, ?, 1)', [
+            monitor.id,
+            new Date().toISOString()
+          ])
         }
       } else {
         // 上线则解决事件
@@ -938,10 +1078,11 @@ app.post('/api/webhook/komari', async (req, res) => {
           const startedAt = new Date(incident.started_at)
           const durationSeconds = Math.floor((Date.now() - startedAt.getTime()) / 1000)
 
-          run(
-            'UPDATE incidents SET resolved_at = ?, duration_seconds = ? WHERE id = ?',
-            [resolvedAt, durationSeconds, incident.id]
-          )
+          run('UPDATE incidents SET resolved_at = ?, duration_seconds = ? WHERE id = ?', [
+            resolvedAt,
+            durationSeconds,
+            incident.id
+          ])
         }
       }
 
@@ -982,7 +1123,7 @@ app.get('/api/komari-status/:id', async (req, res) => {
       return res.status(502).json({ error: `Komari API returned ${response.status}` })
     }
 
-    const data = await response.json() as any
+    const data = (await response.json()) as any
 
     if (data.status !== 'success') {
       return res.status(502).json({ error: data.message || 'Komari API error' })
@@ -991,27 +1132,32 @@ app.get('/api/komari-status/:id', async (req, res) => {
     const offlineThreshold = (monitor.komari_offline_threshold || 3) * 60 * 1000
     const now = Date.now()
     const targetServers = monitor.expected_keyword
-      ? monitor.expected_keyword.split(',').map((s: string) => s.trim()).filter((s: string) => s)
+      ? monitor.expected_keyword
+          .split(',')
+          .map((s: string) => s.trim())
+          .filter((s: string) => s)
       : null
 
-    const servers = data.data.map((server: any) => {
-      if (targetServers && targetServers.length > 0) {
-        const isTarget = targetServers.some((target: string) => server.name === target)
-        if (!isTarget) return null
-      }
+    const servers = data.data
+      .map((server: any) => {
+        if (targetServers && targetServers.length > 0) {
+          const isTarget = targetServers.some((target: string) => server.name === target)
+          if (!isTarget) return null
+        }
 
-      const updatedAt = new Date(server.updated_at).getTime()
-      const timeSinceUpdate = now - updatedAt
-      const isOnline = timeSinceUpdate <= offlineThreshold
+        const updatedAt = new Date(server.updated_at).getTime()
+        const timeSinceUpdate = now - updatedAt
+        const isOnline = timeSinceUpdate <= offlineThreshold
 
-      return {
-        name: server.name,
-        region: server.region,
-        updated_at: server.updated_at,
-        minutes_ago: Math.floor(timeSinceUpdate / 60000),
-        is_online: isOnline
-      }
-    }).filter(Boolean)
+        return {
+          name: server.name,
+          region: server.region,
+          updated_at: server.updated_at,
+          minutes_ago: Math.floor(timeSinceUpdate / 60000),
+          is_online: isOnline
+        }
+      })
+      .filter(Boolean)
 
     res.json({ servers })
   } catch (error: any) {
@@ -1026,8 +1172,12 @@ app.get('/api/komari-status/:id', async (req, res) => {
 // 获取 Nezha 通知配置
 app.get('/api/settings/nezha-notify', (req, res) => {
   try {
-    const enabled = queryFirst("SELECT value FROM system_settings WHERE key = 'nezha_notify_enabled'") as { value: string } | null
-    const chatId = queryFirst("SELECT value FROM system_settings WHERE key = 'nezha_notify_chat_id'") as { value: string } | null
+    const enabled = queryFirst(
+      "SELECT value FROM system_settings WHERE key = 'nezha_notify_enabled'"
+    ) as { value: string } | null
+    const chatId = queryFirst(
+      "SELECT value FROM system_settings WHERE key = 'nezha_notify_chat_id'"
+    ) as { value: string } | null
 
     res.json({
       enabled: enabled?.value === '1',
@@ -1043,8 +1193,14 @@ app.post('/api/settings/nezha-notify', (req, res) => {
   try {
     const { enabled, chat_id } = req.body
 
-    run("INSERT OR REPLACE INTO system_settings (key, value, updated_at) VALUES ('nezha_notify_enabled', ?, datetime('now'))", [enabled ? '1' : '0'])
-    run("INSERT OR REPLACE INTO system_settings (key, value, updated_at) VALUES ('nezha_notify_chat_id', ?, datetime('now'))", [chat_id || ''])
+    run(
+      "INSERT OR REPLACE INTO system_settings (key, value, updated_at) VALUES ('nezha_notify_enabled', ?, datetime('now'))",
+      [enabled ? '1' : '0']
+    )
+    run(
+      "INSERT OR REPLACE INTO system_settings (key, value, updated_at) VALUES ('nezha_notify_chat_id', ?, datetime('now'))",
+      [chat_id || '']
+    )
 
     res.json({ success: true, message: '配置已保存' })
   } catch (error: any) {
@@ -1069,7 +1225,9 @@ app.post('/api/nezha-notify-v1', async (req, res) => {
     console.log(`📩 收到 Nezha 通知: ${serverName} - ${text}`)
 
     // 1. 检查是否启用全局接收
-    const enabledResult = queryFirst("SELECT value FROM system_settings WHERE key = 'nezha_notify_enabled'") as { value: string } | null
+    const enabledResult = queryFirst(
+      "SELECT value FROM system_settings WHERE key = 'nezha_notify_enabled'"
+    ) as { value: string } | null
     if (enabledResult?.value !== '1') {
       return res.json({ success: true, message: 'Nezha 通知接收已禁用' })
     }
@@ -1081,9 +1239,18 @@ app.post('/api/nezha-notify-v1', async (req, res) => {
     let isOffline = false
     let isRecovery = false
 
-    if (textLower.includes('恢复') || textLower.includes('上线') || textLower.includes('recovery') || textLower.includes('online')) {
+    if (
+      textLower.includes('恢复') ||
+      textLower.includes('上线') ||
+      textLower.includes('recovery') ||
+      textLower.includes('online')
+    ) {
       isRecovery = true
-    } else if (textLower.includes('离线') || textLower.includes('offline') || textLower.includes('down')) {
+    } else if (
+      textLower.includes('离线') ||
+      textLower.includes('offline') ||
+      textLower.includes('down')
+    ) {
       isOffline = true
     }
 
@@ -1092,7 +1259,9 @@ app.post('/api/nezha-notify-v1', async (req, res) => {
     }
 
     const timeStr = new Date().toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' })
-    const chatIdResult = queryFirst("SELECT value FROM system_settings WHERE key = 'nezha_notify_chat_id'") as { value: string } | null
+    const chatIdResult = queryFirst(
+      "SELECT value FROM system_settings WHERE key = 'nezha_notify_chat_id'"
+    ) as { value: string } | null
     const chatId = chatIdResult?.value || ''
 
     // 3. 离线：匹配监控项、更新状态、发带按钮通知
@@ -1102,8 +1271,22 @@ app.post('/api/nezha-notify-v1', async (req, res) => {
       ) as Monitor[]
 
       let matchedMonitor: Monitor | null = null
+      const serverNameLower = serverName.toLowerCase().trim()
       for (const monitor of monitors) {
-        if (monitor.expected_keyword && monitor.expected_keyword.trim() === serverName) {
+        const targetServers = monitor.expected_keyword
+          ? monitor.expected_keyword
+              .split(',')
+              .map(s => s.trim().toLowerCase())
+              .filter(s => s)
+          : []
+
+        if (targetServers.length === 0) continue
+
+        const isTarget = targetServers.some(
+          target => serverNameLower.includes(target) || target.includes(serverNameLower)
+        )
+
+        if (isTarget) {
           matchedMonitor = monitor
           break
         }
@@ -1170,8 +1353,22 @@ app.post('/api/nezha-notify-v1', async (req, res) => {
       const monitors = queryAll(
         "SELECT * FROM monitors WHERE check_type = 'nezha_webhook' AND is_active = 1"
       ) as Monitor[]
+      const serverNameLower = serverName.toLowerCase().trim()
       for (const monitor of monitors) {
-        if (monitor.expected_keyword && monitor.expected_keyword.trim() === serverName) {
+        const targetServers = monitor.expected_keyword
+          ? monitor.expected_keyword
+              .split(',')
+              .map(s => s.trim().toLowerCase())
+              .filter(s => s)
+          : []
+
+        if (targetServers.length === 0) continue
+
+        const isTarget = targetServers.some(
+          target => serverNameLower.includes(target) || target.includes(serverNameLower)
+        )
+
+        if (isTarget) {
           const checkData: MonitorCheck = {
             monitor_id: monitor.id,
             status: 'up',
@@ -1210,7 +1407,6 @@ app.post('/api/nezha-notify-v1', async (req, res) => {
     res.status(500).json({ error: error.message })
   }
 })
-
 
 // ==========================================
 // 反馈联动模式 (Feedback Linkage Mode) 回调
@@ -1255,9 +1451,17 @@ app.post('/api/callback/:monitorId', async (req, res) => {
   }
 })
 
-async function handleFeedbackCallback(monitor: Monitor, remaining_time: number, status: string, message: string, res: any) {
+async function handleFeedbackCallback(
+  monitor: Monitor,
+  remaining_time: number,
+  status: string,
+  message: string,
+  res: any
+) {
   try {
-    console.log(`📡 收到反馈联动回调: [${monitor.name}] 剩余时间: ${remaining_time}s, 状态: ${status || '无'}`)
+    console.log(
+      `📡 收到反馈联动回调: [${monitor.name}] 剩余时间: ${remaining_time}s, 状态: ${status || '无'}`
+    )
 
     // 1. 计算随机触发点 (Actual Trigger Point = Threshold - random(Min, Max))
     const now = Date.now()
@@ -1268,9 +1472,8 @@ async function handleFeedbackCallback(monitor: Monitor, remaining_time: number, 
     const fluMax = monitor.feedback_fluctuation_max || 0
 
     // 随机产生一个波动值 (小时)
-    const randomOffset = (fluMax !== null && fluMax > fluMin)
-      ? Math.random() * (fluMax - fluMin) + fluMin
-      : fluMin
+    const randomOffset =
+      fluMax !== null && fluMax > fluMin ? Math.random() * (fluMax - fluMin) + fluMin : fluMin
 
     // 实际触发点 (小时)
     const triggerPointHours = baseThresholdHours - randomOffset
@@ -1280,33 +1483,47 @@ async function handleFeedbackCallback(monitor: Monitor, remaining_time: number, 
       // 剩余时间还在触发点之上，计算需要等待多久到达触发点
       const waitSeconds = remaining_time - triggerPointSeconds
       nextCheckAt = new Date(now + waitSeconds * 1000).toISOString()
-      console.log(`⏳ [${monitor.name}] 尚未到达触发点 (${triggerPointHours.toFixed(2)}h)，预计在 ${(waitSeconds / 3600).toFixed(2)}h 后再次检查`)
+      console.log(
+        `⏳ [${monitor.name}] 尚未到达触发点 (${triggerPointHours.toFixed(2)}h)，预计在 ${(waitSeconds / 3600).toFixed(2)}h 后再次检查`
+      )
     } else {
       // 已到达或低于触发点，立即触发检测逻辑 (或按默认小间隔重试以免错过)
       const checkInterval = monitor.check_interval || 5
       const checkIntervalMax = monitor.check_interval_max
       let nextInterval = checkInterval
       if (checkIntervalMax && checkIntervalMax > checkInterval) {
-        nextInterval = Math.floor(Math.random() * (checkIntervalMax - checkInterval + 1)) + checkInterval
+        nextInterval =
+          Math.floor(Math.random() * (checkIntervalMax - checkInterval + 1)) + checkInterval
       }
       nextCheckAt = new Date(now + nextInterval * 60 * 1000).toISOString()
-      console.log(`🔥 [${monitor.name}] 已到达触发点 (${triggerPointHours.toFixed(2)}h)，准备执行任务`)
+      console.log(
+        `🔥 [${monitor.name}] 已到达触发点 (${triggerPointHours.toFixed(2)}h)，准备执行任务`
+      )
     }
 
     // 2. 更新监控项状态和下次检查时间
-    run(
-      'UPDATE monitors SET next_check_at = ?, updated_at = ? WHERE id = ?',
-      [nextCheckAt, new Date().toISOString(), monitor.id]
-    )
+    run('UPDATE monitors SET next_check_at = ?, updated_at = ? WHERE id = ?', [
+      nextCheckAt,
+      new Date().toISOString(),
+      monitor.id
+    ])
 
     // 3. 记录一次 Check
-    const isSuccess = status ? (status === 'success' || status === 'up') : (remaining_time !== undefined && remaining_time > 0)
+    const isSuccess = status
+      ? status === 'success' || status === 'up'
+      : remaining_time !== undefined && remaining_time > 0
     const checkData: MonitorCheck = {
       monitor_id: monitor.id,
       status: isSuccess ? 'up' : 'down',
       response_time: 0,
       status_code: isSuccess ? 200 : 500,
-      error_message: message || (isSuccess ? (remaining_time !== undefined ? `收到反馈: 剩余 ${remaining_time}s` : '收到反馈回调') : '联动检测不通过'),
+      error_message:
+        message ||
+        (isSuccess
+          ? remaining_time !== undefined
+            ? `收到反馈: 剩余 ${remaining_time}s`
+            : '收到反馈回调'
+          : '联动检测不通过'),
       checked_at: new Date().toISOString()
     }
 
@@ -1337,7 +1554,9 @@ async function handleFeedbackCallback(monitor: Monitor, remaining_time: number, 
         message ? `💬 *备注:* ${message}` : '',
         ``,
         `\`⏰ ${timeStr}\``
-      ].filter(Boolean).join('\n')
+      ]
+        .filter(Boolean)
+        .join('\n')
 
       try {
         await sendTgMessage(monitor.tg_notify_chat_id, msg, {
@@ -1372,7 +1591,10 @@ async function handleFeedbackCallback(monitor: Monitor, remaining_time: number, 
 app.post('/api/webtask/queue', (req, res) => {
   try {
     const payload = JSON.stringify(req.body)
-    run("INSERT INTO webtasks (payload, status, created_at) VALUES (?, 'pending', datetime('now'))", [payload])
+    run(
+      "INSERT INTO webtasks (payload, status, created_at) VALUES (?, 'pending', datetime('now'))",
+      [payload]
+    )
     res.json({ success: true, message: 'WebTask has been queued' })
   } catch (error: any) {
     res.status(500).json({ error: error.message })
@@ -1383,10 +1605,12 @@ app.post('/api/webtask/queue', (req, res) => {
 app.get('/api/webtask/pending', (req, res) => {
   try {
     // 找出最早的一条未处理任务
-    const taskRecord = queryFirst("SELECT * FROM webtasks WHERE status = 'pending' ORDER BY id ASC LIMIT 1") as any
+    const taskRecord = queryFirst(
+      "SELECT * FROM webtasks WHERE status = 'pending' ORDER BY id ASC LIMIT 1"
+    ) as any
     if (taskRecord) {
       // 从数据库中彻底删除以表示已领取，保证即使多开插件也不会重复领取
-      run("DELETE FROM webtasks WHERE id = ?", [taskRecord.id])
+      run('DELETE FROM webtasks WHERE id = ?', [taskRecord.id])
       let payload
       try {
         payload = JSON.parse(taskRecord.payload)
@@ -1410,7 +1634,9 @@ app.post('/api/webtask/report', async (req, res) => {
     // 优先从 variables 里取插件指定的 tg_notify_chat_id，如果没有，再找 Komari 全局通知群组 ID
     let chatId = variables?.tg_notify_chat_id
     if (!chatId) {
-      const chatIdResult = queryFirst("SELECT value FROM system_settings WHERE key = 'komari_notify_chat_id'") as { value: string } | null
+      const chatIdResult = queryFirst(
+        "SELECT value FROM system_settings WHERE key = 'komari_notify_chat_id'"
+      ) as { value: string } | null
       chatId = chatIdResult?.value
     }
 
@@ -1423,7 +1649,7 @@ app.post('/api/webtask/report', async (req, res) => {
       if (variables && typeof variables === 'object') {
         for (const [key, value] of Object.entries(variables)) {
           // 不在 TG 消息体里显示这个内部路由用的 ID
-          if (key === 'tg_notify_chat_id') continue;
+          if (key === 'tg_notify_chat_id') continue
           varsInfo.push(`🔹 *${key}:* ${value}`)
         }
       }
@@ -1437,7 +1663,9 @@ app.post('/api/webtask/report', async (req, res) => {
         ...varsInfo,
         ``,
         `\`⏰ ${timeStr}\``
-      ].filter(Boolean).join('\n')
+      ]
+        .filter(Boolean)
+        .join('\n')
 
       await sendTgMessage(chatId, tgMsg)
     }
@@ -1467,10 +1695,10 @@ async function start() {
   const resetPassword = process.env.RESET_PASSWORD
   if (resetPassword) {
     const newHash = await hashPassword(resetPassword)
-    run(
-      'UPDATE admin_credentials SET password_hash = ?, updated_at = ? WHERE id = 1',
-      [newHash, new Date().toISOString()]
-    )
+    run('UPDATE admin_credentials SET password_hash = ?, updated_at = ? WHERE id = 1', [
+      newHash,
+      new Date().toISOString()
+    ])
     console.log('🔐 密码已通过环境变量 RESET_PASSWORD 重置')
     console.log('⚠️  请移除 RESET_PASSWORD 环境变量后重启容器以确保安全')
   }
