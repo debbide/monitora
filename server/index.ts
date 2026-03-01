@@ -1309,6 +1309,30 @@ app.post('/api/nezha-notify-v1', async (req, res) => {
         saveCheck(checkData)
         await handleDownStatus(matchedMonitor, checkData)
 
+        // 发带"匹配监控"和"重发 Webhook"按钮的通知
+        if (chatId) {
+          const msg = [
+            `🔴 *Nezha 离线通知*`,
+            ``,
+            `📋 *标题:* Offline`,
+            `📝 *内容:* 🖥️ 服务器状态监控`,
+            ``,
+            `🖥️ *主机名称:* ${serverName}`,
+            `🔄 *运行状态:* Offline 🔴`,
+            `📨 *消息回执:* ✅`,
+            `🔍 *匹配监控:* ${matchedMonitor.name}`,
+            ``,
+            `\`⏰ ${timeStr}\``
+          ].join('\n')
+          await sendTgMessage(chatId, msg, {
+            reply_markup: {
+              inline_keyboard: [
+                [{ text: '🔄 重发 Webhook', callback_data: `retry_webhook:${matchedMonitor.id}` }]
+              ]
+            }
+          })
+        }
+
         // 发送 Webhook 并回报执行结果到 TG（Nezha）
         if (matchedMonitor.webhook_url) {
           let webhookSuccess = false
@@ -1338,30 +1362,6 @@ app.post('/api/nezha-notify-v1', async (req, res) => {
             ].join('\n')
             await sendTgMessage(chatId, webhookResultMsg)
           }
-        }
-
-        // 发带"匹配监控"和"重发 Webhook"按钮的通知
-        if (chatId) {
-          const msg = [
-            `🔴 *Nezha 离线通知*`,
-            ``,
-            `📋 *标题:* Offline`,
-            `📝 *内容:* 🖥️ 服务器状态监控`,
-            ``,
-            `🖥️ *主机名称:* ${serverName}`,
-            `🔄 *运行状态:* Offline 🔴`,
-            `📨 *消息回执:* ✅`,
-            `🔍 *匹配监控:* ${matchedMonitor.name}`,
-            ``,
-            `\`⏰ ${timeStr}\``
-          ].join('\n')
-          await sendTgMessage(chatId, msg, {
-            reply_markup: {
-              inline_keyboard: [
-                [{ text: '🔄 重发 Webhook', callback_data: `retry_webhook:${matchedMonitor.id}` }]
-              ]
-            }
-          })
         }
       } else {
         // 匹配不到，发简单通知
