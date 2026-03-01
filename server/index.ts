@@ -1239,7 +1239,11 @@ app.post('/api/nezha-notify-v1', async (req, res) => {
     let isOffline = false
     let isRecovery = false
 
+    const hasRecoveryTag = textLower.includes('[恢复]') || textLower.includes('【恢复】')
+    const hasEventTag = textLower.includes('[事件]') || textLower.includes('【事件】')
+
     if (
+      hasRecoveryTag ||
       textLower.includes('恢复') ||
       textLower.includes('上线') ||
       textLower.includes('recovery') ||
@@ -1247,6 +1251,7 @@ app.post('/api/nezha-notify-v1', async (req, res) => {
     ) {
       isRecovery = true
     } else if (
+      hasEventTag ||
       textLower.includes('离线') ||
       textLower.includes('offline') ||
       textLower.includes('down')
