@@ -43,6 +43,19 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const app = express()
 const PORT = process.env.PORT || 3000
 
+function stripHtml(html: string): string {
+  return html
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<[^>]*>/g, '')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&amp;/g, '&')
+    .replace(/━+/g, '')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim()
+}
+
 app.use(cors())
 app.use(express.json())
 
@@ -973,20 +986,6 @@ app.post('/api/komari-notify', async (req, res) => {
   try {
     const { message, title } = req.body
     const text = message || title || ''
-
-    // 清理 HTML 标签
-    function stripHtml(html: string): string {
-      return html
-        .replace(/<br\s*\/?>/gi, '\n')
-        .replace(/<[^>]*>/g, '')
-        .replace(/&nbsp;/g, ' ')
-        .replace(/&lt;/g, '<')
-        .replace(/&gt;/g, '>')
-        .replace(/&amp;/g, '&')
-        .replace(/━+/g, '')
-        .replace(/\n{3,}/g, '\n\n')
-        .trim()
-    }
 
     const cleanTitle = stripHtml(title || '')
     const cleanMessage = stripHtml(message || '')

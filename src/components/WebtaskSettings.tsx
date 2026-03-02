@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
-import { getWebtaskSettings, saveWebtaskSettings, WebtaskSettings } from '../lib/api'
+import { getWebtaskSettings, saveWebtaskSettings } from '../lib/api'
+import type { WebtaskSettings } from '../lib/api'
 
 interface WebtaskSettingsProps {
   onClose: () => void

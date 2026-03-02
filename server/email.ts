@@ -175,7 +175,8 @@ async function scanNewMessages() {
     const lock = await client.getMailboxLock('INBOX')
     try {
       if (!lastUid) {
-        const nextUid = client.mailbox?.uidNext || 0
+        const mailbox = client.mailbox
+        const nextUid = mailbox && mailbox !== false ? mailbox.uidNext : 0
         lastUid = Math.max(nextUid - 1, 0)
         setSetting('email_last_uid', String(lastUid))
         return
@@ -276,13 +277,13 @@ export async function startEmailWatcher() {
       })
 
       await client.connect()
-      await client.mailboxOpen('INBOX')
+      const mailbox = await client.mailboxOpen('INBOX')
       status.connected = true
 
       const storedUid = parseInt(getSetting('email_last_uid') || '0', 10)
       lastUid = Number.isNaN(storedUid) ? 0 : storedUid
       if (!lastUid) {
-        const nextUid = client.mailbox?.uidNext || 0
+        const nextUid = mailbox?.uidNext || 0
         lastUid = Math.max(nextUid - 1, 0)
         setSetting('email_last_uid', String(lastUid))
       }
