@@ -21,7 +21,7 @@ export async function checkAllMonitors() {
   try {
     // 排除 telegram、komari_webhook、nezha_webhook 类型，它们是被动接收通知的
     const monitors = queryAll(
-      "SELECT * FROM monitors WHERE is_active = 1 AND check_type NOT IN ('telegram', 'komari_webhook', 'nezha_webhook')"
+      "SELECT * FROM monitors WHERE is_active = 1 AND check_type NOT IN ('telegram', 'komari_webhook', 'nezha_webhook', 'email_code')"
     ) as Monitor[]
     const now = Date.now()
 
