@@ -727,7 +727,8 @@ app.get('/api/settings/webtask', (req, res) => {
 
     res.json({
       enabled: enabled?.value === '1',
-      has_key: !!apiKey?.value
+      has_key: !!apiKey?.value,
+      api_key: req.query.include_key === '1' ? apiKey?.value || '' : undefined
     })
   } catch (error: any) {
     res.status(500).json({ error: error.message })
@@ -775,7 +776,8 @@ function requireWebtaskAuth(req: express.Request, res: express.Response, next: e
   const bearerMatch = authHeader.match(/^Bearer\s+(.+)$/i)
   const bearerKey = bearerMatch ? bearerMatch[1].trim() : ''
   const queryKey = (req.query.api_key || '') as string
-  const provided = headerKey || bearerKey || queryKey
+  const bodyKey = (req.body?.api_key || '') as string
+  const provided = headerKey || bearerKey || queryKey || bodyKey
   if (provided !== expected) {
     return res.status(401).json({ error: 'Invalid API key' })
   }

@@ -9,6 +9,7 @@ import {
   testWebhook,
   checkNow,
   getKomariStatus,
+  getWebtaskSettings,
   requestEmailCode
 } from '../lib/api'
 
@@ -151,11 +152,13 @@ export default function MonitorCard({ monitor, onUpdate, onEdit }: MonitorCardPr
     }
     setIsEmailTesting(true)
     try {
+      const settings = await getWebtaskSettings(true)
       const timeoutSeconds = monitor.email_timeout_seconds || 120
       const result = await requestEmailCode({
         site_key: monitor.email_site_key,
         timeout_seconds: timeoutSeconds,
-        log: true
+        log: true,
+        api_key: settings.api_key || undefined
       })
       toast.success(`验证码: ${result.code.code}`)
     } catch (error: any) {

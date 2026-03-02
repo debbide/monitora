@@ -314,10 +314,12 @@ export async function saveNezhaNotifySettings(settings: Partial<NezhaNotifySetti
 export interface WebtaskSettings {
   enabled: boolean
   has_key: boolean
+  api_key?: string
 }
 
-export async function getWebtaskSettings(): Promise<WebtaskSettings> {
-  return fetchAPI('/api/settings/webtask')
+export async function getWebtaskSettings(includeKey?: boolean): Promise<WebtaskSettings> {
+  const query = includeKey ? '?include_key=1' : ''
+  return fetchAPI(`/api/settings/webtask${query}`)
 }
 
 export async function saveWebtaskSettings(settings: {
@@ -425,6 +427,7 @@ export async function requestEmailCode(payload: {
   timeout_seconds?: number
   mark_used?: boolean
   log?: boolean
+  api_key?: string
 }): Promise<{ success: boolean; code: { code: string } }> {
   return fetchAPI('/api/email-code/request', {
     method: 'POST',
