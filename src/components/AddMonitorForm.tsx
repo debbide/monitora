@@ -452,7 +452,8 @@ export default function AddMonitorForm({ onSuccess, onCancel, editMonitor }: Add
       {checkType !== 'telegram' &&
         checkType !== 'komari_webhook' &&
         checkType !== 'nezha_webhook' &&
-        checkType !== 'feedback_linkage' && (
+        checkType !== 'feedback_linkage' &&
+        checkType !== 'email_code' && (
           <div className="form-section">
             <h4>检测配置</h4>
 
