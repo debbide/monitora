@@ -22,6 +22,7 @@
     "express": "^4.21.1",
     "framer-motion": "^12.23.25",
     "imapflow": "^1.2.10",
+    "mailparser": "^3.9.3",
     "node-cron": "^3.0.3",
     "node-telegram-bot-api": "^0.67.0",
     "react-hot-toast": "^2.6.0",

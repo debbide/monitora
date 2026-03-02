@@ -1,4 +1,5 @@
 import { ImapFlow, FetchMessageObject } from 'imapflow'
+import { simpleParser } from 'mailparser'
 import { queryAll, queryFirst, run } from './db.js'
 import { EmailRule, EmailCode } from './types.js'
 
@@ -82,6 +83,27 @@ function extractTextFromSource(source: Buffer | string | undefined): string {
   const raw = typeof source === 'string' ? source : source.toString('utf8')
   const withoutTags = raw.replace(/<[^>]*>/g, ' ')
   return withoutTags.replace(/\s+/g, ' ').trim()
+}
+
+function stripHtmlToText(html: string): string {
+  return html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()
+}
+
+async function parseBodyText(source: Buffer | string | undefined): Promise<string> {
+  if (!source) return ''
+  try {
+    const parsed = await simpleParser(source)
+    if (parsed.text && parsed.text.trim()) {
+      return parsed.text
+    }
+    if (parsed.html) {
+      const html = typeof parsed.html === 'string' ? parsed.html : parsed.html.toString()
+      return stripHtmlToText(html)
+    }
+  } catch {
+    // ignore and fallback to raw extraction
+  }
+  return extractTextFromSource(source)
 }
 
 function getRules(): EmailRule[] {
@@ -218,7 +240,7 @@ async function processMessage(message: FetchMessageObject, rules: EmailRule[]) {
   const receivedAt = message.internalDate
     ? new Date(message.internalDate).toISOString()
     : new Date().toISOString()
-  const bodyText = normalizeText(extractTextFromSource(message.source))
+  const bodyText = normalizeText(await parseBodyText(message.source))
   const messageId = (envelope?.messageId || '').trim()
 
   for (const rule of rules) {
