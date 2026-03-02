@@ -33,6 +33,7 @@ export default function AddMonitorForm({ onSuccess, onCancel, editMonitor }: Add
     | 'telegram'
     | 'scheduled_webhook'
     | 'feedback_linkage'
+    | 'email_code'
   >('http')
   const [checkMethod, setCheckMethod] = useState<'GET' | 'HEAD' | 'POST' | 'PUT' | 'PATCH'>('GET')
   const [checkTimeout, setCheckTimeout] = useState('30')
@@ -40,6 +41,16 @@ export default function AddMonitorForm({ onSuccess, onCancel, editMonitor }: Add
   const [expectedKeyword, setExpectedKeyword] = useState('')
   const [forbiddenKeyword, setForbiddenKeyword] = useState('')
   const [komariOfflineThreshold, setKomariOfflineThreshold] = useState('3')
+
+  // Email Code 相关状态
+  const [emailSiteKey, setEmailSiteKey] = useState('')
+  const [emailFromFilter, setEmailFromFilter] = useState('')
+  const [emailSubjectKeyword, setEmailSubjectKeyword] = useState('')
+  const [emailBodyKeyword, setEmailBodyKeyword] = useState('')
+  const [emailCodeRegex, setEmailCodeRegex] = useState('\\b\\d{6}\\b')
+  const [emailToEmail, setEmailToEmail] = useState('')
+  const [emailTimeoutSeconds, setEmailTimeoutSeconds] = useState('120')
+  const [emailMaxAgeSeconds, setEmailMaxAgeSeconds] = useState('300')
 
   // Request Configuration (HTTP & Scheduled Webhook)
   const [checkContentType, setCheckContentType] = useState('application/json')
@@ -122,6 +133,15 @@ export default function AddMonitorForm({ onSuccess, onCancel, editMonitor }: Add
       setForbiddenKeyword(editMonitor.forbidden_keyword || '')
       setKomariOfflineThreshold(String(editMonitor.komari_offline_threshold || 3))
 
+      setEmailSiteKey(editMonitor.email_site_key || '')
+      setEmailFromFilter(editMonitor.email_from_filter || '')
+      setEmailSubjectKeyword(editMonitor.email_subject_keyword || '')
+      setEmailBodyKeyword(editMonitor.email_body_keyword || '')
+      setEmailCodeRegex(editMonitor.email_code_regex || '\\b\\d{6}\\b')
+      setEmailToEmail(editMonitor.email_to_email || '')
+      setEmailTimeoutSeconds(String(editMonitor.email_timeout_seconds || 120))
+      setEmailMaxAgeSeconds(String(editMonitor.email_max_age_seconds || 300))
+
       setCheckContentType(editMonitor.check_content_type || 'application/json')
       setCheckHeaders(editMonitor.check_headers || '')
       setCheckBody(editMonitor.check_body || '')
@@ -173,6 +193,11 @@ export default function AddMonitorForm({ onSuccess, onCancel, editMonitor }: Add
       }
     } else if (checkType === 'scheduled_webhook') {
       // Scheduled Webhook check
+    } else if (checkType === 'email_code') {
+      if (!emailSiteKey.trim() || !emailFromFilter.trim() || !emailCodeRegex.trim()) {
+        alert('请填写 site_key、发件人过滤和验证码正则')
+        return
+      }
     } else {
       if (!url.trim()) {
         alert('请填写 URL')
@@ -260,7 +285,7 @@ export default function AddMonitorForm({ onSuccess, onCancel, editMonitor }: Add
 
       const monitorData = {
         name: name.trim(),
-        url: checkType === 'telegram' ? '' : url.trim(),
+        url: checkType === 'telegram' || checkType === 'email_code' ? '' : url.trim(),
         check_interval: finalInterval,
         check_interval_max: intervalMaxNum,
         check_type: checkType,
@@ -270,6 +295,14 @@ export default function AddMonitorForm({ onSuccess, onCancel, editMonitor }: Add
         expected_keyword: expectedKeyword.trim() || undefined,
         forbidden_keyword: forbiddenKeyword.trim() || undefined,
         komari_offline_threshold: thresholdNum,
+        email_site_key: emailSiteKey.trim() || undefined,
+        email_from_filter: emailFromFilter.trim() || undefined,
+        email_subject_keyword: emailSubjectKeyword.trim() || undefined,
+        email_body_keyword: emailBodyKeyword.trim() || undefined,
+        email_code_regex: emailCodeRegex.trim() || undefined,
+        email_to_email: emailToEmail.trim() || undefined,
+        email_timeout_seconds: parseInt(emailTimeoutSeconds) || 120,
+        email_max_age_seconds: parseInt(emailMaxAgeSeconds) || 300,
         tg_chat_id: tgChatId.trim() || undefined,
         tg_server_name: tgServerName.trim() || undefined,
         tg_offline_keywords: tgOfflineKeywords.trim() || undefined,
@@ -323,6 +356,15 @@ export default function AddMonitorForm({ onSuccess, onCancel, editMonitor }: Add
     setForbiddenKeyword('')
     setKomariOfflineThreshold('3')
 
+    setEmailSiteKey('')
+    setEmailFromFilter('')
+    setEmailSubjectKeyword('')
+    setEmailBodyKeyword('')
+    setEmailCodeRegex('\\b\\d{6}\\b')
+    setEmailToEmail('')
+    setEmailTimeoutSeconds('120')
+    setEmailMaxAgeSeconds('300')
+
     setCheckContentType('application/json')
     setCheckHeaders('')
     setCheckBody('')
@@ -363,7 +405,8 @@ export default function AddMonitorForm({ onSuccess, onCancel, editMonitor }: Add
           checkType !== 'komari_webhook' &&
           checkType !== 'nezha_webhook' &&
           checkType !== 'scheduled_webhook' &&
-          checkType !== 'feedback_linkage' && (
+          checkType !== 'feedback_linkage' &&
+          checkType !== 'email_code' && (
             <div className="form-group">
               <label htmlFor="url">{checkType === 'komari' ? 'Komari API 地址' : '网站URL'}</label>
               <input
@@ -398,6 +441,7 @@ export default function AddMonitorForm({ onSuccess, onCancel, editMonitor }: Add
               <option value="komari_webhook">Komari Webhook 监控</option>
               <option value="nezha_webhook">哪吒 (Nezha) Webhook 监控</option>
               <option value="telegram">Telegram 群组监控</option>
+              <option value="email_code">邮件验证码监控</option>
               <option value="scheduled_webhook">定时触发 (Webhook/Cron)</option>
               <option value="feedback_linkage">反馈联动监控 (Feedback Linkage)</option>
             </select>
@@ -1090,6 +1134,96 @@ export default function AddMonitorForm({ onSuccess, onCancel, editMonitor }: Add
               <br />
               4. 这里的"服务器名称"必须与哪吒面板中的名称完全一致
             </span>
+          </div>
+        </div>
+      )}
+
+      {checkType === 'email_code' && (
+        <div className="form-section">
+          <h4>邮件验证码规则</h4>
+          <div className="form-row">
+            <div className="form-group">
+              <label>site_key</label>
+              <input
+                type="text"
+                value={emailSiteKey}
+                onChange={e => setEmailSiteKey(e.target.value)}
+                placeholder="site_a"
+                required
+              />
+            </div>
+            <div className="form-group">
+              <label>发件人过滤 (from)</label>
+              <input
+                type="text"
+                value={emailFromFilter}
+                onChange={e => setEmailFromFilter(e.target.value)}
+                placeholder="no-reply@site.com 或 site.com"
+                required
+              />
+            </div>
+          </div>
+
+          <div className="form-row">
+            <div className="form-group">
+              <label>主题关键词</label>
+              <input
+                type="text"
+                value={emailSubjectKeyword}
+                onChange={e => setEmailSubjectKeyword(e.target.value)}
+                placeholder="验证码"
+              />
+            </div>
+            <div className="form-group">
+              <label>正文关键词</label>
+              <input
+                type="text"
+                value={emailBodyKeyword}
+                onChange={e => setEmailBodyKeyword(e.target.value)}
+                placeholder="verification"
+              />
+            </div>
+          </div>
+
+          <div className="form-group">
+            <label>验证码正则</label>
+            <input
+              type="text"
+              value={emailCodeRegex}
+              onChange={e => setEmailCodeRegex(e.target.value)}
+              placeholder="\\b\\d{6}\\b"
+              required
+            />
+            <span className="form-hint">建议使用捕获组，例如: 验证码[:\s]*(\\d{6})</span>
+          </div>
+
+          <div className="form-group">
+            <label>收件人 (可选)</label>
+            <input
+              type="text"
+              value={emailToEmail}
+              onChange={e => setEmailToEmail(e.target.value)}
+              placeholder="user+site@gmail.com"
+            />
+          </div>
+
+          <div className="form-row">
+            <div className="form-group">
+              <label>等待超时 (秒)</label>
+              <input
+                type="number"
+                value={emailTimeoutSeconds}
+                onChange={e => setEmailTimeoutSeconds(e.target.value)}
+              />
+            </div>
+            <div className="form-group">
+              <label>仅匹配最近 (秒)</label>
+              <input
+                type="number"
+                value={emailMaxAgeSeconds}
+                onChange={e => setEmailMaxAgeSeconds(e.target.value)}
+              />
+            </div>
           </div>
         </div>
       )}

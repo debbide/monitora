@@ -6,13 +6,21 @@ export interface Monitor {
   url: string
   check_interval: number
   check_interval_max: number | null
-  check_type: 'http' | 'tcp' | 'komari' | 'komari_webhook' | 'nezha_webhook' | 'telegram' | 'scheduled_webhook' | 'feedback_linkage'
+  check_type: 'http' | 'tcp' | 'komari' | 'komari_webhook' | 'nezha_webhook' | 'telegram' | 'scheduled_webhook' | 'feedback_linkage' | 'email_code'
   check_method: 'GET' | 'HEAD' | 'POST' | 'PUT' | 'PATCH'
   check_timeout: number
   expected_status_codes: string
   expected_keyword: string | null
   forbidden_keyword: string | null
   komari_offline_threshold: number
+  email_site_key?: string | null
+  email_from_filter?: string | null
+  email_subject_keyword?: string | null
+  email_body_keyword?: string | null
+  email_code_regex?: string | null
+  email_to_email?: string | null
+  email_timeout_seconds?: number | null
+  email_max_age_seconds?: number | null
   check_content_type: string | null
   check_headers: string | null
   check_body: string | null
@@ -96,13 +104,21 @@ export async function createMonitor(monitor: {
   url?: string
   check_interval?: number
   check_interval_max?: number | null
-  check_type?: 'http' | 'tcp' | 'komari' | 'komari_webhook' | 'nezha_webhook' | 'telegram' | 'scheduled_webhook' | 'feedback_linkage'
+  check_type?: 'http' | 'tcp' | 'komari' | 'komari_webhook' | 'nezha_webhook' | 'telegram' | 'scheduled_webhook' | 'feedback_linkage' | 'email_code'
   check_method?: 'GET' | 'HEAD' | 'POST' | 'PUT' | 'PATCH'
   check_timeout?: number
   expected_status_codes?: string
   expected_keyword?: string
   forbidden_keyword?: string
   komari_offline_threshold?: number
+  email_site_key?: string
+  email_from_filter?: string
+  email_subject_keyword?: string
+  email_body_keyword?: string
+  email_code_regex?: string
+  email_to_email?: string
+  email_timeout_seconds?: number
+  email_max_age_seconds?: number
   check_content_type?: string
   check_headers?: string
   check_body?: string
@@ -138,13 +154,21 @@ export async function updateMonitor(id: string, monitor: {
   url?: string
   check_interval?: number
   check_interval_max?: number | null
-  check_type?: 'http' | 'tcp' | 'komari' | 'komari_webhook' | 'nezha_webhook' | 'telegram' | 'scheduled_webhook' | 'feedback_linkage'
+  check_type?: 'http' | 'tcp' | 'komari' | 'komari_webhook' | 'nezha_webhook' | 'telegram' | 'scheduled_webhook' | 'feedback_linkage' | 'email_code'
   check_method?: 'GET' | 'HEAD' | 'POST' | 'PUT' | 'PATCH'
   check_timeout?: number
   expected_status_codes?: string
   expected_keyword?: string
   forbidden_keyword?: string
   komari_offline_threshold?: number
+  email_site_key?: string
+  email_from_filter?: string
+  email_subject_keyword?: string
+  email_body_keyword?: string
+  email_code_regex?: string
+  email_to_email?: string
+  email_timeout_seconds?: number
+  email_max_age_seconds?: number
   check_content_type?: string
   check_headers?: string
   check_body?: string

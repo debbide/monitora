@@ -2,6 +2,7 @@ import { queryAll, queryFirst, run, saveDatabase } from './db.js'
 import { Monitor, MonitorCheck, KomariApiResponse } from './types.js'
 import { sendTgMessage } from './telegram.js'
 import { sendWebhookNotification } from './webhook-sender.js'
+import { getLatestEmailCode } from './email.js'
 import crypto from 'crypto'
 
 // 缓存最新检查结果
@@ -98,6 +99,21 @@ export async function checkMonitor(monitor: Monitor) {
       status = result.success ? 'up' : 'down'
       errorMessage = result.error || ''
       statusCode = result.statusCode
+    } else if (checkType === 'email_code') {
+      const siteKey = monitor.email_site_key || ''
+      if (!siteKey) {
+        status = 'down'
+        errorMessage = 'Email site_key not configured'
+      } else {
+        const code = getLatestEmailCode(siteKey)
+        if (code) {
+          status = 'up'
+          statusCode = 200
+        } else {
+          status = 'down'
+          errorMessage = 'No recent email code'
+        }
+      }
     } else if (checkType === 'scheduled_webhook' || checkType === 'feedback_linkage') {
       // 复用 HTTP 检查逻辑（仅检查状态码，不做关键词匹配）
       // feedback_linkage 的 expected_keyword 是用于回调匹配，不是响应体匹配

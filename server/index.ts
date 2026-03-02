@@ -104,16 +104,26 @@ app.post('/api/monitors', async (req, res) => {
     }
     const initialNextCheck = new Date(now + nextInterval * 60 * 1000).toISOString()
 
+    if (body.check_type === 'email_code') {
+      if (!body.email_site_key || !body.email_from_filter || !body.email_code_regex) {
+        return res
+          .status(400)
+          .json({ error: 'email_site_key, email_from_filter, email_code_regex required' })
+      }
+    }
+
     run(
       `INSERT INTO monitors (
         id, name, url, check_interval, check_interval_max, check_type, check_method, check_timeout, 
         expected_status_codes, expected_keyword, forbidden_keyword, komari_offline_threshold, 
+        email_site_key, email_from_filter, email_subject_keyword, email_body_keyword, email_code_regex,
+        email_to_email, email_timeout_seconds, email_max_age_seconds,
         check_content_type, check_headers, check_body,
         tg_chat_id, tg_server_name, tg_offline_keywords, tg_online_keywords, tg_notify_chat_id, 
         webhook_url, webhook_content_type, webhook_headers, webhook_body, webhook_username, 
         next_check_at, is_active, feedback_linkage, feedback_threshold, 
         feedback_fluctuation_min, feedback_fluctuation_max
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?)`,
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?)`,
       [
         id,
         body.name,
@@ -127,6 +137,14 @@ app.post('/api/monitors', async (req, res) => {
         body.expected_keyword || null,
         body.forbidden_keyword || null,
         parseInt(body.komari_offline_threshold) || 3,
+        body.email_site_key || null,
+        body.email_from_filter || null,
+        body.email_subject_keyword || null,
+        body.email_body_keyword || null,
+        body.email_code_regex || null,
+        body.email_to_email || null,
+        parseInt(body.email_timeout_seconds) || 120,
+        parseInt(body.email_max_age_seconds) || 300,
         body.check_content_type || 'application/json',
         body.check_headers && typeof body.check_headers === 'object'
           ? JSON.stringify(body.check_headers)
@@ -172,6 +190,27 @@ app.post('/api/monitors', async (req, res) => {
           [id]
         )
       }
+    }
+
+    if (body.check_type === 'email_code') {
+      run(
+        `INSERT OR REPLACE INTO email_rules (
+          id, site_key, from_filter, subject_keyword, body_keyword, code_regex, to_email,
+          timeout_seconds, max_age_seconds, enabled, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))`,
+        [
+          id,
+          body.email_site_key,
+          body.email_from_filter,
+          body.email_subject_keyword || null,
+          body.email_body_keyword || null,
+          body.email_code_regex,
+          body.email_to_email || null,
+          parseInt(body.email_timeout_seconds) || 120,
+          parseInt(body.email_max_age_seconds) || 300,
+          1
+        ]
+      )
     }
 
     res.status(201).json(monitor)
@@ -220,6 +259,14 @@ app.put('/api/monitors/:id', (req, res) => {
     }
     const resetNextCheck = new Date(now + nextInterval * 60 * 1000).toISOString()
 
+    if (body.check_type === 'email_code') {
+      if (!body.email_site_key || !body.email_from_filter || !body.email_code_regex) {
+        return res
+          .status(400)
+          .json({ error: 'email_site_key, email_from_filter, email_code_regex required' })
+      }
+    }
+
     run(
       `UPDATE monitors SET
         name = ?,
@@ -233,6 +280,14 @@ app.put('/api/monitors/:id', (req, res) => {
         expected_keyword = ?,
         forbidden_keyword = ?,
         komari_offline_threshold = ?,
+        email_site_key = ?,
+        email_from_filter = ?,
+        email_subject_keyword = ?,
+        email_body_keyword = ?,
+        email_code_regex = ?,
+        email_to_email = ?,
+        email_timeout_seconds = ?,
+        email_max_age_seconds = ?,
         check_content_type = ?,
         check_headers = ?,
         check_body = ?,
@@ -266,6 +321,14 @@ app.put('/api/monitors/:id', (req, res) => {
         body.expected_keyword || null,
         body.forbidden_keyword || null,
         parseInt(body.komari_offline_threshold) || 3,
+        body.email_site_key || null,
+        body.email_from_filter || null,
+        body.email_subject_keyword || null,
+        body.email_body_keyword || null,
+        body.email_code_regex || null,
+        body.email_to_email || null,
+        parseInt(body.email_timeout_seconds) || 120,
+        parseInt(body.email_max_age_seconds) || 300,
         body.check_content_type || 'application/json',
         body.check_headers && typeof body.check_headers === 'object'
           ? JSON.stringify(body.check_headers)
@@ -298,6 +361,29 @@ app.put('/api/monitors/:id', (req, res) => {
       ]
     )
 
+    if (body.check_type === 'email_code') {
+      run(
+        `INSERT OR REPLACE INTO email_rules (
+          id, site_key, from_filter, subject_keyword, body_keyword, code_regex, to_email,
+          timeout_seconds, max_age_seconds, enabled, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))`,
+        [
+          id,
+          body.email_site_key,
+          body.email_from_filter,
+          body.email_subject_keyword || null,
+          body.email_body_keyword || null,
+          body.email_code_regex,
+          body.email_to_email || null,
+          parseInt(body.email_timeout_seconds) || 120,
+          parseInt(body.email_max_age_seconds) || 300,
+          body.is_active !== undefined ? (body.is_active ? 1 : 0) : 1
+        ]
+      )
+    } else {
+      run('DELETE FROM email_rules WHERE id = ?', [id])
+    }
+
     const monitor = queryFirst('SELECT * FROM monitors WHERE id = ?', [id])
     res.json(monitor)
   } catch (error: any) {
@@ -309,6 +395,7 @@ app.delete('/api/monitors/:id', (req, res) => {
   try {
     const { id } = req.params
     run('DELETE FROM monitors WHERE id = ?', [id])
+    run('DELETE FROM email_rules WHERE id = ?', [id])
     res.json({ success: true })
   } catch (error: any) {
     res.status(500).json({ error: error.message })
@@ -682,7 +769,12 @@ function requireWebtaskAuth(req: express.Request, res: express.Response, next: e
   if (!expected) {
     return res.status(401).json({ error: 'WebTask auth key not configured' })
   }
-  const provided = (req.headers['x-api-key'] || '') as string
+  const headerKey = (req.headers['x-api-key'] || '') as string
+  const authHeader = (req.headers['authorization'] || '') as string
+  const bearerMatch = authHeader.match(/^Bearer\s+(.+)$/i)
+  const bearerKey = bearerMatch ? bearerMatch[1].trim() : ''
+  const queryKey = (req.query.api_key || '') as string
+  const provided = headerKey || bearerKey || queryKey
   if (provided !== expected) {
     return res.status(401).json({ error: 'Invalid API key' })
   }

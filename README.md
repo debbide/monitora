@@ -275,7 +275,7 @@ CloudEye 现已支持作为 **WebTask 自动化脚本插件** 的任务调度中
 - 开启 2FA 后生成 App Password（用于 IMAP 登录）
 
 ### 2. 面板配置
-在面板右上角点击 ✉️ 配置：
+在面板右上角点击 ✉️ 配置 IMAP 账号，然后在“添加监控”中选择“邮件验证码监控”添加规则：
 - IMAP Host: `imap.gmail.com`
 - Port: `993`
 - TLS: 开启

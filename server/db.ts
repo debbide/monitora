@@ -106,6 +106,14 @@ export async function initDatabase(): Promise<Database> {
       expected_keyword TEXT,
       forbidden_keyword TEXT,
       komari_offline_threshold INTEGER DEFAULT 3,
+      email_site_key TEXT,
+      email_from_filter TEXT,
+      email_subject_keyword TEXT,
+      email_body_keyword TEXT,
+      email_code_regex TEXT,
+      email_to_email TEXT,
+      email_timeout_seconds INTEGER DEFAULT 120,
+      email_max_age_seconds INTEGER DEFAULT 300,
       webhook_url TEXT,
       webhook_content_type TEXT DEFAULT 'application/json',
       webhook_headers TEXT,
@@ -142,7 +150,15 @@ export async function initDatabase(): Promise<Database> {
     { name: 'feedback_linkage', type: 'INTEGER DEFAULT 0' },
     { name: 'feedback_threshold', type: 'INTEGER DEFAULT 0' },
     { name: 'feedback_fluctuation_min', type: 'INTEGER' },
-    { name: 'feedback_fluctuation_max', type: 'INTEGER' }
+    { name: 'feedback_fluctuation_max', type: 'INTEGER' },
+    { name: 'email_site_key', type: 'TEXT' },
+    { name: 'email_from_filter', type: 'TEXT' },
+    { name: 'email_subject_keyword', type: 'TEXT' },
+    { name: 'email_body_keyword', type: 'TEXT' },
+    { name: 'email_code_regex', type: 'TEXT' },
+    { name: 'email_to_email', type: 'TEXT' },
+    { name: 'email_timeout_seconds', type: 'INTEGER DEFAULT 120' },
+    { name: 'email_max_age_seconds', type: 'INTEGER DEFAULT 300' }
   ]
 
   for (const col of columns) {

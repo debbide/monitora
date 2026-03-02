@@ -57,7 +57,12 @@ export default function MonitorCard({ monitor, onUpdate, onEdit }: MonitorCardPr
   const status = komariRealTimeStatus || monitor.latestCheck?.status || 'unknown'
   const statusColor = status === 'up' ? '#10b981' : status === 'down' ? '#ef4444' : '#6b7280'
   const statusText = status === 'up' ? '正常' : status === 'down' ? '故障' : '未知'
-  const displayUrl = monitor.url || monitor.webhook_url || ''
+  const isEmailCode = monitor.check_type === 'email_code'
+  const displayUrl = isEmailCode
+    ? monitor.email_site_key
+      ? `site_key: ${monitor.email_site_key}`
+      : ''
+    : monitor.url || monitor.webhook_url || ''
   const hideNextCheck =
     monitor.check_type === 'telegram' ||
     monitor.check_type === 'komari_webhook' ||
@@ -69,7 +74,8 @@ export default function MonitorCard({ monitor, onUpdate, onEdit }: MonitorCardPr
     nezha_webhook: 'NEZHA-WH',
     telegram: 'TG',
     scheduled_webhook: 'CRON',
-    feedback_linkage: 'FB-LINK'
+    feedback_linkage: 'FB-LINK',
+    email_code: 'EMAIL'
   }
   const modeLabel = modeLabelMap[monitor.check_type]
 
@@ -186,9 +192,13 @@ export default function MonitorCard({ monitor, onUpdate, onEdit }: MonitorCardPr
         )}
       </div>
       {displayUrl && (
-        <a href={displayUrl} target="_blank" rel="noopener noreferrer" className="monitor-url">
-          {displayUrl}
-        </a>
+        isEmailCode ? (
+          <span className="monitor-url">{displayUrl}</span>
+        ) : (
+          <a href={displayUrl} target="_blank" rel="noopener noreferrer" className="monitor-url">
+            {displayUrl}
+          </a>
+        )
       )}
 
       <div className="monitor-stats">
