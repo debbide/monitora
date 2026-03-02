@@ -107,6 +107,75 @@ async function parseBodyText(source: Buffer | string | undefined): Promise<strin
   return extractTextFromSource(source)
 }
 
+function normalizeCode(value: string): string {
+  const digits = value.replace(/\D+/g, '')
+  return digits
+}
+
+function isLikelyDateCode(value: string, line: string): boolean {
+  if (!/^20\d{2}$/.test(value)) return false
+  const lower = line.toLowerCase()
+  return (
+    lower.includes('utc') ||
+    lower.includes('gmt') ||
+    lower.includes('mon') ||
+    lower.includes('tue') ||
+    lower.includes('wed') ||
+    lower.includes('thu') ||
+    lower.includes('fri') ||
+    lower.includes('sat') ||
+    lower.includes('sun') ||
+    /\b\d{2}:\d{2}\b/.test(lower)
+  )
+}
+
+function extractCodeFromText(rule: EmailRule, subject: string, bodyText: string): string | null {
+  const combined = `${subject}\n${bodyText}`
+
+  if (rule.code_regex) {
+    try {
+      const regex = new RegExp(rule.code_regex, 'i')
+      const match = regex.exec(combined)
+      if (match) {
+        const raw = match[1] || match[0]
+        const code = normalizeCode(raw)
+        if (code.length >= 4 && code.length <= 6) return code
+      }
+    } catch {
+      // ignore invalid regex
+    }
+  }
+
+  const lines = combined.split(/\r?\n/)
+  for (let i = 0; i < lines.length; i += 1) {
+    const line = lines[i]
+    if (!line) continue
+    if (/verification code/i.test(line)) {
+      const inline = line.match(/(\d[\d\s]{2,7}\d)/)
+      if (inline) {
+        const code = normalizeCode(inline[1])
+        if (code.length >= 4 && code.length <= 6) return code
+      }
+      const next = lines[i + 1] || ''
+      const nextMatch = next.match(/(\d[\d\s]{2,7}\d)/)
+      if (nextMatch) {
+        const code = normalizeCode(nextMatch[1])
+        if (code.length >= 4 && code.length <= 6) return code
+      }
+    }
+  }
+
+  for (const line of lines) {
+    const match = line.match(/\b(\d{4,6})\b/)
+    if (!match) continue
+    const code = match[1]
+    if (isLikelyDateCode(code, line)) continue
+    return code
+  }
+
+  return null
+}
+
 function getRules(): EmailRule[] {
   return queryAll('SELECT * FROM email_rules WHERE enabled = 1 ORDER BY created_at DESC') as EmailRule[]
 }
@@ -241,7 +310,8 @@ async function processMessage(message: FetchMessageObject, rules: EmailRule[]) {
   const receivedAt = message.internalDate
     ? new Date(message.internalDate).toISOString()
     : new Date().toISOString()
-  const bodyText = normalizeText(await parseBodyText(message.source))
+  const bodyTextRaw = await parseBodyText(message.source)
+  const bodyText = normalizeText(bodyTextRaw)
   const messageId = (envelope?.messageId || '').trim()
 
   for (const rule of rules) {
@@ -253,17 +323,7 @@ async function processMessage(message: FetchMessageObject, rules: EmailRule[]) {
 
     if (!shouldMatchRule(rule, from, toList, subject, bodyText)) continue
 
-    let regex: RegExp
-    try {
-      regex = new RegExp(rule.code_regex, 'i')
-    } catch {
-      continue
-    }
-
-    const match = regex.exec(bodyText) || regex.exec(subject)
-    if (!match) continue
-
-    const code = match[1] || match[0]
+    const code = extractCodeFromText(rule, envelope?.subject || '', bodyTextRaw)
     if (!code) continue
 
     storeCode(rule.id, code, messageId, from, envelope?.subject || '', receivedAt)
