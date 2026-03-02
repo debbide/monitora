@@ -56,12 +56,12 @@ export default function MonitorCard({ monitor, onUpdate, onEdit }: MonitorCardPr
         : 'down'
       : null
 
+  const isEmailCode = monitor.check_type === 'email_code'
   // 优先使用 Komari 实时状态，否则使用 latestCheck
   const status = isEmailCode ? 'unknown' : komariRealTimeStatus || monitor.latestCheck?.status || 'unknown'
   const statusColor = status === 'up' ? '#10b981' : status === 'down' ? '#ef4444' : '#6b7280'
   const statusText =
     status === 'up' ? '正常' : status === 'down' ? '故障' : isEmailCode ? '按需' : '未知'
-  const isEmailCode = monitor.check_type === 'email_code'
   const displayUrl = isEmailCode
     ? monitor.email_site_key
       ? `site_key: ${monitor.email_site_key}`
