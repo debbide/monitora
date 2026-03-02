@@ -57,9 +57,10 @@ export default function MonitorCard({ monitor, onUpdate, onEdit }: MonitorCardPr
       : null
 
   // 优先使用 Komari 实时状态，否则使用 latestCheck
-  const status = komariRealTimeStatus || monitor.latestCheck?.status || 'unknown'
+  const status = isEmailCode ? 'unknown' : komariRealTimeStatus || monitor.latestCheck?.status || 'unknown'
   const statusColor = status === 'up' ? '#10b981' : status === 'down' ? '#ef4444' : '#6b7280'
-  const statusText = status === 'up' ? '正常' : status === 'down' ? '故障' : '未知'
+  const statusText =
+    status === 'up' ? '正常' : status === 'down' ? '故障' : isEmailCode ? '按需' : '未知'
   const isEmailCode = monitor.check_type === 'email_code'
   const displayUrl = isEmailCode
     ? monitor.email_site_key
@@ -237,40 +238,42 @@ export default function MonitorCard({ monitor, onUpdate, onEdit }: MonitorCardPr
         )
       )}
 
-      <div className="monitor-stats">
-        <div className="stat">
-          <span className="stat-label">可用率</span>
-          <span className="stat-value">{monitor.uptime?.toFixed(1) || 0}%</span>
+      {!isEmailCode && (
+        <div className="monitor-stats">
+          <div className="stat">
+            <span className="stat-label">可用率</span>
+            <span className="stat-value">{monitor.uptime?.toFixed(1) || 0}%</span>
+          </div>
+          <div className="stat">
+            <span className="stat-label">响应时间</span>
+            <span
+              className="stat-value"
+              style={{
+                color: (monitor.latestCheck?.response_time || 0) > 1000 ? '#f59e0b' : 'inherit'
+              }}
+            >
+              {monitor.latestCheck?.response_time || 0}ms
+            </span>
+          </div>
+          <div className="stat">
+            <span className="stat-label">状态码</span>
+            <span
+              className="stat-value"
+              style={{
+                color:
+                  monitor.latestCheck?.status_code && monitor.latestCheck.status_code >= 400
+                    ? '#ef4444'
+                    : 'inherit'
+              }}
+            >
+              {monitor.latestCheck?.status_code || '-'}
+            </span>
+          </div>
         </div>
-        <div className="stat">
-          <span className="stat-label">响应时间</span>
-          <span
-            className="stat-value"
-            style={{
-              color: (monitor.latestCheck?.response_time || 0) > 1000 ? '#f59e0b' : 'inherit'
-            }}
-          >
-            {monitor.latestCheck?.response_time || 0}ms
-          </span>
-        </div>
-        <div className="stat">
-          <span className="stat-label">状态码</span>
-          <span
-            className="stat-value"
-            style={{
-              color:
-                monitor.latestCheck?.status_code && monitor.latestCheck.status_code >= 400
-                  ? '#ef4444'
-                  : 'inherit'
-            }}
-          >
-            {monitor.latestCheck?.status_code || '-'}
-          </span>
-        </div>
-      </div>
+      )}
 
       {/* Sparkline Chart */}
-      {chartData.length > 1 && (
+      {!isEmailCode && chartData.length > 1 && (
         <div className="monitor-chart" style={{ height: 60, marginTop: 16 }}>
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart data={chartData}>
@@ -347,7 +350,7 @@ export default function MonitorCard({ monitor, onUpdate, onEdit }: MonitorCardPr
         </div>
       )}
 
-      {monitor.latestCheck && (
+      {monitor.latestCheck && !isEmailCode && (
         <div className="monitor-footer">
           <span className="last-check">
             最后检查: {new Date(monitor.latestCheck.checked_at).toLocaleString('zh-CN')}
@@ -377,20 +380,22 @@ export default function MonitorCard({ monitor, onUpdate, onEdit }: MonitorCardPr
         </div>
       )}
 
-      {monitor.latestCheck?.error_message && status === 'down' && (
+      {monitor.latestCheck?.error_message && status === 'down' && !isEmailCode && (
         <div className="monitor-error">错误: {monitor.latestCheck.error_message}</div>
       )}
 
-      <div className="monitor-webhook-test">
-        <button
-          className="btn-test-webhook"
-          onClick={handleTestWebhook}
-          disabled={isTesting || !monitor.webhook_url}
-          title={!monitor.webhook_url ? '未配置Webhook' : '发送测试通知'}
-        >
-          {isTesting ? '测试中...' : '测试Webhook'}
-        </button>
-      </div>
+      {!isEmailCode && (
+        <div className="monitor-webhook-test">
+          <button
+            className="btn-test-webhook"
+            onClick={handleTestWebhook}
+            disabled={isTesting || !monitor.webhook_url}
+            title={!monitor.webhook_url ? '未配置Webhook' : '发送测试通知'}
+          >
+            {isTesting ? '测试中...' : '测试Webhook'}
+          </button>
+        </div>
+      )}
     </div>
   )
 }
