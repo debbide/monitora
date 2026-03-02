@@ -26,6 +26,18 @@ import {
   sendTgMessage
 } from './telegram.js'
 import { addClient, broadcastRefresh, getClientCount, getClients, pollRefresh } from './sse.js'
+import {
+  startEmailWatcher,
+  stopEmailWatcher,
+  refreshEmailWatcher,
+  getEmailStatus,
+  listEmailRules,
+  createEmailRule,
+  updateEmailRule,
+  deleteEmailRule,
+  requestEmailCode,
+  getLatestEmailCode
+} from './email.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const app = express()
@@ -596,6 +608,261 @@ app.post('/api/settings/telegram/test-chat', async (req, res) => {
     const { chat_id } = req.body
     const result = await testChatConnection(chat_id)
     res.json(result)
+  } catch (error: any) {
+    res.status(500).json({ error: error.message })
+  }
+})
+
+// ==================== WebTask 鉴权设置 ====================
+
+app.get('/api/settings/webtask', (req, res) => {
+  try {
+    const enabled = queryFirst(
+      "SELECT value FROM system_settings WHERE key = 'webtask_auth_enabled'"
+    ) as { value: string } | null
+    const apiKey = queryFirst(
+      "SELECT value FROM system_settings WHERE key = 'webtask_api_key'"
+    ) as { value: string } | null
+
+    res.json({
+      enabled: enabled?.value === '1',
+      has_key: !!apiKey?.value
+    })
+  } catch (error: any) {
+    res.status(500).json({ error: error.message })
+  }
+})
+
+app.post('/api/settings/webtask', (req, res) => {
+  try {
+    const { enabled, api_key } = req.body
+
+    run(
+      "INSERT OR REPLACE INTO system_settings (key, value, updated_at) VALUES ('webtask_auth_enabled', ?, datetime('now'))",
+      [enabled ? '1' : '0']
+    )
+
+    if (api_key !== undefined) {
+      run(
+        "INSERT OR REPLACE INTO system_settings (key, value, updated_at) VALUES ('webtask_api_key', ?, datetime('now'))",
+        [api_key || '']
+      )
+    }
+
+    res.json({ success: true, message: 'WebTask 鉴权设置已保存' })
+  } catch (error: any) {
+    res.status(500).json({ error: error.message })
+  }
+})
+
+function requireWebtaskAuth(req: express.Request, res: express.Response, next: express.NextFunction) {
+  const enabled = queryFirst(
+    "SELECT value FROM system_settings WHERE key = 'webtask_auth_enabled'"
+  ) as { value: string } | null
+  if (enabled?.value !== '1') {
+    return next()
+  }
+  const apiKeyRow = queryFirst(
+    "SELECT value FROM system_settings WHERE key = 'webtask_api_key'"
+  ) as { value: string } | null
+  const expected = apiKeyRow?.value || ''
+  if (!expected) {
+    return res.status(401).json({ error: 'WebTask auth key not configured' })
+  }
+  const provided = (req.headers['x-api-key'] || '') as string
+  if (provided !== expected) {
+    return res.status(401).json({ error: 'Invalid API key' })
+  }
+  return next()
+}
+
+app.use('/api/webtask', requireWebtaskAuth)
+app.use('/api/email-code', requireWebtaskAuth)
+
+// ==================== Email 验证码设置 ====================
+
+app.get('/api/settings/email', (req, res) => {
+  try {
+    const enabled = queryFirst(
+      "SELECT value FROM system_settings WHERE key = 'email_imap_enabled'"
+    ) as { value: string } | null
+    const host = queryFirst(
+      "SELECT value FROM system_settings WHERE key = 'email_imap_host'"
+    ) as { value: string } | null
+    const port = queryFirst(
+      "SELECT value FROM system_settings WHERE key = 'email_imap_port'"
+    ) as { value: string } | null
+    const user = queryFirst(
+      "SELECT value FROM system_settings WHERE key = 'email_imap_user'"
+    ) as { value: string } | null
+    const tls = queryFirst(
+      "SELECT value FROM system_settings WHERE key = 'email_imap_tls'"
+    ) as { value: string } | null
+    const password = queryFirst(
+      "SELECT value FROM system_settings WHERE key = 'email_imap_password'"
+    ) as { value: string } | null
+    const emailStatus = getEmailStatus()
+
+    res.json({
+      enabled: enabled?.value === '1',
+      host: host?.value || 'imap.gmail.com',
+      port: parseInt(port?.value || '993', 10),
+      user: user?.value || '',
+      tls: tls?.value !== '0',
+      has_password: !!password?.value,
+      connected: emailStatus.connected,
+      last_error: emailStatus.last_error,
+      last_sync_at: emailStatus.last_sync_at
+    })
+  } catch (error: any) {
+    res.status(500).json({ error: error.message })
+  }
+})
+
+app.post('/api/settings/email', async (req, res) => {
+  try {
+    const { enabled, host, port, user, password, tls } = req.body
+
+    run(
+      "INSERT OR REPLACE INTO system_settings (key, value, updated_at) VALUES ('email_imap_enabled', ?, datetime('now'))",
+      [enabled ? '1' : '0']
+    )
+    run(
+      "INSERT OR REPLACE INTO system_settings (key, value, updated_at) VALUES ('email_imap_host', ?, datetime('now'))",
+      [host || 'imap.gmail.com']
+    )
+    run(
+      "INSERT OR REPLACE INTO system_settings (key, value, updated_at) VALUES ('email_imap_port', ?, datetime('now'))",
+      [String(port || 993)]
+    )
+    run(
+      "INSERT OR REPLACE INTO system_settings (key, value, updated_at) VALUES ('email_imap_user', ?, datetime('now'))",
+      [user || '']
+    )
+    run(
+      "INSERT OR REPLACE INTO system_settings (key, value, updated_at) VALUES ('email_imap_tls', ?, datetime('now'))",
+      [tls === false ? '0' : '1']
+    )
+    if (password !== undefined) {
+      run(
+        "INSERT OR REPLACE INTO system_settings (key, value, updated_at) VALUES ('email_imap_password', ?, datetime('now'))",
+        [password || '']
+      )
+    }
+
+    await refreshEmailWatcher()
+
+    res.json({ success: true, message: 'Email 设置已保存' })
+  } catch (error: any) {
+    res.status(500).json({ error: error.message })
+  }
+})
+
+// Email 规则管理
+app.get('/api/email-rules', (req, res) => {
+  try {
+    const rules = listEmailRules()
+    res.json(rules)
+  } catch (error: any) {
+    res.status(500).json({ error: error.message })
+  }
+})
+
+app.post('/api/email-rules', (req, res) => {
+  try {
+    const body = req.body
+    const id = crypto.randomUUID()
+    if (!body.site_key || !body.from_filter || !body.code_regex) {
+      return res.status(400).json({ error: 'site_key, from_filter, code_regex required' })
+    }
+
+    createEmailRule({
+      id,
+      site_key: body.site_key,
+      from_filter: body.from_filter,
+      subject_keyword: body.subject_keyword || null,
+      body_keyword: body.body_keyword || null,
+      code_regex: body.code_regex,
+      to_email: body.to_email || null,
+      timeout_seconds: parseInt(body.timeout_seconds) || 120,
+      max_age_seconds: parseInt(body.max_age_seconds) || 300,
+      enabled: body.enabled !== undefined ? (body.enabled ? 1 : 0) : 1
+    })
+
+    const rule = queryFirst('SELECT * FROM email_rules WHERE id = ?', [id])
+    res.status(201).json(rule)
+  } catch (error: any) {
+    res.status(500).json({ error: error.message })
+  }
+})
+
+app.put('/api/email-rules/:id', (req, res) => {
+  try {
+    const { id } = req.params
+    const body = req.body
+    if (!body.site_key || !body.from_filter || !body.code_regex) {
+      return res.status(400).json({ error: 'site_key, from_filter, code_regex required' })
+    }
+    updateEmailRule(id, {
+      site_key: body.site_key,
+      from_filter: body.from_filter,
+      subject_keyword: body.subject_keyword || null,
+      body_keyword: body.body_keyword || null,
+      code_regex: body.code_regex,
+      to_email: body.to_email || null,
+      timeout_seconds: parseInt(body.timeout_seconds) || 120,
+      max_age_seconds: parseInt(body.max_age_seconds) || 300,
+      enabled: body.enabled !== undefined ? (body.enabled ? 1 : 0) : 1
+    })
+    const rule = queryFirst('SELECT * FROM email_rules WHERE id = ?', [id])
+    res.json(rule)
+  } catch (error: any) {
+    res.status(500).json({ error: error.message })
+  }
+})
+
+app.delete('/api/email-rules/:id', (req, res) => {
+  try {
+    const { id } = req.params
+    deleteEmailRule(id)
+    res.json({ success: true })
+  } catch (error: any) {
+    res.status(500).json({ error: error.message })
+  }
+})
+
+// Email 验证码获取
+app.post('/api/email-code/request', async (req, res) => {
+  try {
+    const { site_key, timeout_seconds, mark_used } = req.body
+    if (!site_key) {
+      return res.status(400).json({ error: 'site_key required' })
+    }
+    const code = await requestEmailCode(site_key, timeout_seconds, mark_used !== false)
+    res.json({ success: true, code })
+  } catch (error: any) {
+    const message = error.message || 'Email code request failed'
+    if (message.includes('Rule not found')) {
+      return res.status(404).json({ error: message })
+    }
+    if (message.includes('Timeout')) {
+      return res.status(408).json({ error: message })
+    }
+    res.status(400).json({ error: message })
+  }
+})
+
+app.get('/api/email-code/latest', (req, res) => {
+  try {
+    const siteKey = req.query.site_key as string
+    if (!siteKey) {
+      return res.status(400).json({ error: 'site_key required' })
+    }
+    const code = getLatestEmailCode(siteKey)
+    if (!code) {
+      return res.status(404).json({ error: 'Code not found' })
+    }
+    res.json({ success: true, code })
   } catch (error: any) {
     res.status(500).json({ error: error.message })
   }
@@ -1742,6 +2009,11 @@ async function start() {
   // 初始化 Telegram Bot（如果配置了 Token）
   initTelegramBot()
 
+  // 初始化 Email IMAP 监听
+  startEmailWatcher().catch(err => {
+    console.error('Email watcher start failed:', err)
+  })
+
   // 启动定时任务 - 每分钟检查一次，根据各监控的间隔决定是否执行
   cron.schedule('* * * * *', () => {
     console.log('Running scheduled monitor check...')
@@ -1759,6 +2031,7 @@ async function start() {
   // 优雅关闭
   process.on('SIGTERM', () => {
     stopTelegramBot()
+    stopEmailWatcher().catch(() => undefined)
     process.exit(0)
   })
 }

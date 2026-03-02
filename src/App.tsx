@@ -8,6 +8,8 @@ import ChangePasswordModal from './components/ChangePasswordModal'
 import DashboardStats from './components/DashboardStats'
 import TelegramSettings from './components/TelegramSettings'
 import ProbeNotifySettings from './components/ProbeNotifySettings'
+import EmailCodeSettings from './components/EmailCodeSettings'
+import WebtaskSettings from './components/WebtaskSettings'
 import { verifyPassword, setAuthToken, generateAuthToken, isAuthenticated, clearAuthToken } from './lib/auth'
 import './App.css'
 
@@ -25,6 +27,8 @@ function App() {
   const [showChangePassword, setShowChangePassword] = useState(false)
   const [showTelegramSettings, setShowTelegramSettings] = useState(false)
   const [showProbeSettings, setShowProbeSettings] = useState(false)
+  const [showEmailSettings, setShowEmailSettings] = useState(false)
+  const [showWebtaskSettings, setShowWebtaskSettings] = useState(false)
   const [editingMonitor, setEditingMonitor] = useState<Monitor | null>(null)
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
     const saved = localStorage.getItem('theme')
@@ -249,6 +253,12 @@ function App() {
             <button className="btn-telegram" onClick={() => setShowProbeSettings(true)} title="探针通知设置 (Komari/Nezha)" style={{ marginLeft: '4px' }}>
               📡
             </button>
+            <button className="btn-telegram" onClick={() => setShowEmailSettings(true)} title="邮件验证码设置" style={{ marginLeft: '4px' }}>
+              ✉️
+            </button>
+            <button className="btn-telegram" onClick={() => setShowWebtaskSettings(true)} title="WebTask 鉴权设置" style={{ marginLeft: '4px' }}>
+              🔑
+            </button>
           </div>
         </div>
       </header>
@@ -305,6 +315,14 @@ function App() {
 
       {showProbeSettings && (
         <ProbeNotifySettings onClose={() => setShowProbeSettings(false)} />
+      )}
+
+      {showEmailSettings && (
+        <EmailCodeSettings onClose={() => setShowEmailSettings(false)} />
+      )}
+
+      {showWebtaskSettings && (
+        <WebtaskSettings onClose={() => setShowWebtaskSettings(false)} />
       )}
 
       {showAddForm && (

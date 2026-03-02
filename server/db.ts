@@ -182,6 +182,43 @@ export async function initDatabase(): Promise<Database> {
   db.run(`CREATE INDEX IF NOT EXISTS idx_monitor_checks_checked_at ON monitor_checks(checked_at DESC)`)
   db.run(`CREATE INDEX IF NOT EXISTS idx_incidents_monitor_id ON incidents(monitor_id)`)
 
+  // 邮件验证码规则表
+  db.run(`
+    CREATE TABLE IF NOT EXISTS email_rules (
+      id TEXT PRIMARY KEY,
+      site_key TEXT NOT NULL,
+      from_filter TEXT NOT NULL,
+      subject_keyword TEXT,
+      body_keyword TEXT,
+      code_regex TEXT NOT NULL,
+      to_email TEXT,
+      timeout_seconds INTEGER DEFAULT 120,
+      max_age_seconds INTEGER DEFAULT 300,
+      enabled INTEGER NOT NULL DEFAULT 1,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    )
+  `)
+
+  db.run(`
+    CREATE TABLE IF NOT EXISTS email_codes (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      rule_id TEXT NOT NULL,
+      code TEXT NOT NULL,
+      message_id TEXT,
+      from_address TEXT,
+      subject TEXT,
+      received_at TEXT,
+      used INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      FOREIGN KEY (rule_id) REFERENCES email_rules(id) ON DELETE CASCADE
+    )
+  `)
+
+  db.run(`CREATE INDEX IF NOT EXISTS idx_email_rules_site_key ON email_rules(site_key)`)
+  db.run(`CREATE INDEX IF NOT EXISTS idx_email_codes_rule_id ON email_codes(rule_id)`)
+  db.run(`CREATE INDEX IF NOT EXISTS idx_email_codes_received_at ON email_codes(received_at DESC)`)
+
   // WebTask 任务队列持久化表
   db.run(`
     CREATE TABLE IF NOT EXISTS webtasks (

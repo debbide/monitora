@@ -59,3 +59,30 @@ export interface KomariApiResponse {
   message: string
   data: KomariServer[]
 }
+
+export interface EmailRule {
+  id: string
+  site_key: string
+  from_filter: string
+  subject_keyword: string | null
+  body_keyword: string | null
+  code_regex: string
+  to_email: string | null
+  timeout_seconds: number
+  max_age_seconds: number
+  enabled: number
+  created_at: string
+  updated_at: string
+}
+
+export interface EmailCode {
+  id?: number
+  rule_id: string
+  code: string
+  message_id?: string | null
+  from_address?: string | null
+  subject?: string | null
+  received_at?: string | null
+  used?: number
+  created_at?: string
+}

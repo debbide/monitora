@@ -285,3 +285,113 @@ export async function saveNezhaNotifySettings(settings: Partial<NezhaNotifySetti
     body: JSON.stringify(settings),
   })
 }
+
+// WebTask 鉴权设置
+export interface WebtaskSettings {
+  enabled: boolean
+  has_key: boolean
+}
+
+export async function getWebtaskSettings(): Promise<WebtaskSettings> {
+  return fetchAPI('/api/settings/webtask')
+}
+
+export async function saveWebtaskSettings(settings: {
+  enabled: boolean
+  api_key?: string
+}): Promise<{ success: boolean; message: string }> {
+  return fetchAPI('/api/settings/webtask', {
+    method: 'POST',
+    body: JSON.stringify(settings),
+  })
+}
+
+// Email 验证码设置
+export interface EmailSettings {
+  enabled: boolean
+  host: string
+  port: number
+  user: string
+  tls: boolean
+  has_password: boolean
+  connected: boolean
+  last_error: string
+  last_sync_at: string
+}
+
+export interface EmailRule {
+  id: string
+  site_key: string
+  from_filter: string
+  subject_keyword: string | null
+  body_keyword: string | null
+  code_regex: string
+  to_email: string | null
+  timeout_seconds: number
+  max_age_seconds: number
+  enabled: number
+  created_at: string
+  updated_at: string
+}
+
+export async function getEmailSettings(): Promise<EmailSettings> {
+  return fetchAPI('/api/settings/email')
+}
+
+export async function saveEmailSettings(settings: {
+  enabled: boolean
+  host: string
+  port: number
+  user: string
+  password?: string
+  tls: boolean
+}): Promise<{ success: boolean; message: string }> {
+  return fetchAPI('/api/settings/email', {
+    method: 'POST',
+    body: JSON.stringify(settings),
+  })
+}
+
+export async function getEmailRules(): Promise<EmailRule[]> {
+  return fetchAPI('/api/email-rules')
+}
+
+export async function createEmailRule(rule: {
+  site_key: string
+  from_filter: string
+  subject_keyword?: string | null
+  body_keyword?: string | null
+  code_regex: string
+  to_email?: string | null
+  timeout_seconds?: number
+  max_age_seconds?: number
+  enabled?: boolean
+}): Promise<EmailRule> {
+  return fetchAPI('/api/email-rules', {
+    method: 'POST',
+    body: JSON.stringify(rule),
+  })
+}
+
+export async function updateEmailRule(id: string, rule: {
+  site_key: string
+  from_filter: string
+  subject_keyword?: string | null
+  body_keyword?: string | null
+  code_regex: string
+  to_email?: string | null
+  timeout_seconds?: number
+  max_age_seconds?: number
+  enabled?: boolean
+}): Promise<EmailRule> {
+  return fetchAPI(`/api/email-rules/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(rule),
+  })
+}
+
+export async function deleteEmailRule(id: string): Promise<{ success: boolean }> {
+  return fetchAPI(`/api/email-rules/${id}`, {
+    method: 'DELETE',
+  })
+}
