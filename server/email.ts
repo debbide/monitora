@@ -96,8 +96,9 @@ async function parseBodyText(source: Buffer | string | undefined): Promise<strin
     if (parsed.text && parsed.text.trim()) {
       return parsed.text
     }
-    if (parsed.html) {
-      const html = typeof parsed.html === 'string' ? parsed.html : parsed.html.toString()
+    const htmlValue = (parsed as { html?: string | Buffer | null }).html
+    if (htmlValue) {
+      const html = typeof htmlValue === 'string' ? htmlValue : htmlValue.toString()
       return stripHtmlToText(html)
     }
   } catch {
