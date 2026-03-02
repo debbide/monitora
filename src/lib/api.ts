@@ -419,3 +419,15 @@ export async function deleteEmailRule(id: string): Promise<{ success: boolean }>
     method: 'DELETE',
   })
 }
+
+export async function requestEmailCode(payload: {
+  site_key: string
+  timeout_seconds?: number
+  mark_used?: boolean
+  log?: boolean
+}): Promise<{ success: boolean; code: { code: string } }> {
+  return fetchAPI('/api/email-code/request', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
+}

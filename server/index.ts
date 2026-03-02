@@ -123,7 +123,7 @@ app.post('/api/monitors', async (req, res) => {
         webhook_url, webhook_content_type, webhook_headers, webhook_body, webhook_username, 
         next_check_at, is_active, feedback_linkage, feedback_threshold, 
         feedback_fluctuation_min, feedback_fluctuation_max
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?)`,
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         id,
         body.name,
@@ -167,6 +167,7 @@ app.post('/api/monitors', async (req, res) => {
           : body.webhook_body || null,
         body.webhook_username || null,
         initialNextCheck,
+        1,
         body.feedback_linkage || body.check_type === 'feedback_linkage' ? 1 : 0,
         parseInt(body.feedback_threshold) || 0,
         parseInt(body.feedback_fluctuation_min) || 0,
@@ -940,11 +941,14 @@ app.delete('/api/email-rules/:id', (req, res) => {
 // Email 验证码获取
 app.post('/api/email-code/request', async (req, res) => {
   try {
-    const { site_key, timeout_seconds, mark_used } = req.body
+    const { site_key, timeout_seconds, mark_used, log } = req.body
     if (!site_key) {
       return res.status(400).json({ error: 'site_key required' })
     }
     const code = await requestEmailCode(site_key, timeout_seconds, mark_used !== false)
+    if (log) {
+      console.log(`Email code fetched for ${site_key}: ${code.code}`)
+    }
     res.json({ success: true, code })
   } catch (error: any) {
     const message = error.message || 'Email code request failed'
