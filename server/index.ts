@@ -781,7 +781,8 @@ function requireWebtaskAuth(req: express.Request, res: express.Response, next: e
   return next()
 }
 
-app.use('/api/webtask', requireWebtaskAuth)
+app.use('/api/webtask/pending', requireWebtaskAuth)
+app.use('/api/webtask/report', requireWebtaskAuth)
 app.use('/api/email-code', requireWebtaskAuth)
 
 // ==================== Email 验证码设置 ====================
