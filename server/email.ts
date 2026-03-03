@@ -36,6 +36,8 @@ let status: EmailStatus = {
 let lastUid = 0
 let scanRunning = false
 let fallbackTimer: ReturnType<typeof setInterval> | null = null
+let idleStopTimer: ReturnType<typeof setTimeout> | null = null
+const IDLE_STOP_MS = 60000
 const waitersByRule = new Map<string, Set<Waiter>>()
 
 function getSetting(key: string): string {
@@ -235,6 +237,37 @@ function notifyWaiters(ruleId: string, code: EmailCode) {
     }
     waiter.resolve(code)
   }
+  if (waiters.size === 0) {
+    waitersByRule.delete(ruleId)
+  }
+  scheduleIdleStopIfNeeded()
+}
+
+function getWaiterCount() {
+  let count = 0
+  for (const waiters of waitersByRule.values()) {
+    count += waiters.size
+  }
+  return count
+}
+
+function cancelIdleStopTimer() {
+  if (idleStopTimer) {
+    clearTimeout(idleStopTimer)
+    idleStopTimer = null
+  }
+}
+
+function scheduleIdleStopIfNeeded() {
+  if (!status.connected) return
+  if (getWaiterCount() > 0) return
+  if (idleStopTimer) return
+  idleStopTimer = setTimeout(() => {
+    idleStopTimer = null
+    if (getWaiterCount() === 0) {
+      stopEmailWatcher().catch(() => undefined)
+    }
+  }, IDLE_STOP_MS)
 }
 
 function storeCode(ruleId: string, code: string, messageId: string, from: string, subject: string, receivedAt: string) {
@@ -342,6 +375,7 @@ export async function startEmailWatcher() {
   connectPromise = (async () => {
     try {
       status.last_error = ''
+      cancelIdleStopTimer()
       client = new ImapFlow({
         host: settings.host,
         port: settings.port,
@@ -405,6 +439,7 @@ export async function startEmailWatcher() {
 }
 
 export async function stopEmailWatcher() {
+  cancelIdleStopTimer()
   if (fallbackTimer) {
     clearInterval(fallbackTimer)
     fallbackTimer = null
@@ -518,6 +553,7 @@ export async function requestEmailCode(siteKey: string, timeoutSeconds?: number,
   }
 
   await startEmailWatcher()
+  cancelIdleStopTimer()
 
   const waitTimeout = timeoutSeconds || rule.timeout_seconds || 120
 
@@ -531,7 +567,11 @@ export async function requestEmailCode(siteKey: string, timeoutSeconds?: number,
             break
           }
         }
+        if (waiters.size === 0) {
+          waitersByRule.delete(rule.id)
+        }
       }
+      scheduleIdleStopIfNeeded()
       reject(new Error('Timeout waiting for code'))
     }, waitTimeout * 1000)
 

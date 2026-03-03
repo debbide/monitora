@@ -859,7 +859,7 @@ app.post('/api/settings/email', async (req, res) => {
       )
     }
 
-    await refreshEmailWatcher()
+    await stopEmailWatcher()
 
     res.json({ success: true, message: 'Email 设置已保存' })
   } catch (error: any) {
@@ -2107,10 +2107,7 @@ async function start() {
   // 初始化 Telegram Bot（如果配置了 Token）
   initTelegramBot()
 
-  // 初始化 Email IMAP 监听
-  startEmailWatcher().catch(err => {
-    console.error('Email watcher start failed:', err)
-  })
+  // Email IMAP 监听改为按需启动（请求验证码时启动）
 
   // 启动定时任务 - 每分钟检查一次，根据各监控的间隔决定是否执行
   cron.schedule('* * * * *', () => {
