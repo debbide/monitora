@@ -4,6 +4,9 @@ import cron from 'node-cron'
 import path from 'path'
 import { fileURLToPath } from 'url'
 import crypto from 'crypto'
+import { WebSocketServer, WebSocket } from 'ws'
+import type { RawData } from 'ws'
+import type { IncomingMessage } from 'http'
 import { initDatabase, queryAll, queryFirst, run } from './db.js'
 import { Monitor, MonitorCheck } from './types.js'
 import {
@@ -758,34 +761,168 @@ app.post('/api/settings/webtask', (req, res) => {
 })
 
 function requireWebtaskAuth(req: express.Request, res: express.Response, next: express.NextFunction) {
+  const result = authenticateWebtaskRequest(req.headers, req.query, req.body)
+  if (!result.ok) {
+    return res.status(401).json({ error: result.error })
+  }
+  return next()
+}
+
+function authenticateWebtaskRequest(
+  headers: Record<string, unknown>,
+  query: Record<string, unknown>,
+  body?: Record<string, unknown>
+): { ok: boolean; error?: string } {
   const enabled = queryFirst(
     "SELECT value FROM system_settings WHERE key = 'webtask_auth_enabled'"
   ) as { value: string } | null
   if (enabled?.value !== '1') {
-    return next()
+    return { ok: true }
   }
   const apiKeyRow = queryFirst(
     "SELECT value FROM system_settings WHERE key = 'webtask_api_key'"
   ) as { value: string } | null
   const expected = apiKeyRow?.value || ''
   if (!expected) {
-    return res.status(401).json({ error: 'WebTask auth key not configured' })
+    return { ok: false, error: 'WebTask auth key not configured' }
   }
-  const headerKey = (req.headers['x-api-key'] || '') as string
-  const authHeader = (req.headers['authorization'] || '') as string
+  const headerKey = String(headers['x-api-key'] || '')
+  const authHeader = String(headers.authorization || '')
   const bearerMatch = authHeader.match(/^Bearer\s+(.+)$/i)
   const bearerKey = bearerMatch ? bearerMatch[1].trim() : ''
-  const queryKey = (req.query.api_key || '') as string
-  const bodyKey = (req.body?.api_key || '') as string
+  const queryKey = String(query.api_key || '')
+  const bodyKey = String(body?.api_key || '')
   const provided = headerKey || bearerKey || queryKey || bodyKey
   if (provided !== expected) {
-    return res.status(401).json({ error: 'Invalid API key' })
+    return { ok: false, error: 'Invalid API key' }
   }
-  return next()
+  return { ok: true }
+}
+
+const WEBTASK_LEASE_SECONDS = 180
+const WEBTASK_MAX_ATTEMPTS_DEFAULT = 3
+const WEBTASK_BACKOFF_BASE_SECONDS = 15
+const wsClients = new Map<string, Set<WebSocket>>()
+
+function nowIso(): string {
+  return new Date().toISOString()
+}
+
+function addSeconds(iso: string, seconds: number): string {
+  return new Date(new Date(iso).getTime() + seconds * 1000).toISOString()
+}
+
+function upsertWebtaskClient(clientId: string, connected: boolean, req?: IncomingMessage) {
+  if (!clientId) {
+    return
+  }
+  const userAgent = String(req?.headers['user-agent'] || '')
+  const remoteAddr = String(req?.socket?.remoteAddress || '')
+  run(
+    `INSERT INTO webtask_clients (client_id, last_seen_at, connected, user_agent, remote_addr, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?)
+     ON CONFLICT(client_id) DO UPDATE SET
+       last_seen_at = excluded.last_seen_at,
+       connected = excluded.connected,
+       user_agent = excluded.user_agent,
+       remote_addr = excluded.remote_addr,
+       updated_at = excluded.updated_at`,
+    [clientId, nowIso(), connected ? 1 : 0, userAgent, remoteAddr, nowIso()]
+  )
+}
+
+function notifyTaskAvailable(targetClientId?: string | null) {
+  const payload = JSON.stringify({ type: 'task_available', ts: Date.now(), target_client_id: targetClientId || null })
+  if (targetClientId) {
+    const set = wsClients.get(targetClientId)
+    if (!set) return
+    for (const ws of set) {
+      if (ws.readyState === WebSocket.OPEN) {
+        ws.send(payload)
+      }
+    }
+    return
+  }
+  for (const set of wsClients.values()) {
+    for (const ws of set) {
+      if (ws.readyState === WebSocket.OPEN) {
+        ws.send(payload)
+      }
+    }
+  }
+}
+
+function safeParseJson(text: string): any {
+  try {
+    return JSON.parse(text)
+  } catch (error) {
+    return null
+  }
+}
+
+function getClientIdFromRequest(req: express.Request): string {
+  const fromHeader = String(req.headers['x-webtask-client-id'] || '').trim()
+  const fromQuery = String(req.query.client_id || '').trim()
+  const fromBody = String(req.body?.client_id || '').trim()
+  return fromHeader || fromQuery || fromBody || `legacy:${req.ip || 'unknown'}`
+}
+
+function claimPendingWebtask(clientId: string) {
+  const now = nowIso()
+  const taskRecord = queryFirst(
+    `SELECT * FROM webtasks
+     WHERE
+       (status = 'pending' OR (status = 'claimed' AND lease_until IS NOT NULL AND lease_until < ?))
+       AND (not_before IS NULL OR not_before <= ?)
+       AND (expires_at IS NULL OR expires_at > ?)
+       AND (attempt_count IS NULL OR max_attempts IS NULL OR attempt_count < max_attempts)
+       AND (target_client_id IS NULL OR target_client_id = '' OR target_client_id = ?)
+     ORDER BY priority DESC, id ASC
+     LIMIT 1`,
+    [now, now, now, clientId]
+  ) as any
+
+  if (!taskRecord) {
+    return null
+  }
+
+  const leaseUntil = addSeconds(now, WEBTASK_LEASE_SECONDS)
+  run(
+    `UPDATE webtasks
+     SET status = 'claimed',
+         claimed_by = ?,
+         claimed_at = ?,
+         lease_until = ?,
+         attempt_count = COALESCE(attempt_count, 0) + 1,
+         updated_at = ?
+     WHERE id = ?`,
+    [clientId, now, leaseUntil, now, taskRecord.id]
+  )
+
+  const claimed = queryFirst('SELECT * FROM webtasks WHERE id = ?', [taskRecord.id]) as any
+  if (!claimed || claimed.claimed_by !== clientId || claimed.status !== 'claimed') {
+    return null
+  }
+
+  let payload = safeParseJson(claimed.payload)
+  if (!payload || typeof payload !== 'object') {
+    payload = { task: null }
+  }
+
+  return {
+    job_id: String(claimed.id),
+    task: payload.task || claimed.task_name || null,
+    data: payload.data || null,
+    lease_until: leaseUntil,
+    attempt: Number(claimed.attempt_count || 0),
+    trace_id: claimed.trace_id || null,
+    target_client_id: claimed.target_client_id || null
+  }
 }
 
 app.use('/api/webtask/pending', requireWebtaskAuth)
 app.use('/api/webtask/report', requireWebtaskAuth)
+app.use('/api/webtask/heartbeat', requireWebtaskAuth)
 app.use('/api/email-code', requireWebtaskAuth)
 
 // ==================== Email 验证码设置 ====================
@@ -1991,12 +2128,62 @@ async function handleFeedbackCallback(
 // 1. 接收面板自己发出的 Webhook 任务并持久化入队
 app.post('/api/webtask/queue', (req, res) => {
   try {
-    const payload = JSON.stringify(req.body)
+    const body = req.body && typeof req.body === 'object' ? req.body : {}
+    const payload = JSON.stringify(body)
+    const taskName = typeof body.task === 'string' ? body.task.trim() : ''
+    const dataJson = body.data !== undefined ? JSON.stringify(body.data) : null
+    const priority = Number.isFinite(Number(body.priority)) ? Number(body.priority) : 0
+    const targetClientId =
+      typeof body.target_client_id === 'string' && body.target_client_id.trim()
+        ? body.target_client_id.trim()
+        : null
+    const maxAttempts =
+      Number.isFinite(Number(body.max_attempts)) && Number(body.max_attempts) > 0
+        ? Number(body.max_attempts)
+        : WEBTASK_MAX_ATTEMPTS_DEFAULT
+    const dedupeKey =
+      typeof body.dedupe_key === 'string' && body.dedupe_key.trim() ? body.dedupe_key.trim() : null
+    const notBefore =
+      typeof body.not_before === 'string' && body.not_before.trim() ? body.not_before.trim() : null
+    const expiresAt =
+      typeof body.expires_at === 'string' && body.expires_at.trim() ? body.expires_at.trim() : null
+    const now = nowIso()
+
+    if (dedupeKey) {
+      const exists = queryFirst(
+        "SELECT id FROM webtasks WHERE dedupe_key = ? AND status IN ('pending', 'claimed') ORDER BY id DESC LIMIT 1",
+        [dedupeKey]
+      ) as { id: number } | null
+      if (exists) {
+        return res.json({ success: true, message: 'Duplicate task ignored', job_id: String(exists.id) })
+      }
+    }
+
     run(
-      "INSERT INTO webtasks (payload, status, created_at) VALUES (?, 'pending', datetime('now'))",
-      [payload]
+      `INSERT INTO webtasks (
+        payload, task_name, data_json, status, priority, target_client_id,
+        attempt_count, max_attempts, dedupe_key, not_before, expires_at,
+        trace_id, created_at, updated_at
+      ) VALUES (?, ?, ?, 'pending', ?, ?, 0, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        payload,
+        taskName || null,
+        dataJson,
+        priority,
+        targetClientId,
+        maxAttempts,
+        dedupeKey,
+        notBefore,
+        expiresAt,
+        crypto.randomUUID(),
+        now,
+        now
+      ]
     )
-    res.json({ success: true, message: 'WebTask has been queued' })
+
+    const inserted = queryFirst('SELECT id FROM webtasks ORDER BY id DESC LIMIT 1') as { id: number }
+    notifyTaskAvailable(targetClientId)
+    res.json({ success: true, message: 'WebTask has been queued', job_id: String(inserted.id) })
   } catch (error: any) {
     res.status(500).json({ error: error.message })
   }
@@ -2005,25 +2192,47 @@ app.post('/api/webtask/queue', (req, res) => {
 // 2. 插件轮询拉取待处理任务
 app.get('/api/webtask/pending', (req, res) => {
   try {
-    // 找出最早的一条未处理任务
-    const taskRecord = queryFirst(
-      "SELECT * FROM webtasks WHERE status = 'pending' ORDER BY id ASC LIMIT 1"
-    ) as any
-    if (taskRecord) {
-      // 从数据库中彻底删除以表示已领取，保证即使多开插件也不会重复领取
-      run('DELETE FROM webtasks WHERE id = ?', [taskRecord.id])
-      let payload
-      try {
-        payload = JSON.parse(taskRecord.payload)
-      } catch (e) {
-        payload = { task: null }
-      }
-      res.json(payload)
-    } else {
-      res.json({ task: null })
+    const clientId = getClientIdFromRequest(req)
+    upsertWebtaskClient(clientId, true)
+
+    const payload = claimPendingWebtask(clientId)
+    if (!payload || !payload.task) {
+      return res.json({ task: null })
     }
+
+    res.json(payload)
   } catch (error: any) {
     res.status(500).json({ error: error.message })
+  }
+})
+
+app.post('/api/webtask/heartbeat', (req, res) => {
+  try {
+    const clientId = getClientIdFromRequest(req)
+    const jobId = String(req.body?.job_id || '').trim()
+    const extendSeconds =
+      Number.isFinite(Number(req.body?.extend_seconds)) && Number(req.body?.extend_seconds) > 0
+        ? Math.min(Number(req.body.extend_seconds), 600)
+        : WEBTASK_LEASE_SECONDS
+
+    if (!jobId) {
+      return res.status(400).json({ error: 'job_id is required' })
+    }
+
+    const row = queryFirst('SELECT * FROM webtasks WHERE id = ?', [jobId]) as any
+    if (!row) {
+      return res.status(404).json({ error: 'job not found' })
+    }
+    if (row.claimed_by !== clientId) {
+      return res.status(409).json({ error: 'job is not owned by this client' })
+    }
+
+    const leaseUntil = addSeconds(nowIso(), extendSeconds)
+    run('UPDATE webtasks SET lease_until = ?, updated_at = ? WHERE id = ?', [leaseUntil, nowIso(), jobId])
+    upsertWebtaskClient(clientId, true)
+    return res.json({ success: true, lease_until: leaseUntil })
+  } catch (error: any) {
+    return res.status(500).json({ error: error.message })
   }
 })
 
@@ -2031,6 +2240,116 @@ app.get('/api/webtask/pending', (req, res) => {
 app.post('/api/webtask/report', async (req, res) => {
   try {
     const { task, success, message, variables } = req.body
+    const clientId = getClientIdFromRequest(req)
+    const retryable = req.body?.retryable === true
+    const jobId = String(req.body?.job_id || '').trim()
+    const now = nowIso()
+
+    let resolvedTask = task
+
+    if (jobId) {
+      const taskRecord = queryFirst('SELECT * FROM webtasks WHERE id = ?', [jobId]) as any
+      if (!taskRecord) {
+        return res.status(404).json({ error: 'job not found' })
+      }
+      if (taskRecord.claimed_by && taskRecord.claimed_by !== clientId) {
+        return res.status(409).json({ error: 'job is not owned by this client' })
+      }
+
+      if (taskRecord.status === 'success' || taskRecord.status === 'failed' || taskRecord.status === 'dead') {
+        return res.json({ success: true, message: 'already reported' })
+      }
+
+      const canRetry =
+        !success &&
+        retryable &&
+        Number(taskRecord.attempt_count || 0) < Number(taskRecord.max_attempts || WEBTASK_MAX_ATTEMPTS_DEFAULT)
+
+      if (canRetry) {
+        const nextDelaySeconds = Math.min(
+          WEBTASK_BACKOFF_BASE_SECONDS * Math.pow(2, Math.max(0, Number(taskRecord.attempt_count || 1) - 1)),
+          900
+        )
+        const nextCheckAt = addSeconds(now, nextDelaySeconds)
+        const status =
+          Number(taskRecord.attempt_count || 0) >= Number(taskRecord.max_attempts || WEBTASK_MAX_ATTEMPTS_DEFAULT)
+            ? 'dead'
+            : 'pending'
+        run(
+          `UPDATE webtasks
+           SET status = ?,
+               claimed_by = NULL,
+               claimed_at = NULL,
+               lease_until = NULL,
+               not_before = ?,
+               last_error = ?,
+               updated_at = ?
+           WHERE id = ?`,
+          [status, nextCheckAt, message || 'task failed', now, jobId]
+        )
+        if (status === 'pending') {
+          notifyTaskAvailable(taskRecord.target_client_id || null)
+        }
+      } else {
+        run(
+          `UPDATE webtasks
+           SET status = ?,
+               report_success = ?,
+               result_message = ?,
+               result_variables = ?,
+               last_error = ?,
+               finished_at = ?,
+               updated_at = ?
+           WHERE id = ?`,
+          [
+            success ? 'success' : 'failed',
+            success ? 1 : 0,
+            message || '',
+            variables && typeof variables === 'object' ? JSON.stringify(variables) : null,
+            success ? null : message || 'task failed',
+            now,
+            now,
+            jobId
+          ]
+        )
+      }
+
+      resolvedTask = taskRecord.task_name || task
+    } else {
+      // 兼容旧版插件（未携带 job_id）
+      const legacyTask = queryFirst(
+        `SELECT * FROM webtasks
+         WHERE task_name = ? AND status = 'claimed' AND (claimed_by = ? OR claimed_by LIKE 'legacy:%')
+         ORDER BY claimed_at DESC
+         LIMIT 1`,
+        [task, clientId]
+      ) as any
+      if (legacyTask) {
+        run(
+          `UPDATE webtasks
+           SET status = ?,
+               report_success = ?,
+               result_message = ?,
+               result_variables = ?,
+               last_error = ?,
+               finished_at = ?,
+               updated_at = ?
+           WHERE id = ?`,
+          [
+            success ? 'success' : 'failed',
+            success ? 1 : 0,
+            message || '',
+            variables && typeof variables === 'object' ? JSON.stringify(variables) : null,
+            success ? null : message || 'task failed',
+            now,
+            now,
+            legacyTask.id
+          ]
+        )
+      }
+    }
+
+    upsertWebtaskClient(clientId, true)
 
     // 优先从 variables 里取插件指定的 tg_notify_chat_id，如果没有，再找 Komari 全局通知群组 ID
     let chatId = variables?.tg_notify_chat_id
@@ -2058,7 +2377,7 @@ app.post('/api/webtask/report', async (req, res) => {
       const tgMsg = [
         `🤖 *WebTask 插件执行报告*`,
         ``,
-        `⚙️ *任务命令:* \`${task || '未知任务'}\``,
+        `⚙️ *任务命令:* \`${resolvedTask || '未知任务'}\``,
         `📊 *执行状态:* ${statusIcon} ${statusText}`,
         `💬 *结果信息:* ${message || '无'}`,
         ...varsInfo,
@@ -2115,12 +2434,103 @@ async function start() {
     checkAllMonitors()
   })
 
-  app.listen(PORT, () => {
+  const httpServer = app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`)
     console.log('Monitor check scheduled every minute (respects individual intervals)')
 
     // 启动时执行一次检查
     checkAllMonitors()
+  })
+
+  const wss = new WebSocketServer({ noServer: true })
+
+  httpServer.on('upgrade', (req, socket, head) => {
+    try {
+      const reqUrl = new URL(req.url || '/', `http://${req.headers.host || 'localhost'}`)
+      if (reqUrl.pathname !== '/api/webtask/ws') {
+        socket.destroy()
+        return
+      }
+
+      const query: Record<string, unknown> = {}
+      reqUrl.searchParams.forEach((value, key) => {
+        query[key] = value
+      })
+
+      const auth = authenticateWebtaskRequest(req.headers as Record<string, unknown>, query)
+      if (!auth.ok) {
+        socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n')
+        socket.destroy()
+        return
+      }
+
+      const clientId = String(query.client_id || '').trim()
+      if (!clientId) {
+        socket.write('HTTP/1.1 400 Bad Request\r\n\r\n')
+        socket.destroy()
+        return
+      }
+
+      wss.handleUpgrade(req, socket, head, (ws: WebSocket) => {
+        ;(ws as WebSocket & { clientId?: string }).clientId = clientId
+        wss.emit('connection', ws, req)
+      })
+    } catch (error) {
+      socket.destroy()
+    }
+  })
+
+  wss.on('connection', (ws: WebSocket & { clientId?: string }, req: IncomingMessage) => {
+    const clientId = ws.clientId || ''
+    if (!clientId) {
+      ws.close(1008, 'client_id missing')
+      return
+    }
+
+    let set = wsClients.get(clientId)
+    if (!set) {
+      set = new Set<WebSocket>()
+      wsClients.set(clientId, set)
+    }
+    set.add(ws)
+    upsertWebtaskClient(clientId, true, req)
+
+    ws.send(JSON.stringify({ type: 'hello', client_id: clientId, ts: Date.now() }))
+
+    ws.on('message', (raw: RawData) => {
+      let data: any = null
+      try {
+        data = JSON.parse(raw.toString())
+      } catch (error) {
+        return
+      }
+      if (data?.type === 'ping') {
+        ws.send(JSON.stringify({ type: 'pong', ts: Date.now() }))
+      }
+      upsertWebtaskClient(clientId, true, req)
+    })
+
+    ws.on('close', () => {
+      const current = wsClients.get(clientId)
+      if (current) {
+        current.delete(ws)
+        if (current.size === 0) {
+          wsClients.delete(clientId)
+          upsertWebtaskClient(clientId, false)
+        }
+      }
+    })
+
+    ws.on('error', () => {
+      const current = wsClients.get(clientId)
+      if (current) {
+        current.delete(ws)
+        if (current.size === 0) {
+          wsClients.delete(clientId)
+          upsertWebtaskClient(clientId, false)
+        }
+      }
+    })
   })
 
   // 优雅关闭

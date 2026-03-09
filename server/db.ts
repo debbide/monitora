@@ -246,6 +246,61 @@ export async function initDatabase(): Promise<Database> {
   `)
   db.run(`CREATE INDEX IF NOT EXISTS idx_webtasks_status ON webtasks(status)`)
 
+  const webtaskColumns = [
+    { name: 'task_name', type: 'TEXT' },
+    { name: 'data_json', type: 'TEXT' },
+    { name: 'priority', type: 'INTEGER DEFAULT 0' },
+    { name: 'target_client_id', type: 'TEXT' },
+    { name: 'claimed_by', type: 'TEXT' },
+    { name: 'claimed_at', type: 'TEXT' },
+    { name: 'lease_until', type: 'TEXT' },
+    { name: 'attempt_count', type: 'INTEGER DEFAULT 0' },
+    { name: 'max_attempts', type: 'INTEGER DEFAULT 3' },
+    { name: 'last_error', type: 'TEXT' },
+    { name: 'finished_at', type: 'TEXT' },
+    { name: 'report_success', type: 'INTEGER' },
+    { name: 'result_message', type: 'TEXT' },
+    { name: 'result_variables', type: 'TEXT' },
+    { name: 'trace_id', type: 'TEXT' },
+    { name: 'not_before', type: 'TEXT' },
+    { name: 'expires_at', type: 'TEXT' },
+    { name: 'dedupe_key', type: 'TEXT' },
+    { name: 'updated_at', type: 'TEXT' }
+  ]
+
+  for (const col of webtaskColumns) {
+    try {
+      db.run(`ALTER TABLE webtasks ADD COLUMN ${col.name} ${col.type}`)
+    } catch (e) {
+      // 字段已存在，忽略错误
+    }
+  }
+
+  try {
+    db.run(
+      "UPDATE webtasks SET task_name = COALESCE(task_name, json_extract(payload, '$.task')) WHERE task_name IS NULL"
+    )
+  } catch (e) {
+    // 某些 SQLite 构建可能不支持 JSON 函数，忽略
+  }
+  db.run("UPDATE webtasks SET updated_at = COALESCE(updated_at, created_at)")
+
+  db.run(`
+    CREATE TABLE IF NOT EXISTS webtask_clients (
+      client_id TEXT PRIMARY KEY,
+      last_seen_at TEXT NOT NULL,
+      connected INTEGER NOT NULL DEFAULT 0,
+      user_agent TEXT,
+      remote_addr TEXT,
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    )
+  `)
+
+  db.run(`CREATE INDEX IF NOT EXISTS idx_webtasks_priority ON webtasks(status, priority DESC, id ASC)`)
+  db.run(`CREATE INDEX IF NOT EXISTS idx_webtasks_claim ON webtasks(status, lease_until)`)
+  db.run(`CREATE INDEX IF NOT EXISTS idx_webtasks_target ON webtasks(target_client_id, status)`)
+  db.run(`CREATE INDEX IF NOT EXISTS idx_webtask_clients_seen ON webtask_clients(last_seen_at DESC)`)
+
   // 保存数据库
   saveDatabase()
 
