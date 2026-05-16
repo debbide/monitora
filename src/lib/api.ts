@@ -31,6 +31,7 @@ export interface Monitor {
   tg_notify_chat_id: string | null
   webhook_url: string | null
   webhook_content_type: string
+  webhook_method: 'POST' | 'PUT' | 'PATCH' | 'GET'
   webhook_headers: string | null
   webhook_body: string | null
   webhook_username: string | null
@@ -129,6 +130,7 @@ export async function createMonitor(monitor: {
   tg_notify_chat_id?: string
   webhook_url?: string
   webhook_content_type?: string
+  webhook_method?: 'POST' | 'PUT' | 'PATCH' | 'GET'
   webhook_headers?: Record<string, string>
   webhook_body?: Record<string, any>
   webhook_username?: string
@@ -179,6 +181,7 @@ export async function updateMonitor(id: string, monitor: {
   tg_notify_chat_id?: string
   webhook_url?: string
   webhook_content_type?: string
+  webhook_method?: 'POST' | 'PUT' | 'PATCH' | 'GET'
   webhook_headers?: Record<string, string>
   webhook_body?: Record<string, any>
   webhook_username?: string

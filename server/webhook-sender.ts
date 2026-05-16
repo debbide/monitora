@@ -1,5 +1,14 @@
 import { Monitor, MonitorCheck } from './types.js'
 
+type WebhookMethod = 'POST' | 'PUT' | 'PATCH' | 'GET'
+
+export function getWebhookMethod(method: unknown): WebhookMethod {
+    const normalized = typeof method === 'string' ? method.toUpperCase() : ''
+    return ['POST', 'PUT', 'PATCH', 'GET'].includes(normalized)
+        ? (normalized as WebhookMethod)
+        : 'POST'
+}
+
 export function replaceVariables(template: string, variables: Record<string, any>): string {
     let result = template
     for (const [key, value] of Object.entries(variables)) {
@@ -85,10 +94,11 @@ export async function sendWebhookNotification(
     }
 
     try {
+        const method = getWebhookMethod(monitor.webhook_method)
         const response = await fetch(monitor.webhook_url, {
-            method: 'POST',
+            method,
             headers,
-            body: JSON.stringify(payload)
+            body: method === 'GET' ? undefined : JSON.stringify(payload)
         })
 
         if (!response.ok) {

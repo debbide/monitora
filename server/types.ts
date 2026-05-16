@@ -31,6 +31,7 @@ export interface Monitor {
   tg_notify_chat_id: string | null  // 用于 Komari 监控的 TG 群组通知
   webhook_url: string | null
   webhook_content_type: string
+  webhook_method: 'POST' | 'PUT' | 'PATCH' | 'GET'
   webhook_headers: string | null
   webhook_body: string | null
   webhook_username: string | null

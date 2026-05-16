@@ -18,7 +18,7 @@ import {
   handleDownStatus,
   handleUpStatus
 } from './monitor.js'
-import { processWebhookBody, sendWebhookNotification } from './webhook-sender.js'
+import { getWebhookMethod, processWebhookBody, sendWebhookNotification } from './webhook-sender.js'
 import {
   initTelegramBot,
   getTelegramBotStatus,
@@ -122,11 +122,11 @@ app.post('/api/monitors', async (req, res) => {
         email_site_key, email_from_filter, email_subject_keyword, email_body_keyword, email_code_regex,
         email_to_email, email_timeout_seconds, email_max_age_seconds,
         check_content_type, check_headers, check_body,
-        tg_chat_id, tg_server_name, tg_offline_keywords, tg_online_keywords, tg_notify_chat_id, 
-        webhook_url, webhook_content_type, webhook_headers, webhook_body, webhook_username, 
-        next_check_at, is_active, feedback_linkage, feedback_threshold, 
+        tg_chat_id, tg_server_name, tg_offline_keywords, tg_online_keywords, tg_notify_chat_id,
+        webhook_url, webhook_content_type, webhook_method, webhook_headers, webhook_body, webhook_username,
+        next_check_at, is_active, feedback_linkage, feedback_threshold,
         feedback_fluctuation_min, feedback_fluctuation_max
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         id,
         body.name,
@@ -162,6 +162,7 @@ app.post('/api/monitors', async (req, res) => {
         body.tg_notify_chat_id || null,
         body.webhook_url || null,
         body.webhook_content_type || 'application/json',
+        getWebhookMethod(body.webhook_method),
         body.webhook_headers && typeof body.webhook_headers === 'object'
           ? JSON.stringify(body.webhook_headers)
           : body.webhook_headers || null,
@@ -302,6 +303,7 @@ app.put('/api/monitors/:id', (req, res) => {
         tg_notify_chat_id = ?,
         webhook_url = ?,
         webhook_content_type = ?,
+        webhook_method = ?,
         webhook_headers = ?,
         webhook_body = ?,
         webhook_username = ?,
@@ -347,6 +349,7 @@ app.put('/api/monitors/:id', (req, res) => {
         body.tg_notify_chat_id || null,
         body.webhook_url || null,
         body.webhook_content_type || 'application/json',
+        getWebhookMethod(body.webhook_method),
         body.webhook_headers && typeof body.webhook_headers === 'object'
           ? JSON.stringify(body.webhook_headers)
           : body.webhook_headers || null,
@@ -521,10 +524,11 @@ app.post('/api/test-webhook', async (req, res) => {
       headers['Authorization'] = `Basic ${encodedAuth}`
     }
 
+    const webhookMethod = getWebhookMethod(monitor.webhook_method)
     await fetch(monitor.webhook_url, {
-      method: 'POST',
+      method: webhookMethod,
       headers,
-      body: JSON.stringify(payload)
+      body: webhookMethod === 'GET' ? undefined : JSON.stringify(payload)
     })
 
     // 如果是 Telegram 类型，向群组发送确认消息
@@ -1393,10 +1397,11 @@ app.post('/api/komari-notify', async (req, res) => {
           const controller = new AbortController()
           const timeoutId = setTimeout(() => controller.abort(), 10000)
 
+          const webhookMethod = getWebhookMethod(matchedMonitor.webhook_method)
           const response = await fetch(matchedMonitor.webhook_url, {
-            method: 'POST',
+            method: webhookMethod,
             headers,
-            body: JSON.stringify(payload),
+            body: webhookMethod === 'GET' ? undefined : JSON.stringify(payload),
             signal: controller.signal
           })
 

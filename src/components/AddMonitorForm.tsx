@@ -64,6 +64,7 @@ export default function AddMonitorForm({ onSuccess, onCancel, editMonitor }: Add
   const [tgOnlineKeywords, setTgOnlineKeywords] = useState('上线,online,up,恢复')
   const [tgNotifyChatId, setTgNotifyChatId] = useState('') // Komari & Scheduled Webhook 用的 TG 通知群组
   const [webhookUrl, setWebhookUrl] = useState('')
+  const [webhookMethod, setWebhookMethod] = useState<'POST' | 'PUT' | 'PATCH' | 'GET'>('POST')
   const [contentType, setContentType] = useState('application/json')
   const [headers, setHeaders] = useState('')
   const [body, setBody] = useState('')
@@ -152,6 +153,7 @@ export default function AddMonitorForm({ onSuccess, onCancel, editMonitor }: Add
       setTgOnlineKeywords(editMonitor.tg_online_keywords || '上线,online,up,恢复')
       setTgNotifyChatId(editMonitor.tg_notify_chat_id || '')
       setWebhookUrl(editMonitor.webhook_url || '')
+      setWebhookMethod(editMonitor.webhook_method || 'POST')
       setContentType(editMonitor.webhook_content_type || 'application/json')
       setHeaders(editMonitor.webhook_headers || '')
       setBody(editMonitor.webhook_body || '')
@@ -310,6 +312,7 @@ export default function AddMonitorForm({ onSuccess, onCancel, editMonitor }: Add
         tg_notify_chat_id: tgNotifyChatId.trim() || undefined,
         webhook_url: webhookUrl.trim() || undefined,
         webhook_content_type: contentType,
+        webhook_method: webhookMethod,
         webhook_headers: Object.keys(parsedHeaders).length > 0 ? parsedHeaders : undefined,
         webhook_body: Object.keys(parsedBody).length > 0 ? parsedBody : undefined,
         webhook_username: username.trim() || undefined,
@@ -375,8 +378,10 @@ export default function AddMonitorForm({ onSuccess, onCancel, editMonitor }: Add
     setTgOnlineKeywords('上线,online,up,恢复')
     setTgNotifyChatId('')
     setWebhookUrl('')
+    setWebhookMethod('POST')
     setContentType('application/json')
     setHeaders('')
+    setBody('')
     setUsername('')
     setFeedbackLinkage(false)
     setFeedbackThreshold('24')
@@ -1501,6 +1506,21 @@ export default function AddMonitorForm({ onSuccess, onCancel, editMonitor }: Add
             placeholder="https://hooks.slack.com/..."
           />
           <span className="form-hint">故障时发送通知到此地址</span>
+        </div>
+
+        <div className="form-group">
+          <label htmlFor="webhookMethod">HTTP Method</label>
+          <select
+            id="webhookMethod"
+            value={webhookMethod}
+            onChange={e => setWebhookMethod(e.target.value as 'POST' | 'PUT' | 'PATCH' | 'GET')}
+          >
+            <option value="POST">POST</option>
+            <option value="PUT">PUT</option>
+            <option value="PATCH">PATCH</option>
+            <option value="GET">GET</option>
+          </select>
+          <span className="form-hint">默认 POST；Discloud restart 这类接口请选择 PUT。GET 不发送 Body。</span>
         </div>
 
         <div className="form-group">
