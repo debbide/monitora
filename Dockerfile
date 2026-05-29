@@ -23,6 +23,8 @@ FROM node:20-slim
 
 WORKDIR /app
 
+RUN apt-get update && apt-get install -y curl ca-certificates && rm -rf /var/lib/apt/lists/*
+
 # 复制 package 文件
 COPY package*.json ./
 

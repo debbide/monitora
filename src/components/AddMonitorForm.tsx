@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { createMonitor, updateMonitor, Monitor, testTelegramChat } from '../lib/api'
+import { parseHeaderInput } from '../lib/headers'
 
 interface AddMonitorFormProps {
   onSuccess: () => void
@@ -36,6 +37,7 @@ export default function AddMonitorForm({ onSuccess, onCancel, editMonitor }: Add
     | 'email_code'
   >('http')
   const [checkMethod, setCheckMethod] = useState<'GET' | 'HEAD' | 'POST' | 'PUT' | 'PATCH'>('GET')
+  const [httpClientMode, setHttpClientMode] = useState<'fetch' | 'curl'>('fetch')
   const [checkTimeout, setCheckTimeout] = useState('30')
   const [expectedStatusCodes, setExpectedStatusCodes] = useState('200,201,204,301,302')
   const [expectedKeyword, setExpectedKeyword] = useState('')
@@ -128,6 +130,7 @@ export default function AddMonitorForm({ onSuccess, onCancel, editMonitor }: Add
 
       setCheckType(editMonitor.check_type || 'http')
       setCheckMethod(editMonitor.check_method || 'GET')
+      setHttpClientMode(editMonitor.http_client_mode === 'curl' ? 'curl' : 'fetch')
       setCheckTimeout(String(editMonitor.check_timeout || 30))
       setExpectedStatusCodes(editMonitor.expected_status_codes || '200,201,204,301,302')
       setExpectedKeyword(editMonitor.expected_keyword || '')
@@ -215,9 +218,9 @@ export default function AddMonitorForm({ onSuccess, onCancel, editMonitor }: Add
     // Parse Webhook Config Headers/Body
     if (headers.trim()) {
       try {
-        parsedHeaders = JSON.parse(headers)
-      } catch (error) {
-        alert('Webhook Headers格式错误，请输入有效的JSON')
+        parsedHeaders = parseHeaderInput(headers)
+      } catch (error: any) {
+        alert(`Webhook Headers格式错误：${error?.message || '请输入 JSON、Header: value 或 Cookie 字符串'}`)
         return
       }
     }
@@ -234,9 +237,9 @@ export default function AddMonitorForm({ onSuccess, onCancel, editMonitor }: Add
     // Parse Request Config Headers/Body (for HTTP & Scheduled Webhook)
     if (checkHeaders.trim()) {
       try {
-        parsedCheckHeaders = JSON.parse(checkHeaders)
-      } catch (error) {
-        alert('请求 Headers格式错误，请输入有效的JSON')
+        parsedCheckHeaders = parseHeaderInput(checkHeaders)
+      } catch (error: any) {
+        alert(`请求 Headers格式错误：${error?.message || '请输入 JSON、Header: value 或 Cookie 字符串'}`)
         return
       }
     }
@@ -292,6 +295,7 @@ export default function AddMonitorForm({ onSuccess, onCancel, editMonitor }: Add
         check_interval_max: intervalMaxNum,
         check_type: checkType,
         check_method: checkMethod,
+        http_client_mode: httpClientMode,
         check_timeout: timeoutNum,
         expected_status_codes: expectedStatusCodes.trim() || '200,201,204,301,302',
         expected_keyword: expectedKeyword.trim() || undefined,
@@ -353,6 +357,7 @@ export default function AddMonitorForm({ onSuccess, onCancel, editMonitor }: Add
     setRandomUnit('minutes')
     setCheckType('http')
     setCheckMethod('GET')
+    setHttpClientMode('fetch')
     setCheckTimeout('30')
     setExpectedStatusCodes('200,201,204,301,302')
     setExpectedKeyword('')
@@ -890,6 +895,19 @@ export default function AddMonitorForm({ onSuccess, onCancel, editMonitor }: Add
               />
             </div>
 
+            <div className="form-group">
+              <label htmlFor="httpClientMode">请求客户端</label>
+              <select
+                id="httpClientMode"
+                value={httpClientMode}
+                onChange={e => setHttpClientMode(e.target.value as 'fetch' | 'curl')}
+              >
+                <option value="fetch">默认 fetch</option>
+                <option value="curl">curl 兼容模式</option>
+              </select>
+              <span className="form-hint">遇到 Cloudflare/浏览器指纹拦截时可尝试 curl。</span>
+            </div>
+
             {(checkType === 'scheduled_webhook' ||
               checkType === 'http' ||
               checkType === 'feedback_linkage') && (
@@ -911,14 +929,15 @@ export default function AddMonitorForm({ onSuccess, onCancel, editMonitor }: Add
           </div>
 
           <div className="form-group">
-            <label htmlFor="checkHeaders">Custom Headers (JSON)</label>
+            <label htmlFor="checkHeaders">Custom Headers（JSON / Header: value / Cookie）</label>
             <textarea
               id="checkHeaders"
               value={checkHeaders}
               onChange={e => setCheckHeaders(e.target.value)}
-              placeholder='{"Authorization": "Bearer token", "Accept": "application/vnd.github+json"}'
+              placeholder={'可填 JSON，或每行 Header: value，或直接粘贴完整 Cookie 字符串'}
               rows={3}
             />
+            <span className="form-hint">直接粘贴 Cookie 时会自动保存为 Cookie 请求头，无需手动转义双引号。</span>
           </div>
 
           <div className="form-group">
@@ -1546,14 +1565,15 @@ export default function AddMonitorForm({ onSuccess, onCancel, editMonitor }: Add
         </div>
 
         <div className="form-group">
-          <label htmlFor="headers">自定义Headers（JSON格式，可选）</label>
+          <label htmlFor="headers">自定义Headers（JSON / Header: value / Cookie，可选）</label>
           <textarea
             id="headers"
             value={headers}
             onChange={e => setHeaders(e.target.value)}
-            placeholder='{"Authorization": "Bearer token"}'
+            placeholder={'可填 JSON，或每行 Header: value，或直接粘贴完整 Cookie 字符串'}
             rows={3}
           />
+          <span className="form-hint">直接粘贴 Cookie 时会自动保存为 Cookie 请求头，无需手动转义双引号。</span>
         </div>
 
         <div className="form-group">

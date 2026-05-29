@@ -1,5 +1,7 @@
 const API_URL = ''
 
+type HeaderInput = Record<string, string> | string
+
 export interface Monitor {
   id: string
   name: string
@@ -9,6 +11,7 @@ export interface Monitor {
   check_type: 'http' | 'tcp' | 'komari' | 'komari_webhook' | 'nezha_webhook' | 'telegram' | 'scheduled_webhook' | 'feedback_linkage' | 'email_code'
   check_method: 'GET' | 'HEAD' | 'POST' | 'PUT' | 'PATCH'
   check_timeout: number
+  http_client_mode: 'fetch' | 'curl'
   expected_status_codes: string
   expected_keyword: string | null
   forbidden_keyword: string | null
@@ -108,6 +111,7 @@ export async function createMonitor(monitor: {
   check_type?: 'http' | 'tcp' | 'komari' | 'komari_webhook' | 'nezha_webhook' | 'telegram' | 'scheduled_webhook' | 'feedback_linkage' | 'email_code'
   check_method?: 'GET' | 'HEAD' | 'POST' | 'PUT' | 'PATCH'
   check_timeout?: number
+  http_client_mode?: 'fetch' | 'curl'
   expected_status_codes?: string
   expected_keyword?: string
   forbidden_keyword?: string
@@ -121,7 +125,7 @@ export async function createMonitor(monitor: {
   email_timeout_seconds?: number
   email_max_age_seconds?: number
   check_content_type?: string
-  check_headers?: string
+  check_headers?: HeaderInput
   check_body?: string
   tg_chat_id?: string
   tg_server_name?: string
@@ -131,7 +135,7 @@ export async function createMonitor(monitor: {
   webhook_url?: string
   webhook_content_type?: string
   webhook_method?: 'POST' | 'PUT' | 'PATCH' | 'GET'
-  webhook_headers?: Record<string, string>
+  webhook_headers?: HeaderInput
   webhook_body?: Record<string, any>
   webhook_username?: string
   feedback_linkage?: boolean | number
@@ -159,6 +163,7 @@ export async function updateMonitor(id: string, monitor: {
   check_type?: 'http' | 'tcp' | 'komari' | 'komari_webhook' | 'nezha_webhook' | 'telegram' | 'scheduled_webhook' | 'feedback_linkage' | 'email_code'
   check_method?: 'GET' | 'HEAD' | 'POST' | 'PUT' | 'PATCH'
   check_timeout?: number
+  http_client_mode?: 'fetch' | 'curl'
   expected_status_codes?: string
   expected_keyword?: string
   forbidden_keyword?: string
@@ -172,7 +177,7 @@ export async function updateMonitor(id: string, monitor: {
   email_timeout_seconds?: number
   email_max_age_seconds?: number
   check_content_type?: string
-  check_headers?: string
+  check_headers?: HeaderInput
   check_body?: string
   tg_chat_id?: string
   tg_server_name?: string
@@ -182,7 +187,7 @@ export async function updateMonitor(id: string, monitor: {
   webhook_url?: string
   webhook_content_type?: string
   webhook_method?: 'POST' | 'PUT' | 'PATCH' | 'GET'
-  webhook_headers?: Record<string, string>
+  webhook_headers?: HeaderInput
   webhook_body?: Record<string, any>
   webhook_username?: string
   is_active?: number

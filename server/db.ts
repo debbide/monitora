@@ -102,6 +102,7 @@ export async function initDatabase(): Promise<Database> {
       check_type TEXT NOT NULL DEFAULT 'http',
       check_method TEXT NOT NULL DEFAULT 'GET',
       check_timeout INTEGER NOT NULL DEFAULT 30,
+      http_client_mode TEXT DEFAULT 'fetch',
       expected_status_codes TEXT DEFAULT '200,201,204,301,302',
       expected_keyword TEXT,
       forbidden_keyword TEXT,
@@ -138,6 +139,7 @@ export async function initDatabase(): Promise<Database> {
   // 确保所有必要字段都通过迁移存在
   const columns = [
     { name: 'check_interval_max', type: 'INTEGER' },
+    { name: 'http_client_mode', type: 'TEXT DEFAULT "fetch"' },
     { name: 'next_check_at', type: 'TEXT' },
     { name: 'sort_order', type: 'INTEGER DEFAULT 0' },
     { name: 'tg_chat_id', type: 'TEXT' },

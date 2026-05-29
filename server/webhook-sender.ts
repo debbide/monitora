@@ -1,3 +1,4 @@
+import { parseStoredHeaders } from './header-utils.js'
 import { Monitor, MonitorCheck } from './types.js'
 
 type WebhookMethod = 'POST' | 'PUT' | 'PATCH' | 'GET'
@@ -81,10 +82,9 @@ export async function sendWebhookNotification(
 
     if (monitor.webhook_headers) {
         try {
-            const customHeaders = JSON.parse(monitor.webhook_headers)
-            headers = { ...headers, ...customHeaders }
+            headers = { ...headers, ...parseStoredHeaders(monitor.webhook_headers) }
         } catch (e) {
-            console.error('Failed to parse webhook headers JSON:', e)
+            console.error('Failed to parse webhook headers:', e)
         }
     }
 

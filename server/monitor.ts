@@ -3,7 +3,12 @@ import { Monitor, MonitorCheck, KomariApiResponse } from './types.js'
 import { sendTgMessage } from './telegram.js'
 import { sendWebhookNotification } from './webhook-sender.js'
 import { getLatestEmailCode } from './email.js'
+import { parseStoredHeaders, redactHeaders } from './header-utils.js'
 import crypto from 'crypto'
+import { execFile } from 'child_process'
+import { promisify } from 'util'
+
+const execFileAsync = promisify(execFile)
 
 // 缓存最新检查结果
 const latestChecks = new Map<string, MonitorCheck>()
@@ -250,37 +255,60 @@ export async function checkMonitor(monitor: Monitor) {
   console.log(`Monitor ${monitor.name}: Scheduled next check at ${nextCheckTime}`)
 }
 
-async function checkHTTP(
-  monitor: Monitor,
-  timeout: number
-): Promise<{
+type HTTPCheckResult = {
   success: boolean
   statusCode: number
   body?: string
   error?: string
-}> {
+}
+
+function buildHTTPCheckRequest(monitor: Monitor): {
+  method: Monitor['check_method']
+  headers: Record<string, string>
+  requestBody?: string
+} {
+  const method = monitor.check_method || 'GET'
+  const headers = {
+    'User-Agent': 'UptimeMonitor/1.0',
+    ...(monitor.check_content_type ? { 'Content-Type': monitor.check_content_type } : {}),
+    ...parseStoredHeaders(monitor.check_headers)
+  }
+
+  const requestBody =
+    (method === 'POST' || method === 'PUT' || method === 'PATCH') && monitor.check_body
+      ? JSON.stringify(JSON.parse(monitor.check_body))
+      : undefined
+
+  return { method, headers, requestBody }
+}
+
+function logHTTPCheckRequest(
+  monitor: Monitor,
+  method: Monitor['check_method'],
+  headers: Record<string, string>,
+  requestBody?: string
+) {
+  console.log(`[DEBUG] Executing HTTP Check for ${monitor.name}:`)
+  console.log(`[DEBUG] Client: ${monitor.http_client_mode === 'curl' ? 'curl' : 'fetch'}`)
+  console.log(`[DEBUG] URL: ${monitor.url}`)
+  console.log(`[DEBUG] Method: ${method}`)
+  console.log(`[DEBUG] Headers:`, redactHeaders(headers))
+  console.log(`[DEBUG] Body:`, requestBody)
+}
+
+async function checkHTTP(monitor: Monitor, timeout: number): Promise<HTTPCheckResult> {
+  return monitor.http_client_mode === 'curl'
+    ? checkHTTPWithCurl(monitor, timeout)
+    : checkHTTPWithFetch(monitor, timeout)
+}
+
+async function checkHTTPWithFetch(monitor: Monitor, timeout: number): Promise<HTTPCheckResult> {
   try {
     const controller = new AbortController()
     const timeoutId = setTimeout(() => controller.abort(), timeout)
+    const { method, headers, requestBody } = buildHTTPCheckRequest(monitor)
 
-    const method = monitor.check_method || 'GET'
-
-    const headers = {
-      'User-Agent': 'UptimeMonitor/1.0',
-      ...(monitor.check_content_type ? { 'Content-Type': monitor.check_content_type } : {}),
-      ...(monitor.check_headers ? JSON.parse(monitor.check_headers) : {})
-    }
-
-    const requestBody =
-      (method === 'POST' || method === 'PUT' || method === 'PATCH') && monitor.check_body
-        ? JSON.stringify(JSON.parse(monitor.check_body))
-        : undefined
-
-    console.log(`[DEBUG] Executing HTTP Check for ${monitor.name}:`)
-    console.log(`[DEBUG] URL: ${monitor.url}`)
-    console.log(`[DEBUG] Method: ${method}`)
-    console.log(`[DEBUG] Headers:`, headers)
-    console.log(`[DEBUG] Body:`, requestBody)
+    logHTTPCheckRequest(monitor, method, headers, requestBody)
 
     const response = await fetch(monitor.url, {
       method,
@@ -312,6 +340,76 @@ async function checkHTTP(
       return { success: false, statusCode: 0, error: `超时 (${timeout / 1000}秒)` }
     }
     return { success: false, statusCode: 0, error: error.message }
+  }
+}
+
+async function checkHTTPWithCurl(monitor: Monitor, timeout: number): Promise<HTTPCheckResult> {
+  const statusMarker = '__CLAUDE_MONITOR_STATUS__'
+
+  try {
+    const { method, headers, requestBody } = buildHTTPCheckRequest(monitor)
+    const needBody = (monitor.expected_keyword || monitor.forbidden_keyword) && method !== 'HEAD'
+    const args = [
+      '--http1.1',
+      '-L',
+      '--compressed',
+      '--max-time',
+      String(Math.ceil(timeout / 1000)),
+      '-sS',
+      '-X',
+      method,
+      '-w',
+      `${statusMarker}%{http_code}`
+    ]
+
+    if (!needBody) {
+      args.push('-o', process.platform === 'win32' ? 'NUL' : '/dev/null')
+    }
+
+    for (const [key, value] of Object.entries(headers)) {
+      args.push('-H', `${key}: ${value}`)
+    }
+
+    if (requestBody !== undefined) {
+      args.push('--data-binary', requestBody)
+    }
+
+    args.push(monitor.url)
+
+    logHTTPCheckRequest(monitor, method, headers, requestBody)
+
+    const { stdout } = await execFileAsync('curl', args, {
+      timeout: timeout + 1000,
+      maxBuffer: 10 * 1024 * 1024
+    })
+
+    const markerIndex = stdout.lastIndexOf(statusMarker)
+    if (markerIndex === -1) {
+      return { success: false, statusCode: 0, error: 'curl 响应缺少状态码' }
+    }
+
+    const body = needBody ? stdout.slice(0, markerIndex) : ''
+    const statusCode = parseInt(stdout.slice(markerIndex + statusMarker.length).trim(), 10) || 0
+
+    return {
+      success: true,
+      statusCode,
+      body
+    }
+  } catch (error: any) {
+    if (error.code === 'ENOENT') {
+      return { success: false, statusCode: 0, error: 'curl not found' }
+    }
+    if (error.killed || error.signal === 'SIGTERM') {
+      return { success: false, statusCode: 0, error: `超时 (${timeout / 1000}秒)` }
+    }
+
+    const stderr = typeof error.stderr === 'string' ? error.stderr.trim() : ''
+    return {
+      success: false,
+      statusCode: 0,
+      error: stderr || error.message || 'curl request failed'
+    }
   }
 }
 

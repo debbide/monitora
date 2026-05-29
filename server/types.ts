@@ -7,6 +7,7 @@ export interface Monitor {
   check_type: 'http' | 'tcp' | 'komari' | 'komari_webhook' | 'nezha_webhook' | 'telegram' | 'scheduled_webhook' | 'feedback_linkage' | 'email_code'
   check_method: 'GET' | 'HEAD' | 'POST' | 'PUT' | 'PATCH'
   check_timeout: number
+  http_client_mode: 'fetch' | 'curl'
   expected_status_codes: string
   expected_keyword: string | null
   forbidden_keyword: string | null

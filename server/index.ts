@@ -19,6 +19,7 @@ import {
   handleUpStatus
 } from './monitor.js'
 import { getWebhookMethod, processWebhookBody, sendWebhookNotification } from './webhook-sender.js'
+import { normalizeHeadersForStorage, normalizeJsonForStorage, parseStoredHeaders } from './header-utils.js'
 import {
   initTelegramBot,
   getTelegramBotStatus,
@@ -45,6 +46,10 @@ import {
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const app = express()
 const PORT = process.env.PORT || 3000
+
+function getHttpClientMode(mode: unknown): 'fetch' | 'curl' {
+  return mode === 'curl' ? 'curl' : 'fetch'
+}
 
 function stripHtml(html: string): string {
   return html
@@ -115,10 +120,15 @@ app.post('/api/monitors', async (req, res) => {
       }
     }
 
+    const checkHeaders = normalizeHeadersForStorage(body.check_headers)
+    const webhookHeaders = normalizeHeadersForStorage(body.webhook_headers)
+    const checkBody = normalizeJsonForStorage(body.check_body)
+    const webhookBody = normalizeJsonForStorage(body.webhook_body)
+
     run(
       `INSERT INTO monitors (
-        id, name, url, check_interval, check_interval_max, check_type, check_method, check_timeout, 
-        expected_status_codes, expected_keyword, forbidden_keyword, komari_offline_threshold, 
+        id, name, url, check_interval, check_interval_max, check_type, check_method, check_timeout,
+        http_client_mode, expected_status_codes, expected_keyword, forbidden_keyword, komari_offline_threshold,
         email_site_key, email_from_filter, email_subject_keyword, email_body_keyword, email_code_regex,
         email_to_email, email_timeout_seconds, email_max_age_seconds,
         check_content_type, check_headers, check_body,
@@ -126,7 +136,7 @@ app.post('/api/monitors', async (req, res) => {
         webhook_url, webhook_content_type, webhook_method, webhook_headers, webhook_body, webhook_username,
         next_check_at, is_active, feedback_linkage, feedback_threshold,
         feedback_fluctuation_min, feedback_fluctuation_max
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         id,
         body.name,
@@ -136,6 +146,7 @@ app.post('/api/monitors', async (req, res) => {
         body.check_type || 'http',
         body.check_method || 'GET',
         parseInt(body.check_timeout) || 30,
+        getHttpClientMode(body.http_client_mode),
         body.expected_status_codes || '200,201,204,301,302',
         body.expected_keyword || null,
         body.forbidden_keyword || null,
@@ -149,12 +160,8 @@ app.post('/api/monitors', async (req, res) => {
         parseInt(body.email_timeout_seconds) || 120,
         parseInt(body.email_max_age_seconds) || 300,
         body.check_content_type || 'application/json',
-        body.check_headers && typeof body.check_headers === 'object'
-          ? JSON.stringify(body.check_headers)
-          : body.check_headers || null,
-        body.check_body && typeof body.check_body === 'object'
-          ? JSON.stringify(body.check_body)
-          : body.check_body || null,
+        checkHeaders,
+        checkBody,
         body.tg_chat_id || null,
         body.tg_server_name || null,
         body.tg_offline_keywords || null,
@@ -163,12 +170,8 @@ app.post('/api/monitors', async (req, res) => {
         body.webhook_url || null,
         body.webhook_content_type || 'application/json',
         getWebhookMethod(body.webhook_method),
-        body.webhook_headers && typeof body.webhook_headers === 'object'
-          ? JSON.stringify(body.webhook_headers)
-          : body.webhook_headers || null,
-        body.webhook_body && typeof body.webhook_body === 'object'
-          ? JSON.stringify(body.webhook_body)
-          : body.webhook_body || null,
+        webhookHeaders,
+        webhookBody,
         body.webhook_username || null,
         initialNextCheck,
         1,
@@ -272,6 +275,11 @@ app.put('/api/monitors/:id', (req, res) => {
       }
     }
 
+    const checkHeaders = normalizeHeadersForStorage(body.check_headers)
+    const webhookHeaders = normalizeHeadersForStorage(body.webhook_headers)
+    const checkBody = normalizeJsonForStorage(body.check_body)
+    const webhookBody = normalizeJsonForStorage(body.webhook_body)
+
     run(
       `UPDATE monitors SET
         name = ?,
@@ -281,6 +289,7 @@ app.put('/api/monitors/:id', (req, res) => {
         check_type = ?,
         check_method = ?,
         check_timeout = ?,
+        http_client_mode = ?,
         expected_status_codes = ?,
         expected_keyword = ?,
         forbidden_keyword = ?,
@@ -323,6 +332,7 @@ app.put('/api/monitors/:id', (req, res) => {
         body.check_type || 'http',
         body.check_method || 'GET',
         parseInt(body.check_timeout) || 30,
+        getHttpClientMode(body.http_client_mode),
         body.expected_status_codes || '200,201,204,301,302',
         body.expected_keyword || null,
         body.forbidden_keyword || null,
@@ -336,12 +346,8 @@ app.put('/api/monitors/:id', (req, res) => {
         parseInt(body.email_timeout_seconds) || 120,
         parseInt(body.email_max_age_seconds) || 300,
         body.check_content_type || 'application/json',
-        body.check_headers && typeof body.check_headers === 'object'
-          ? JSON.stringify(body.check_headers)
-          : body.check_headers || null,
-        body.check_body && typeof body.check_body === 'object'
-          ? JSON.stringify(body.check_body)
-          : body.check_body || null,
+        checkHeaders,
+        checkBody,
         body.tg_chat_id || null,
         body.tg_server_name || null,
         body.tg_offline_keywords || null,
@@ -350,12 +356,8 @@ app.put('/api/monitors/:id', (req, res) => {
         body.webhook_url || null,
         body.webhook_content_type || 'application/json',
         getWebhookMethod(body.webhook_method),
-        body.webhook_headers && typeof body.webhook_headers === 'object'
-          ? JSON.stringify(body.webhook_headers)
-          : body.webhook_headers || null,
-        body.webhook_body && typeof body.webhook_body === 'object'
-          ? JSON.stringify(body.webhook_body)
-          : body.webhook_body || null,
+        webhookHeaders,
+        webhookBody,
         body.webhook_username || null,
         body.is_active !== undefined ? body.is_active : 1,
         new Date().toISOString(),
@@ -515,8 +517,7 @@ app.post('/api/test-webhook', async (req, res) => {
     headers['Content-Type'] = monitor.webhook_content_type || 'application/json'
 
     if (monitor.webhook_headers) {
-      const customHeaders = JSON.parse(monitor.webhook_headers)
-      headers = { ...headers, ...customHeaders }
+      headers = { ...headers, ...parseStoredHeaders(monitor.webhook_headers) }
     }
 
     if (monitor.webhook_username) {
@@ -1380,8 +1381,7 @@ app.post('/api/komari-notify', async (req, res) => {
           }
 
           if (matchedMonitor.webhook_headers) {
-            const customHeaders = JSON.parse(matchedMonitor.webhook_headers)
-            headers = { ...headers, ...customHeaders }
+            headers = { ...headers, ...parseStoredHeaders(matchedMonitor.webhook_headers) }
           }
 
           if (matchedMonitor.webhook_username) {
