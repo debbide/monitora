@@ -24,38 +24,42 @@ function getRandomInterval(min: number, max: number): number {
 
 // 生成每日随机时段的下一次时间
 export function calculateNextDailyWindowTime(startStr: string, endStr: string, isInitToday: boolean = false): string {
+  // 考虑到 Docker (debian-slim) 环境默认缺少 tzdata，TZ=Asia/Shanghai 可能不生效
+  // 直接通过代码将时间平移计算（固定为东八区 UTC+8）
+  const offset = 8 * 60 * 60 * 1000
   const now = new Date()
-  let targetDate = new Date(now)
+  const now8 = new Date(now.getTime() + offset) // 伪造一个 UTC 时间来表示东八区时间
+  
+  let targetDate8 = new Date(now8)
   
   if (!isInitToday) {
-    // 正常调度：取明天
-    targetDate.setDate(targetDate.getDate() + 1)
+    targetDate8.setUTCDate(targetDate8.getUTCDate() + 1)
   }
   
   const [startH, startM] = startStr.split(':').map(Number)
   const [endH, endM] = endStr.split(':').map(Number)
   
-  const minTime = new Date(targetDate)
-  minTime.setHours(startH, startM, 0, 0)
+  const minTime8 = new Date(targetDate8)
+  minTime8.setUTCHours(startH, startM, 0, 0)
   
-  const maxTime = new Date(targetDate)
-  maxTime.setHours(endH, endM, 0, 0)
+  const maxTime8 = new Date(targetDate8)
+  maxTime8.setUTCHours(endH, endM, 0, 0)
   
-  // 防止 min >= max 导致的负区间
-  const diff = maxTime.getTime() - minTime.getTime()
-  if (diff <= 0) return minTime.toISOString()
+  const diff = maxTime8.getTime() - minTime8.getTime()
+  if (diff <= 0) return new Date(minTime8.getTime() - offset).toISOString()
   
-  let randomTime = new Date(minTime.getTime() + Math.random() * diff)
+  let randomTime8 = new Date(minTime8.getTime() + Math.random() * diff)
   
   // 如果是初始化当天，但随机出来的时间已经过了，自动推迟到明天
-  if (isInitToday && randomTime.getTime() <= now.getTime()) {
-    targetDate.setDate(targetDate.getDate() + 1)
-    minTime.setDate(targetDate.getDate())
-    maxTime.setDate(targetDate.getDate())
-    randomTime = new Date(minTime.getTime() + Math.random() * (maxTime.getTime() - minTime.getTime()))
+  if (isInitToday && randomTime8.getTime() <= now8.getTime()) {
+    targetDate8.setUTCDate(targetDate8.getUTCDate() + 1)
+    minTime8.setUTCDate(targetDate8.getUTCDate())
+    maxTime8.setUTCDate(targetDate8.getUTCDate())
+    randomTime8 = new Date(minTime8.getTime() + Math.random() * diff)
   }
   
-  return randomTime.toISOString()
+  // 将东八区时间转回真实的 UTC 时间
+  return new Date(randomTime8.getTime() - offset).toISOString()
 }
 
 export async function checkAllMonitors() {
