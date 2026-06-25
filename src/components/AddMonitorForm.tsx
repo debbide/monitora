@@ -13,7 +13,11 @@ export default function AddMonitorForm({ onSuccess, onCancel, editMonitor }: Add
   const [url, setUrl] = useState('')
 
   // Scheduling State
-  const [scheduleMode, setScheduleMode] = useState<'fixed' | 'random'>('fixed')
+  const [scheduleMode, setScheduleMode] = useState<'fixed' | 'random' | 'daily_window'>('fixed')
+
+  // Daily Window Schedule
+  const [dailyWindowStart, setDailyWindowStart] = useState('03:00')
+  const [dailyWindowEnd, setDailyWindowEnd] = useState('08:00')
 
   // Fixed Schedule
   const [schedDays, setSchedDays] = useState('0')
@@ -85,7 +89,19 @@ export default function AddMonitorForm({ onSuccess, onCancel, editMonitor }: Add
       setUrl(editMonitor.url)
 
       // Initialize Scheduling Mode
-      if (
+      if (editMonitor.daily_window_start && editMonitor.daily_window_end) {
+        setScheduleMode('daily_window')
+        setDailyWindowStart(editMonitor.daily_window_start)
+        setDailyWindowEnd(editMonitor.daily_window_end)
+        
+        // default fallback
+        setSchedDays('0')
+        setSchedHours('0')
+        setSchedMinutes('5')
+        setRandomMin('5')
+        setRandomMax('10')
+        setRandomUnit('minutes')
+      } else if (
         editMonitor.check_interval_max &&
         editMonitor.check_interval_max > editMonitor.check_interval
       ) {
@@ -257,8 +273,19 @@ export default function AddMonitorForm({ onSuccess, onCancel, editMonitor }: Add
     try {
       let finalInterval = 5
       let intervalMaxNum = null
+      let finalDailyWindowStart = undefined
+      let finalDailyWindowEnd = undefined
 
-      if (scheduleMode === 'fixed') {
+      if (scheduleMode === 'daily_window') {
+        if (!dailyWindowStart || !dailyWindowEnd) {
+           alert('请填写完整的每日随机时段')
+           setIsSubmitting(false)
+           return
+        }
+        finalDailyWindowStart = dailyWindowStart
+        finalDailyWindowEnd = dailyWindowEnd
+        finalInterval = 5 // Dummy value
+      } else if (scheduleMode === 'fixed') {
         // Fixed Mode: Calculate total minutes from Days/Hours/Minutes
         const days = parseInt(schedDays) || 0
         const hours = parseInt(schedHours) || 0
@@ -314,6 +341,8 @@ export default function AddMonitorForm({ onSuccess, onCancel, editMonitor }: Add
         tg_offline_keywords: tgOfflineKeywords.trim() || undefined,
         tg_online_keywords: tgOnlineKeywords.trim() || undefined,
         tg_notify_chat_id: tgNotifyChatId.trim() || undefined,
+        daily_window_start: finalDailyWindowStart,
+        daily_window_end: finalDailyWindowEnd,
         webhook_url: webhookUrl.trim() || undefined,
         webhook_content_type: contentType,
         webhook_method: webhookMethod,
@@ -352,6 +381,8 @@ export default function AddMonitorForm({ onSuccess, onCancel, editMonitor }: Add
     setSchedDays('0')
     setSchedHours('0')
     setSchedMinutes('5')
+    setDailyWindowStart('03:00')
+    setDailyWindowEnd('08:00')
     setRandomMin('5')
     setRandomMax('10')
     setRandomUnit('minutes')
@@ -500,7 +531,7 @@ export default function AddMonitorForm({ onSuccess, onCancel, editMonitor }: Add
                       模式:
                       <select
                         value={scheduleMode}
-                        onChange={e => setScheduleMode(e.target.value as 'fixed' | 'random')}
+                        onChange={e => setScheduleMode(e.target.value as 'fixed' | 'random' | 'daily_window')}
                         style={{
                           marginLeft: '4px',
                           padding: '2px 4px',
@@ -513,6 +544,7 @@ export default function AddMonitorForm({ onSuccess, onCancel, editMonitor }: Add
                       >
                         <option value="fixed">固定周期</option>
                         <option value="random">随机区间</option>
+                        <option value="daily_window">每日时段随机</option>
                       </select>
                     </span>
                   )}
@@ -606,6 +638,32 @@ export default function AddMonitorForm({ onSuccess, onCancel, editMonitor }: Add
                       每次检查将在 {randomMin} - {randomMax}{' '}
                       {randomUnit === 'minutes' ? '分钟' : randomUnit === 'hours' ? '小时' : '天'}{' '}
                       内随机触发
+                    </span>
+                  </>
+                )}
+
+                {/* Daily Window Mode UI */}
+                {scheduleMode === 'daily_window' && (
+                  <>
+                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                      <input
+                        type="time"
+                        value={dailyWindowStart}
+                        onChange={e => setDailyWindowStart(e.target.value)}
+                        style={{ flex: 1 }}
+                        required={scheduleMode === 'daily_window'}
+                      />
+                      <span style={{ fontSize: '14px' }}>至</span>
+                      <input
+                        type="time"
+                        value={dailyWindowEnd}
+                        onChange={e => setDailyWindowEnd(e.target.value)}
+                        style={{ flex: 1 }}
+                        required={scheduleMode === 'daily_window'}
+                      />
+                    </div>
+                    <span className="form-hint">
+                      每天将在 {dailyWindowStart} 到 {dailyWindowEnd} 之间随机触发一次
                     </span>
                   </>
                 )}

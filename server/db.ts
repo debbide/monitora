@@ -115,6 +115,8 @@ export async function initDatabase(): Promise<Database> {
       email_to_email TEXT,
       email_timeout_seconds INTEGER DEFAULT 120,
       email_max_age_seconds INTEGER DEFAULT 300,
+      daily_window_start TEXT,
+      daily_window_end TEXT,
       webhook_url TEXT,
       webhook_content_type TEXT DEFAULT 'application/json',
       webhook_method TEXT DEFAULT 'POST',
@@ -162,7 +164,9 @@ export async function initDatabase(): Promise<Database> {
     { name: 'email_code_regex', type: 'TEXT' },
     { name: 'email_to_email', type: 'TEXT' },
     { name: 'email_timeout_seconds', type: 'INTEGER DEFAULT 120' },
-    { name: 'email_max_age_seconds', type: 'INTEGER DEFAULT 300' }
+    { name: 'email_max_age_seconds', type: 'INTEGER DEFAULT 300' },
+    { name: 'daily_window_start', type: 'TEXT' },
+    { name: 'daily_window_end', type: 'TEXT' }
   ]
 
   for (const col of columns) {

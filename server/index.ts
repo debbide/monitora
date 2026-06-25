@@ -16,7 +16,8 @@ import {
   verifyPassword,
   saveCheck,
   handleDownStatus,
-  handleUpStatus
+  handleUpStatus,
+  calculateNextDailyWindowTime
 } from './monitor.js'
 import { getWebhookMethod, processWebhookBody, sendWebhookNotification } from './webhook-sender.js'
 import { normalizeHeadersForStorage, normalizeJsonForStorage, parseStoredHeaders } from './header-utils.js'
@@ -110,7 +111,10 @@ app.post('/api/monitors', async (req, res) => {
       nextInterval =
         Math.floor(Math.random() * (checkIntervalMax - checkInterval + 1)) + checkInterval
     }
-    const initialNextCheck = new Date(now + nextInterval * 60 * 1000).toISOString()
+    let initialNextCheck = new Date(now + nextInterval * 60 * 1000).toISOString()
+    if (body.daily_window_start && body.daily_window_end) {
+      initialNextCheck = calculateNextDailyWindowTime(body.daily_window_start, body.daily_window_end, true)
+    }
 
     if (body.check_type === 'email_code') {
       if (!body.email_site_key || !body.email_from_filter || !body.email_code_regex) {
@@ -130,13 +134,13 @@ app.post('/api/monitors', async (req, res) => {
         id, name, url, check_interval, check_interval_max, check_type, check_method, check_timeout,
         http_client_mode, expected_status_codes, expected_keyword, forbidden_keyword, komari_offline_threshold,
         email_site_key, email_from_filter, email_subject_keyword, email_body_keyword, email_code_regex,
-        email_to_email, email_timeout_seconds, email_max_age_seconds,
+        email_to_email, email_timeout_seconds, email_max_age_seconds, daily_window_start, daily_window_end,
         check_content_type, check_headers, check_body,
         tg_chat_id, tg_server_name, tg_offline_keywords, tg_online_keywords, tg_notify_chat_id,
         webhook_url, webhook_content_type, webhook_method, webhook_headers, webhook_body, webhook_username,
         next_check_at, is_active, feedback_linkage, feedback_threshold,
         feedback_fluctuation_min, feedback_fluctuation_max
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         id,
         body.name,
@@ -159,6 +163,8 @@ app.post('/api/monitors', async (req, res) => {
         body.email_to_email || null,
         parseInt(body.email_timeout_seconds) || 120,
         parseInt(body.email_max_age_seconds) || 300,
+        body.daily_window_start || null,
+        body.daily_window_end || null,
         body.check_content_type || 'application/json',
         checkHeaders,
         checkBody,
@@ -265,7 +271,10 @@ app.put('/api/monitors/:id', (req, res) => {
       nextInterval =
         Math.floor(Math.random() * (checkIntervalMax - checkInterval + 1)) + checkInterval
     }
-    const resetNextCheck = new Date(now + nextInterval * 60 * 1000).toISOString()
+    let resetNextCheck = new Date(now + nextInterval * 60 * 1000).toISOString()
+    if (body.daily_window_start && body.daily_window_end) {
+      resetNextCheck = calculateNextDailyWindowTime(body.daily_window_start, body.daily_window_end, true)
+    }
 
     if (body.check_type === 'email_code') {
       if (!body.email_site_key || !body.email_from_filter || !body.email_code_regex) {
@@ -302,6 +311,8 @@ app.put('/api/monitors/:id', (req, res) => {
         email_to_email = ?,
         email_timeout_seconds = ?,
         email_max_age_seconds = ?,
+        daily_window_start = ?,
+        daily_window_end = ?,
         check_content_type = ?,
         check_headers = ?,
         check_body = ?,
@@ -345,6 +356,8 @@ app.put('/api/monitors/:id', (req, res) => {
         body.email_to_email || null,
         parseInt(body.email_timeout_seconds) || 120,
         parseInt(body.email_max_age_seconds) || 300,
+        body.daily_window_start || null,
+        body.daily_window_end || null,
         body.check_content_type || 'application/json',
         checkHeaders,
         checkBody,

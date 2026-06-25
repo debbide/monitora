@@ -22,6 +22,42 @@ function getRandomInterval(min: number, max: number): number {
   return Math.floor(Math.random() * (max - min + 1)) + min
 }
 
+// 生成每日随机时段的下一次时间
+export function calculateNextDailyWindowTime(startStr: string, endStr: string, isInitToday: boolean = false): string {
+  const now = new Date()
+  let targetDate = new Date(now)
+  
+  if (!isInitToday) {
+    // 正常调度：取明天
+    targetDate.setDate(targetDate.getDate() + 1)
+  }
+  
+  const [startH, startM] = startStr.split(':').map(Number)
+  const [endH, endM] = endStr.split(':').map(Number)
+  
+  const minTime = new Date(targetDate)
+  minTime.setHours(startH, startM, 0, 0)
+  
+  const maxTime = new Date(targetDate)
+  maxTime.setHours(endH, endM, 0, 0)
+  
+  // 防止 min >= max 导致的负区间
+  const diff = maxTime.getTime() - minTime.getTime()
+  if (diff <= 0) return minTime.toISOString()
+  
+  let randomTime = new Date(minTime.getTime() + Math.random() * diff)
+  
+  // 如果是初始化当天，但随机出来的时间已经过了，自动推迟到明天
+  if (isInitToday && randomTime.getTime() <= now.getTime()) {
+    targetDate.setDate(targetDate.getDate() + 1)
+    minTime.setDate(targetDate.getDate())
+    maxTime.setDate(targetDate.getDate())
+    randomTime = new Date(minTime.getTime() + Math.random() * (maxTime.getTime() - minTime.getTime()))
+  }
+  
+  return randomTime.toISOString()
+}
+
 export async function checkAllMonitors() {
   try {
     // 排除 telegram、komari_webhook、nezha_webhook 类型，它们是被动接收通知的
@@ -38,12 +74,16 @@ export async function checkAllMonitors() {
         // 为了安全起见，我们先初始化为 "现在"，让它立即跑一次，或者根据逻辑推迟
 
         let nextCheck = now
+        let nextCheckStr = new Date(nextCheck).toISOString()
         const lastCheck = queryFirst(
           'SELECT checked_at FROM monitor_checks WHERE monitor_id = ? ORDER BY checked_at DESC LIMIT 1',
           [monitor.id]
         ) as { checked_at: string } | undefined
 
-        if (lastCheck) {
+        if (monitor.daily_window_start && monitor.daily_window_end) {
+          nextCheckStr = calculateNextDailyWindowTime(monitor.daily_window_start, monitor.daily_window_end, !lastCheck)
+          nextCheck = new Date(nextCheckStr).getTime()
+        } else if (lastCheck) {
           // 基础间隔（分钟）
           let intervalMinutes = monitor.check_interval || 5
           // 如果是随机间隔模式，取个随机值
@@ -55,10 +95,10 @@ export async function checkAllMonitors() {
             intervalMinutes = getRandomInterval(monitor.check_interval, monitor.check_interval_max)
           }
           nextCheck = new Date(lastCheck.checked_at).getTime() + intervalMinutes * 60 * 1000
+          nextCheckStr = new Date(nextCheck).toISOString()
         }
 
         // 立即保存到 DB，防止重复计算
-        const nextCheckStr = new Date(nextCheck).toISOString()
         run('UPDATE monitors SET next_check_at = ? WHERE id = ?', [nextCheckStr, monitor.id])
         console.log(`Initialized next_check_at for ${monitor.name} to ${nextCheckStr}`)
 
@@ -232,25 +272,35 @@ export async function checkMonitor(monitor: Monitor) {
   // ---------------------------------------------------------
   // 关键改动：检查完成后，立即计算并持久化 下一次检查时间
   // ---------------------------------------------------------
-  let nextIntervalMinutes = monitor.check_interval || 5
+  let nextCheckTime = ''
 
-  if (monitor.feedback_linkage || monitor.check_type === 'feedback_linkage') {
-    // 反馈联动模式：设置一个较大的安全冗余时间 (例如 6 小时)，防止回调没到导致任务永久停滞
-    // 正常情况下，回调会很快回来并覆盖这个时间
-    nextIntervalMinutes = 360 // 6 小时保底
-    console.log(`Monitor ${monitor.name}: Feedback Linkage enabled. Safety fallback set to 6h.`)
-  } else if (
-    (monitor.check_type === 'http' || monitor.check_type === 'scheduled_webhook') &&
-    monitor.check_interval_max &&
-    monitor.check_interval_max > monitor.check_interval
-  ) {
-    nextIntervalMinutes = getRandomInterval(monitor.check_interval, monitor.check_interval_max)
+  if (monitor.daily_window_start && monitor.daily_window_end) {
+    nextCheckTime = calculateNextDailyWindowTime(monitor.daily_window_start, monitor.daily_window_end, false)
     console.log(
-      `Monitor ${monitor.name}: Random interval generated for next run: ${nextIntervalMinutes}m`
+      `Monitor ${monitor.name}: Daily window interval generated for next run: ${nextCheckTime}`
     )
+  } else {
+    let nextIntervalMinutes = monitor.check_interval || 5
+
+    if (monitor.feedback_linkage || monitor.check_type === 'feedback_linkage') {
+      // 反馈联动模式：设置一个较大的安全冗余时间 (例如 6 小时)，防止回调没到导致任务永久停滞
+      // 正常情况下，回调会很快回来并覆盖这个时间
+      nextIntervalMinutes = 360 // 6 小时保底
+      console.log(`Monitor ${monitor.name}: Feedback Linkage enabled. Safety fallback set to 6h.`)
+    } else if (
+      (monitor.check_type === 'http' || monitor.check_type === 'scheduled_webhook') &&
+      monitor.check_interval_max &&
+      monitor.check_interval_max > monitor.check_interval
+    ) {
+      nextIntervalMinutes = getRandomInterval(monitor.check_interval, monitor.check_interval_max)
+      console.log(
+        `Monitor ${monitor.name}: Random interval generated for next run: ${nextIntervalMinutes}m`
+      )
+    }
+
+    nextCheckTime = new Date(Date.now() + nextIntervalMinutes * 60 * 1000).toISOString()
   }
 
-  const nextCheckTime = new Date(Date.now() + nextIntervalMinutes * 60 * 1000).toISOString()
   run('UPDATE monitors SET next_check_at = ? WHERE id = ?', [nextCheckTime, monitor.id])
   console.log(`Monitor ${monitor.name}: Scheduled next check at ${nextCheckTime}`)
 }
