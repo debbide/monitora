@@ -6,10 +6,16 @@ on:
       - main
       - master
       - develop
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
   pull_request:
     branches:
       - main
       - master
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
 
 jobs:
   lint-and-format:
