@@ -62,9 +62,9 @@
 
 ---
 
-## 🚀 快速部署 (CT8 等环境一键脚本)
+## 🚀 快速部署 (CT8 / Serv00 一键脚本)
 
-如果您使用的是 CT8 等基于 Linux 的环境，可以使用以下一键脚本快速安装或更新 CloudEye：
+如果您使用的是 CT8、Serv00 等 FreeBSD 环境，可以使用以下一键脚本快速安装或更新 CloudEye：
 
 ```bash
 curl -sL "https://github.com/cokear/gtool-releases/raw/refs/heads/main/install_monitora.sh?v=$(date +%s)" | tr -d '\r' > install_monitora.sh && bash install_monitora.sh
