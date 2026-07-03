@@ -6,10 +6,19 @@ on:
       - main
     tags:
       - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: '输入你要发版的版本号 (例如 v1.0.1)'
+        required: true
+        default: 'latest-build'
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write 
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -37,8 +46,10 @@ jobs:
 
       - name: Create Release
         uses: softprops/action-gh-release@v1
-        if: startsWith(github.ref, 'refs/tags/')
         with:
+          # 如果是手动触发就用输入框里的字，如果是推代码触发就用原有的 Tag
+          tag_name: ${{ github.event.inputs.version || github.ref_name }}
+          name: Release ${{ github.event.inputs.version || github.ref_name }}
           files: monitora-release.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
