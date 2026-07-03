@@ -444,3 +444,34 @@ export async function requestEmailCode(payload: {
     body: JSON.stringify(payload),
   })
 }
+
+// ---------------- 备份与恢复 ----------------
+
+export async function getBackupSettings() {
+  return fetchAPI('/api/backup/settings')
+}
+
+export async function saveBackupSettings(settings: Record<string, any>) {
+  return fetchAPI('/api/backup/settings', {
+    method: 'POST',
+    body: JSON.stringify(settings)
+  })
+}
+
+export async function triggerBackup() {
+  return fetchAPI('/api/backup/trigger', {
+    method: 'POST'
+  })
+}
+
+export async function restoreBackup(file: File) {
+  const response = await fetch(`${API_URL}/api/backup/restore`, {
+    method: 'POST',
+    body: file
+  })
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}))
+    throw new Error(err.error || '上传恢复失败')
+  }
+  return response.json()
+}

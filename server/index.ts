@@ -7,7 +7,7 @@ import crypto from 'crypto'
 import { WebSocketServer, WebSocket } from 'ws'
 import type { RawData } from 'ws'
 import type { IncomingMessage } from 'http'
-import { initDatabase, queryAll, queryFirst, run } from './db.js'
+import { initDatabase, queryAll, queryFirst, run, saveNow } from './db.js'
 import { Monitor, MonitorCheck } from './types.js'
 import {
   checkAllMonitors,
@@ -43,6 +43,7 @@ import {
   requestEmailCode,
   getLatestEmailCode
 } from './email.js'
+import { initBackupScheduler, performBackup } from './backup.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const app = express()
@@ -1017,6 +1018,111 @@ app.post('/api/settings/email', async (req, res) => {
     await stopEmailWatcher()
 
     res.json({ success: true, message: 'Email 设置已保存' })
+  } catch (error: any) {
+    res.status(500).json({ error: error.message })
+  }
+})
+
+// ---------------- 备份与恢复 API ----------------
+app.get('/api/backup/download', (req, res) => {
+  try {
+    const dataDir = process.env.DATA_DIR || path.join(__dirname, '../data')
+    const dbPath = path.join(dataDir, 'monitor.db')
+    import('fs').then(fs => {
+        if (fs.existsSync(dbPath)) {
+          saveNow() // 强制将内存数据落盘
+          res.download(dbPath, `monitora_backup_${new Date().toISOString().split('T')[0]}.sqlite`)
+        } else {
+          res.status(404).json({ error: 'Database file not found' })
+        }
+    })
+  } catch (error: any) {
+    res.status(500).json({ error: error.message })
+  }
+})
+
+app.post('/api/backup/restore', express.raw({ type: '*/*', limit: '100mb' }), (req, res) => {
+  try {
+    if (!req.body || req.body.length === 0) {
+      return res.status(400).json({ error: 'Empty file' })
+    }
+    const dataDir = process.env.DATA_DIR || path.join(__dirname, '../data')
+    const dbPath = path.join(dataDir, 'monitor.db')
+    
+    // 覆盖本地文件
+    import('fs').then(fs => {
+        fs.writeFileSync(dbPath, req.body)
+        console.log('Database restored from upload. Restarting...')
+        
+        res.json({ success: true, message: 'Database restored successfully, restarting server...' })
+        
+        // 重启服务端以重新加载数据库文件
+        setTimeout(() => {
+          process.exit(0)
+        }, 1000)
+    })
+  } catch (error: any) {
+    res.status(500).json({ error: error.message })
+  }
+})
+
+app.get('/api/backup/settings', (req, res) => {
+  try {
+    const keys = [
+      'backup_cron',
+      'backup_tg_enabled',
+      'backup_tg_chat_id',
+      'backup_webdav_enabled',
+      'backup_webdav_url',
+      'backup_webdav_user',
+      'backup_webdav_password'
+    ]
+    const settings: Record<string, string> = {}
+    for (const key of keys) {
+      const row = queryFirst('SELECT value FROM system_settings WHERE key = ?', [key]) as any
+      settings[key] = row ? row.value : ''
+    }
+    res.json(settings)
+  } catch (error: any) {
+    res.status(500).json({ error: error.message })
+  }
+})
+
+app.post('/api/backup/settings', (req, res) => {
+  try {
+    const settings = req.body
+    const allowedKeys = [
+      'backup_cron',
+      'backup_tg_enabled',
+      'backup_tg_chat_id',
+      'backup_webdav_enabled',
+      'backup_webdav_url',
+      'backup_webdav_user',
+      'backup_webdav_password'
+    ]
+    
+    for (const key of allowedKeys) {
+      if (settings[key] !== undefined) {
+        run("INSERT OR REPLACE INTO system_settings (key, value, updated_at) VALUES (?, ?, datetime('now'))", [key, String(settings[key])])
+      }
+    }
+    
+    initBackupScheduler()
+    
+    res.json({ success: true, message: 'Backup settings saved.' })
+  } catch (error: any) {
+    res.status(500).json({ error: error.message })
+  }
+})
+
+app.post('/api/backup/trigger', async (req, res) => {
+  try {
+    const result = await performBackup()
+    if (result.success) {
+      res.json({ success: true, message: result.message })
+    } else {
+      res.status(400).json({ error: result.message })
+    }
   } catch (error: any) {
     res.status(500).json({ error: error.message })
   }
@@ -2458,6 +2564,9 @@ async function start() {
 
     // 启动时执行一次检查
     checkAllMonitors()
+    
+    // 初始化自动备份任务
+    initBackupScheduler()
   })
 
   const wss = new WebSocketServer({ noServer: true })
