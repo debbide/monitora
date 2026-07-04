@@ -373,31 +373,20 @@
   position: relative;
 }
 
-.stat-card:not(:last-child)::after {
-  content: '';
-  position: absolute;
-  right: 0;
-  top: 20%;
-  height: 60%;
-  width: 1px;
-  background: var(--color-border);
-}
-
 .stat-card:hover {
-  background: rgba(99, 102, 241, 0.05);
+  background: rgba(255, 255, 255, 0.03);
 }
 
 .stat-icon {
   width: 48px;
   height: 48px;
-  border-radius: 12px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 1.5rem;
-  background: var(--color-surface-solid);
-  border: 1px solid var(--color-border);
+  background: transparent;
   flex-shrink: 0;
+  /* Icon glow effect will be handled by SVG color, but we can add a very soft drop shadow */
+  filter: drop-shadow(0 0 6px currentColor);
 }
 
 .stat-info {
@@ -429,9 +418,14 @@
 
 .stat-info .stat-label {
   font-size: 0.75rem;
-  color: var(--color-text-secondary);
   font-weight: 500;
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-top: 2px;
+  opacity: 0.8;
 }
+
 
 /* 响应式：小屏幕时改为2列 */
 @media (max-width: 1200px) {

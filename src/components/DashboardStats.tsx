@@ -1,5 +1,5 @@
 import { MonitorWithStatus } from '../App'
-
+import { Activity, CheckCircle, AlertTriangle, Zap, TrendingUp } from 'lucide-react'
 interface DashboardStatsProps {
     monitors: MonitorWithStatus[]
 }
@@ -35,41 +35,41 @@ export default function DashboardStats({ monitors }: DashboardStatsProps) {
     return (
         <div className="dashboard-stats">
             <div className="stat-card">
-                <div className="stat-icon total">📊</div>
+                <div className="stat-icon total"><Activity size={24} color="#a5b4fc" /></div>
                 <div className="stat-info">
-                    <span className="stat-value">{total}</span>
+                    <span className="stat-value" style={{ textShadow: '0 0 10px rgba(165, 180, 252, 0.4)' }}>{total}</span>
                     <span className="stat-label">总监控</span>
                 </div>
             </div>
 
             <div className="stat-card">
-                <div className="stat-icon up">✅</div>
+                <div className="stat-icon up"><CheckCircle size={24} color="#34d399" /></div>
                 <div className="stat-info">
-                    <span className="stat-value success">{up}</span>
+                    <span className="stat-value success" style={{ textShadow: '0 0 10px rgba(52, 211, 153, 0.4)' }}>{up}</span>
                     <span className="stat-label">运行正常</span>
                 </div>
             </div>
 
             <div className="stat-card">
-                <div className="stat-icon down">⚠️</div>
+                <div className="stat-icon down"><AlertTriangle size={24} color="#f87171" /></div>
                 <div className="stat-info">
-                    <span className="stat-value danger">{down}</span>
+                    <span className="stat-value danger" style={{ textShadow: '0 0 10px rgba(248, 113, 113, 0.4)' }}>{down}</span>
                     <span className="stat-label">服务故障</span>
                 </div>
             </div>
 
             <div className="stat-card">
-                <div className="stat-icon time">⚡</div>
+                <div className="stat-icon time"><Zap size={24} color="#fbbf24" /></div>
                 <div className="stat-info">
-                    <span className="stat-value">{avgResponseTime}<small>ms</small></span>
+                    <span className="stat-value" style={{ textShadow: '0 0 10px rgba(251, 191, 36, 0.4)' }}>{avgResponseTime}<small>ms</small></span>
                     <span className="stat-label">平均响应</span>
                 </div>
             </div>
 
             <div className="stat-card">
-                <div className="stat-icon uptime">📈</div>
+                <div className="stat-icon uptime"><TrendingUp size={24} color="#38bdf8" /></div>
                 <div className="stat-info">
-                    <span className="stat-value">{avgUptime}<small>%</small></span>
+                    <span className="stat-value" style={{ textShadow: '0 0 10px rgba(56, 189, 248, 0.4)' }}>{avgUptime}<small>%</small></span>
                     <span className="stat-label">平均可用率</span>
                 </div>
             </div>
