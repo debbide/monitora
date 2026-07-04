@@ -69,25 +69,22 @@ export default function ProbeNotifySettingsComponent({ onClose, initialTab = 'ko
 
     if (loading) {
         return (
-            <div className="modal-overlay" onClick={onClose}>
-                <div className="modal-content" onClick={e => e.stopPropagation()}>
-                    <div className="modal-header">
+            <div className="modal-content" onClick={e => e.stopPropagation()}>
+                <div className="modal-header">
                         <h3>探针通知设置</h3>
                         <button className="modal-close" onClick={onClose}>×</button>
                     </div>
                     <div className="modal-body">
                         <p>加载中...</p>
                     </div>
-                </div>
             </div>
         )
     }
 
     return (
-        <div className="modal-overlay" onClick={onClose}>
-            <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '600px' }}>
-                <div className="modal-header">
-                    <h3>📡 探针通知设置</h3>
+        <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '600px' }}>
+            <div className="modal-header">
+                <h3>📡 探针通知设置</h3>
                     <button className="modal-close" onClick={onClose}>×</button>
                 </div>
 
@@ -213,7 +210,6 @@ export default function ProbeNotifySettingsComponent({ onClose, initialTab = 'ko
                         {saving ? '保存所有配置' : '保存所有配置'}
                     </button>
                 </div>
-            </div>
         </div>
     )
 }

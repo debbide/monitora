@@ -102,17 +102,14 @@ export default function BackupSettings({ onClose }: BackupSettingsProps) {
 
     if (loading) {
         return (
-            <div className="modal-overlay">
-                <div className="modal-content settings-modal">
-                    <p>加载中...</p>
-                </div>
+            <div className="modal-content settings-modal">
+                <p>加载中...</p>
             </div>
         )
     }
 
     return (
-        <div className="modal-overlay" onClick={onClose}>
-            <div className="modal-content settings-modal" onClick={e => e.stopPropagation()}>
+        <div className="modal-content settings-modal" onClick={e => e.stopPropagation()}>
                 <h3>备份与恢复</h3>
 
                 <div className="settings-section">
@@ -228,7 +225,6 @@ export default function BackupSettings({ onClose }: BackupSettingsProps) {
                         {saving ? '保存中...' : '保存自动备份设置'}
                     </button>
                 </div>
-            </div>
         </div>
     )
 }

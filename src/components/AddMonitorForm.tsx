@@ -478,11 +478,8 @@ export default function AddMonitorForm({ onSuccess, onCancel, editMonitor }: Add
             >
               <option value="http">HTTP 检测</option>
               <option value="tcp">TCP 连通性检测 (Ping)</option>
-              <option value="komari">Komari 轮询监控</option>
               <option value="komari_webhook">Komari Webhook 监控</option>
               <option value="nezha_webhook">哪吒 (Nezha) Webhook 监控</option>
-              <option value="telegram">Telegram 群组监控</option>
-              <option value="email_code">邮件验证码监控</option>
               <option value="scheduled_webhook">定时触发 (Webhook/Cron)</option>
               <option value="feedback_linkage">反馈联动监控 (Feedback Linkage)</option>
             </select>
@@ -696,10 +693,8 @@ export default function AddMonitorForm({ onSuccess, onCancel, editMonitor }: Add
             >
               <option value="http">HTTP 检测</option>
               <option value="tcp">TCP 连通性检测 (Ping)</option>
-              <option value="komari">Komari 轮询监控</option>
               <option value="komari_webhook">Komari Webhook 监控</option>
               <option value="nezha_webhook">哪吒 (Nezha) Webhook 监控</option>
-              <option value="telegram">Telegram 群组监控</option>
               <option value="scheduled_webhook">定时触发 (Webhook/Cron)</option>
               <option value="feedback_linkage">反馈联动监控 (Feedback Linkage)</option>
             </select>

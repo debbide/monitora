@@ -51,17 +51,14 @@ export default function WebtaskSettings({ onClose }: WebtaskSettingsProps) {
 
   if (loading || !settings) {
     return (
-      <div className="modal-overlay">
-        <div className="modal-content settings-modal">
-          <p>加载中...</p>
-        </div>
+      <div className="modal-content settings-modal">
+        <p>加载中...</p>
       </div>
     )
   }
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-content settings-modal" onClick={e => e.stopPropagation()}>
+    <div className="modal-content settings-modal" onClick={e => e.stopPropagation()}>
         <h3>WebTask 鉴权设置</h3>
 
         <div className="form-group">
@@ -101,7 +98,6 @@ export default function WebtaskSettings({ onClose }: WebtaskSettingsProps) {
             {saving ? '保存中...' : '保存设置'}
           </button>
         </div>
-      </div>
     </div>
   )
 }

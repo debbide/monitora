@@ -42,8 +42,7 @@ export default function ChangePasswordModal({ onClose, onSuccess }: ChangePasswo
   }
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+      <div className="modal-content change-password-modal" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <h2>修改密码</h2>
           <button className="btn-close" onClick={onClose}>×</button>
@@ -115,6 +114,5 @@ export default function ChangePasswordModal({ onClose, onSuccess }: ChangePasswo
           </div>
         </form>
       </div>
-    </div>
   )
 }

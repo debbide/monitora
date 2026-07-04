@@ -4,14 +4,10 @@ import { Monitor, MonitorCheck, getMonitors, getChecks, getStats, reorderMonitor
 import MonitorCard from './components/MonitorCard'
 import AddMonitorForm from './components/AddMonitorForm'
 import LoginForm from './components/LoginForm'
-import ChangePasswordModal from './components/ChangePasswordModal'
 import DashboardStats from './components/DashboardStats'
-import TelegramSettings from './components/TelegramSettings'
-import ProbeNotifySettings from './components/ProbeNotifySettings'
-import WebtaskSettings from './components/WebtaskSettings'
-import BackupSettings from './components/BackupSettings'
+import SettingsModal from './components/SettingsModal'
 import { verifyPassword, setAuthToken, generateAuthToken, isAuthenticated, clearAuthToken } from './lib/auth'
-import { Bot, Radio, Key, Save, Sun, Moon, Plus, LogOut, KeyRound } from 'lucide-react'
+import { Sun, Moon, Plus, LogOut, Settings } from 'lucide-react'
 import './App.css'
 
 export interface MonitorWithStatus extends Monitor {
@@ -25,11 +21,7 @@ function App() {
   const [loading, setLoading] = useState(true)
   const [showAddForm, setShowAddForm] = useState(false)
   const [authenticated, setAuthenticated] = useState(false)
-  const [showChangePassword, setShowChangePassword] = useState(false)
-  const [showTelegramSettings, setShowTelegramSettings] = useState(false)
-  const [showProbeSettings, setShowProbeSettings] = useState(false)
-  const [showWebtaskSettings, setShowWebtaskSettings] = useState(false)
-  const [showBackupSettings, setShowBackupSettings] = useState(false)
+  const [showSettingsModal, setShowSettingsModal] = useState(false)
   const [editingMonitor, setEditingMonitor] = useState<Monitor | null>(null)
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
     const saved = localStorage.getItem('theme')
@@ -243,23 +235,11 @@ function App() {
             <button className="btn-theme" onClick={toggleTheme} title={theme === 'light' ? '切换到深色模式' : '切换到浅色模式'} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '36px', height: '36px', padding: 0 }}>
               {theme === 'light' ? <Moon size={18} /> : <Sun size={18} />}
             </button>
-            <button className="btn-change-password" onClick={() => setShowChangePassword(true)} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <KeyRound size={16} /> 修改密码
-            </button>
             <button className="btn-logout" onClick={handleLogout} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
               <LogOut size={16} /> 退出登录
             </button>
-            <button className="btn-telegram" onClick={() => setShowTelegramSettings(true)} title="Telegram Bot 设置" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '36px', height: '36px', padding: 0 }}>
-              <Bot size={18} />
-            </button>
-            <button className="btn-telegram" onClick={() => setShowProbeSettings(true)} title="探针通知设置 (Komari/Nezha)" style={{ marginLeft: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', width: '36px', height: '36px', padding: 0 }}>
-              <Radio size={18} />
-            </button>
-            <button className="btn-telegram" onClick={() => setShowWebtaskSettings(true)} title="WebTask 鉴权设置" style={{ marginLeft: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', width: '36px', height: '36px', padding: 0 }}>
-              <Key size={18} />
-            </button>
-            <button className="btn-telegram" onClick={() => setShowBackupSettings(true)} title="备份与恢复设置" style={{ marginLeft: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', width: '36px', height: '36px', padding: 0 }}>
-              <Save size={18} />
+            <button className="btn-telegram" onClick={() => setShowSettingsModal(true)} title="系统设置" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '36px', height: '36px', padding: 0 }}>
+              <Settings size={18} />
             </button>
           </div>
         </div>
@@ -301,30 +281,8 @@ function App() {
         <p>Docker 部署版 | Express + SQLite</p>
       </footer>
 
-      {showChangePassword && (
-        <ChangePasswordModal
-          onClose={() => setShowChangePassword(false)}
-          onSuccess={() => {
-            toast.success('密码修改成功！请使用新密码重新登录。')
-            handleLogout()
-          }}
-        />
-      )}
-
-      {showTelegramSettings && (
-        <TelegramSettings onClose={() => setShowTelegramSettings(false)} />
-      )}
-
-      {showProbeSettings && (
-        <ProbeNotifySettings onClose={() => setShowProbeSettings(false)} />
-      )}
-
-      {showWebtaskSettings && (
-        <WebtaskSettings onClose={() => setShowWebtaskSettings(false)} />
-      )}
-
-      {showBackupSettings && (
-        <BackupSettings onClose={() => setShowBackupSettings(false)} />
+      {showSettingsModal && (
+        <SettingsModal onClose={() => setShowSettingsModal(false)} />
       )}
 
       {showAddForm && (

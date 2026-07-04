@@ -76,7 +76,6 @@ export default function TelegramSettings({ onClose }: TelegramSettingsProps) {
     }
 
     return (
-        <div className="modal-overlay" onClick={onClose}>
             <div className="modal-content settings-modal" onClick={e => e.stopPropagation()}>
                 <h3>Telegram Bot 设置</h3>
 
@@ -139,6 +138,5 @@ export default function TelegramSettings({ onClose }: TelegramSettingsProps) {
                     </span>
                 </div>
             </div>
-        </div>
     )
 }
