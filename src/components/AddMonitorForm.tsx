@@ -502,11 +502,13 @@ export default function AddMonitorForm({ onSuccess, onCancel, editMonitor }: Add
                   <select
                     id="checkMethod"
                     value={checkMethod}
-                    onChange={e => setCheckMethod(e.target.value as 'GET' | 'HEAD' | 'POST')}
+                    onChange={e => setCheckMethod(e.target.value as any)}
                   >
                     <option value="GET">GET</option>
                     <option value="HEAD">HEAD</option>
                     <option value="POST">POST</option>
+                    <option value="PUT">PUT</option>
+                    <option value="PATCH">PATCH</option>
                   </select>
                 </div>
               </div>
