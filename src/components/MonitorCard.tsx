@@ -8,9 +8,7 @@ import {
   deleteMonitor,
   testWebhook,
   checkNow,
-  getKomariStatus,
-  getWebtaskSettings,
-  requestEmailCode
+  getKomariStatus
 } from '../lib/api'
 
 // 从国旗 emoji 提取国家代码
@@ -44,7 +42,6 @@ export default function MonitorCard({ monitor, onUpdate, onEdit }: MonitorCardPr
   const [isDeleting, setIsDeleting] = useState(false)
   const [isTesting, setIsTesting] = useState(false)
   const [isChecking, setIsChecking] = useState(false)
-  const [isEmailTesting, setIsEmailTesting] = useState(false)
   const [komariServers, setKomariServers] = useState<KomariServer[]>([])
   const [isLoadingServers, setIsLoadingServers] = useState(false)
 
@@ -146,29 +143,6 @@ export default function MonitorCard({ monitor, onUpdate, onEdit }: MonitorCardPr
     }
   }
 
-  async function handleTestEmailCode() {
-    if (!monitor.email_site_key) {
-      toast.error('未配置 site_key')
-      return
-    }
-    setIsEmailTesting(true)
-    try {
-      const settings = await getWebtaskSettings(true)
-      const timeoutSeconds = monitor.email_timeout_seconds || 120
-      const result = await requestEmailCode({
-        site_key: monitor.email_site_key,
-        timeout_seconds: timeoutSeconds,
-        log: true,
-        api_key: settings.api_key || undefined
-      })
-      toast.success(`验证码: ${result.code.code}`)
-    } catch (error: any) {
-      toast.error(error?.message || '验证码获取失败')
-    } finally {
-      setIsEmailTesting(false)
-    }
-  }
-
   async function handleCheckNow() {
     setIsChecking(true)
     try {
@@ -193,16 +167,7 @@ export default function MonitorCard({ monitor, onUpdate, onEdit }: MonitorCardPr
           {statusText}
         </div>
         <div className="monitor-actions">
-          {monitor.check_type === 'email_code' && (
-            <button
-              className="btn-icon"
-              onClick={handleTestEmailCode}
-              disabled={isEmailTesting}
-              title={`测试验证码获取 (最长等待 ${monitor.email_timeout_seconds || 120}s)`}
-            >
-              {isEmailTesting ? '⏳' : '🧪'}
-            </button>
-          )}
+
           <button
             className="btn-icon"
             onClick={handleCheckNow}
