@@ -410,8 +410,15 @@ export async function triggerBackup() {
 }
 
 export async function restoreBackup(file: File) {
+  const token = localStorage.getItem('monitor_auth_token')
+  const headers: Record<string, string> = {}
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`
+  }
+
   const response = await fetch(`${API_URL}/api/backup/restore`, {
     method: 'POST',
+    headers,
     body: file
   })
   if (!response.ok) {
