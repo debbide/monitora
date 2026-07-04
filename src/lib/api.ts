@@ -411,15 +411,30 @@ export async function triggerBackup() {
 
 export async function restoreBackup(file: File) {
   const token = localStorage.getItem('monitor_auth_token')
-  const headers: Record<string, string> = {}
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json'
+  }
   if (token) {
     headers['Authorization'] = `Bearer ${token}`
   }
 
+  // Convert File to Base64
+  const base64Data = await new Promise<string>((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => {
+      const result = reader.result as string
+      // Extract the base64 part after the comma if it's a data URL
+      const base64 = result.includes(',') ? result.split(',')[1] : result
+      resolve(base64)
+    }
+    reader.onerror = error => reject(error)
+    reader.readAsDataURL(file)
+  })
+
   const response = await fetch(`${API_URL}/api/backup/restore`, {
     method: 'POST',
     headers,
-    body: file
+    body: JSON.stringify({ data: base64Data })
   })
   if (!response.ok) {
     let errMsg = ''

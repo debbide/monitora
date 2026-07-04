@@ -57,7 +57,7 @@ function stripHtml(html: string): string {
 }
 
 app.use(cors())
-app.use(express.json())
+app.use(express.json({ limit: '100mb' }))
 
 // 静态文件服务
 app.use(express.static(path.join(__dirname, '../public')))
@@ -970,16 +970,20 @@ app.get('/api/backup/download', (req, res) => {
   }
 })
 
-app.post('/api/backup/restore', express.raw({ type: '*/*', limit: '100mb' }), (req, res) => {
+app.post('/api/backup/restore', (req, res) => {
   try {
-    if (!req.body || req.body.length === 0) {
-      return res.status(400).json({ error: 'Empty file' })
+    const base64Data = req.body?.data
+    if (!base64Data) {
+      return res.status(400).json({ error: 'Empty file data' })
     }
+    
+    const buffer = Buffer.from(base64Data, 'base64')
+    
     const dataDir = process.env.DATA_DIR || path.join(__dirname, '../data')
     const dbPath = path.join(dataDir, 'monitor.db')
     
     // 覆盖本地文件
-    fs.writeFileSync(dbPath, req.body)
+    fs.writeFileSync(dbPath, buffer)
     console.log('Database restored from upload. Restarting...')
     
     res.json({ success: true, message: 'Database restored successfully, restarting server...' })
