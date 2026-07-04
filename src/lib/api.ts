@@ -117,6 +117,35 @@ async function fetchAPI(path: string, options?: RequestInit) {
   return response.json()
 }
 
+export async function downloadAPI(path: string, options?: RequestInit): Promise<Blob> {
+  const token = localStorage.getItem('monitor_auth_token')
+  const headers: Record<string, string> = {
+    ...(options?.headers as Record<string, string>),
+  }
+
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`
+  }
+
+  const response = await fetch(`${API_URL}${path}`, {
+    ...options,
+    headers,
+  })
+
+  if (response.status === 401) {
+    localStorage.removeItem('monitor_auth_token')
+    localStorage.removeItem('monitor_auth_expiry')
+    window.location.reload()
+    throw new Error('Authentication expired')
+  }
+
+  if (!response.ok) {
+    throw new Error('Download failed')
+  }
+
+  return response.blob()
+}
+
 export async function getMonitors(): Promise<Monitor[]> {
   return fetchAPI('/api/monitors')
 }

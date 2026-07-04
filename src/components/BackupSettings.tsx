@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { getBackupSettings, saveBackupSettings, triggerBackup, restoreBackup } from '../lib/api'
+import { getBackupSettings, saveBackupSettings, triggerBackup, restoreBackup, downloadAPI } from '../lib/api'
 
 interface BackupSettingsProps {
     onClose: () => void
@@ -100,6 +100,25 @@ export default function BackupSettings({ onClose }: BackupSettingsProps) {
         if (fileInputRef.current) fileInputRef.current.value = ''
     }
 
+    async function handleDownload() {
+        setMessage('正在准备下载...')
+        try {
+            const blob = await downloadAPI('/api/backup/download')
+            const url = URL.createObjectURL(blob)
+            const a = document.createElement('a')
+            a.href = url
+            a.download = `monitora_backup_${new Date().toISOString().split('T')[0]}.sqlite`
+            document.body.appendChild(a)
+            a.click()
+            document.body.removeChild(a)
+            URL.revokeObjectURL(url)
+            setMessage('下载成功')
+            setTimeout(() => setMessage(''), 3000)
+        } catch (error: any) {
+            setMessage('下载失败: ' + error.message)
+        }
+    }
+
     if (loading) {
         return (
             <div className="modal-content settings-modal">
@@ -115,9 +134,9 @@ export default function BackupSettings({ onClose }: BackupSettingsProps) {
                 <div className="settings-section">
                     <h4>📥 手动操作</h4>
                     <div style={{ display: 'flex', gap: '12px', marginTop: '16px' }}>
-                        <a href="/api/backup/download" target="_blank" rel="noopener noreferrer" className="btn-primary" style={{ textDecoration: 'none', padding: '10px 16px', borderRadius: '8px', fontSize: '0.875rem', display: 'flex', alignItems: 'center' }}>
+                        <button onClick={handleDownload} className="btn-primary" style={{ padding: '10px 16px', borderRadius: '8px', fontSize: '0.875rem', display: 'flex', alignItems: 'center' }}>
                             💾 下载当前数据库
-                        </a>
+                        </button>
                         <button className="btn-secondary" onClick={() => fileInputRef.current?.click()} style={{ padding: '10px 16px', borderRadius: '8px', fontSize: '0.875rem', display: 'flex', alignItems: 'center' }}>
                             📤 上传恢复数据库
                         </button>
