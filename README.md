@@ -54,21 +54,37 @@
 - **🐳 Docker Native**  
     原生支持 AMD64 与 ARM64，体积小巧。
 
-- **📁 Zero-Config DB**  
-    内置 SQLite，无需部署 MySQL/Postgres，单文件即可备份迁移。
+- **📁 Zero-Config DB & Auto-Vacuum**  
+    内置 SQLite，无需部署 MySQL/Postgres，单文件即可备份迁移。系统自带智能瘦身机制，自动清理过期历史数据并物理压缩数据库，永远保持极致小巧。
 
-- **📉 可视化面板**  
-    响应时间趋势图、状态历史、服务器地区旗帜展示。
+- **📉 现代化玻璃拟态 UI**  
+    全新打造的高级暗黑模式（Dark Mode）与毛玻璃（Glassmorphism）质感，响应时间趋势图、状态历史一目了然。
 
 ---
 
 ## 🚀 快速部署 (CT8 / Serv00 一键脚本)
 
-如果您使用的是 CT8、Serv00 等 FreeBSD 环境，可以使用以下一键脚本快速安装或更新 CloudEye：
+如果您使用的是 CT8、Serv00 等 FreeBSD 环境，可以使用以下一键脚本快速安装或无损升级 CloudEye：
 
 ```bash
 curl -sL "https://github.com/cokear/gtool-releases/raw/refs/heads/main/install_monitora.sh?v=$(date +%s)" | tr -d '\r' > install_monitora.sh && bash install_monitora.sh
 ```
+
+---
+
+## 🗄️ 自动云端备份与恢复 (Cloud Backup)
+
+CloudEye 拥有企业级的数据安全机制，保障您的监控配置与历史数据永不丢失：
+
+### 1. 双通道自动备份 (Push)
+- **Telegram 备份**：绑定 Bot 后，每天定时将 `.sqlite` 数据库以文档形式发送到您的私密群组。
+- **WebDAV 备份**：支持挂载主流网盘（如坚果云、Nextcloud等），每天定时上传备份。
+- **7天滚动覆盖策略**：WebDAV 备份自动采用 `星期一`、`星期二` 等后缀命名，网盘内最多保留 7 个文件，自动循环覆盖，绝不爆盘。
+
+### 2. 跨平台物理级恢复 (Restore)
+- 面板内置了“一键上传恢复”功能。
+- 采用 **Base64 JSON** 传输协议，完美穿透各种严苛的 Web 应用防火墙 (WAF，如 CT8 的安全策略)，确保在任何恶劣的共享宿主机网络环境下都能 100% 恢复成功。
+- 恢复过程采用底层文件流级覆写，确保包括密码、配置在内的所有数据实现时光机般的完美回滚。
 
 ---
 
