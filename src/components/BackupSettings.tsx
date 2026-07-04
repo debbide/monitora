@@ -20,6 +20,7 @@ export default function BackupSettings({ onClose }: BackupSettingsProps) {
     const [saving, setSaving] = useState(false)
     const [triggering, setTriggering] = useState(false)
     const [message, setMessage] = useState('')
+    const [confirmFile, setConfirmFile] = useState<File | null>(null)
     const fileInputRef = useRef<HTMLInputElement>(null)
 
     useEffect(() => {
@@ -67,19 +68,20 @@ export default function BackupSettings({ onClose }: BackupSettingsProps) {
         }
     }
 
-    async function handleRestore(e: React.ChangeEvent<HTMLInputElement>) {
+    function handleRestore(e: React.ChangeEvent<HTMLInputElement>) {
         const file = e.target.files?.[0]
         if (!file) return
 
-        if (!confirm('警告：恢复备份将覆盖当前的数据库，并且系统会自动重启！确定要继续吗？')) {
-            if (fileInputRef.current) fileInputRef.current.value = ''
-            return
-        }
+        setConfirmFile(file)
+        if (fileInputRef.current) fileInputRef.current.value = ''
+    }
 
+    async function executeRestore() {
+        if (!confirmFile) return
         setSaving(true)
         setMessage('正在上传并恢复，请不要关闭页面...')
         try {
-            const result = await restoreBackup(file)
+            const result = await restoreBackup(confirmFile)
             setMessage(result.message)
             
             // 倒计时后自动刷新页面
@@ -97,7 +99,7 @@ export default function BackupSettings({ onClose }: BackupSettingsProps) {
             setMessage('恢复失败: ' + error.message)
             setSaving(false)
         }
-        if (fileInputRef.current) fileInputRef.current.value = ''
+        setConfirmFile(null)
     }
 
     async function handleDownload() {
@@ -244,6 +246,23 @@ export default function BackupSettings({ onClose }: BackupSettingsProps) {
                         {saving ? '保存中...' : '保存自动备份设置'}
                     </button>
                 </div>
+
+                {confirmFile && (
+                    <div className="modal-overlay" style={{ zIndex: 1000, position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '12px' }}>
+                        <div className="modal-content" style={{ padding: '24px', maxWidth: '400px', width: '90%', textAlign: 'center', background: 'var(--bg-card)' }}>
+                            <div style={{ fontSize: '32px', marginBottom: '16px' }}>⚠️</div>
+                            <h3 style={{ marginBottom: '12px', color: 'var(--color-danger)' }}>警告：危险操作</h3>
+                            <p style={{ marginBottom: '24px', color: 'var(--color-text-secondary)', lineHeight: 1.5 }}>
+                                恢复备份将<strong>覆盖当前的数据库</strong>，当前未备份的数据将永久丢失，并且监控系统将会自动重启！<br/><br/>
+                                您确定要继续恢复 <strong>{confirmFile.name}</strong> 吗？
+                            </p>
+                            <div className="modal-actions" style={{ justifyContent: 'center' }}>
+                                <button className="btn btn-secondary" onClick={() => setConfirmFile(null)}>取消</button>
+                                <button className="btn btn-danger" style={{ background: 'var(--color-danger)' }} onClick={executeRestore}>确认覆盖</button>
+                            </div>
+                        </div>
+                    </div>
+                )}
         </div>
     )
 }
