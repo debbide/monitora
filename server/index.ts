@@ -7,7 +7,7 @@ import crypto from 'crypto'
 import { WebSocketServer, WebSocket } from 'ws'
 import type { RawData } from 'ws'
 import type { IncomingMessage } from 'http'
-import { initDatabase, queryAll, queryFirst, run, saveNow } from './db.js'
+import { initDatabase, queryAll, queryFirst, run, saveNow, cleanOldData } from './db.js'
 import { generateToken, requireAuth } from './auth.js'
 import { Monitor, MonitorCheck } from './types.js'
 import {
@@ -2480,6 +2480,14 @@ async function start() {
     stopTelegramBot()
     process.exit(0)
   })
+
+  // 定时任务：每天凌晨 3 点自动清理超过 3 天的历史监控记录，控制数据库体积
+  cron.schedule('0 3 * * *', () => {
+    cleanOldData(3)
+  })
+  
+  // 启动时顺便执行一次清理
+  cleanOldData(3)
 }
 
 start().catch(console.error)

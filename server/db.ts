@@ -352,3 +352,22 @@ export function run(sql: string, params: any[] = []) {
   db.run(sql, params)
   debouncedSave() // 使用防抖保存，减少磁盘 I/O
 }
+
+// 自动清理过期数据
+export function cleanOldData(daysToKeep = 3) {
+  try {
+    const timeThreshold = new Date(Date.now() - daysToKeep * 24 * 60 * 60 * 1000).toISOString()
+    
+    // 清理 monitor_checks
+    db.run(`DELETE FROM monitor_checks WHERE checked_at < ?`, [timeThreshold])
+    
+    // 清理已解决的旧 incidents
+    db.run(`DELETE FROM incidents WHERE resolved_at IS NOT NULL AND resolved_at < ?`, [timeThreshold])
+    
+    // 强制保存
+    saveDatabase()
+    console.log(`[DB Cleanup] Cleaned up records older than ${daysToKeep} days.`)
+  } catch (error) {
+    console.error('[DB Cleanup] Error during cleanup:', error)
+  }
+}
