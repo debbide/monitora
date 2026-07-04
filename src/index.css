@@ -1,35 +1,5 @@
-/* Light Mode (Default) - Glassmorphism */
+/* Dark Mode (Default & Only) - Glassmorphism */
 :root {
-  --color-bg: #e8eaed;
-  --color-surface: rgba(255, 255, 255, 0.6);
-  --color-surface-solid: rgba(255, 255, 255, 0.9);
-  --color-surface-hover: rgba(255, 255, 255, 0.8);
-  --color-primary: #6366f1;
-  --color-primary-hover: #4f46e5;
-  --color-success: #10b981;
-  --color-warning: #f59e0b;
-  --color-danger: #ef4444;
-  --color-text: #1e293b;
-  --color-text-secondary: rgba(30, 41, 59, 0.6);
-  --color-border: rgba(255, 255, 255, 0.5);
-  --color-border-dark: rgba(0, 0, 0, 0.08);
-  --spacing-unit: 8px;
-  --border-radius: 20px;
-  --border-radius-sm: 12px;
-  --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  --blur: blur(20px);
-  --blur-strong: blur(40px);
-  --shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
-  --shadow-hover: 0 16px 48px rgba(0, 0, 0, 0.12);
-  --shadow-inset: inset 0 1px 1px rgba(255, 255, 255, 0.6);
-  --gradient-1: #667eea;
-  --gradient-2: #764ba2;
-  --gradient-3: #f093fb;
-  --gradient-4: #f5576c;
-}
-
-/* Dark Mode - Glassmorphism */
-[data-theme="dark"] {
   --color-bg: #0f172a;
   --color-surface: rgba(30, 41, 59, 0.6);
   --color-surface-solid: rgba(30, 41, 59, 0.9);
@@ -43,6 +13,12 @@
   --color-text-secondary: rgba(241, 245, 249, 0.6);
   --color-border: rgba(255, 255, 255, 0.1);
   --color-border-dark: rgba(255, 255, 255, 0.05);
+  --spacing-unit: 8px;
+  --border-radius: 20px;
+  --border-radius-sm: 12px;
+  --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  --blur: blur(20px);
+  --blur-strong: blur(40px);
   --shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
   --shadow-hover: 0 16px 48px rgba(0, 0, 0, 0.5);
   --shadow-inset: inset 0 1px 1px rgba(255, 255, 255, 0.1);
@@ -93,7 +69,7 @@ body {
   z-index: -1;
 }
 
-[data-theme="dark"] #root::before {
+#root::before {
   opacity: 0.2;
 }
 

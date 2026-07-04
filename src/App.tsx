@@ -7,7 +7,7 @@ import LoginForm from './components/LoginForm'
 import DashboardStats from './components/DashboardStats'
 import SettingsModal from './components/SettingsModal'
 import { verifyPassword, setAuthToken, isAuthenticated, clearAuthToken } from './lib/auth'
-import { Sun, Moon, Plus, LogOut, Settings } from 'lucide-react'
+import { Plus, LogOut, Settings } from 'lucide-react'
 import './App.css'
 
 export interface MonitorWithStatus extends Monitor {
@@ -23,24 +23,10 @@ function App() {
   const [authenticated, setAuthenticated] = useState(false)
   const [showSettingsModal, setShowSettingsModal] = useState(false)
   const [editingMonitor, setEditingMonitor] = useState<Monitor | null>(null)
-  const [theme, setTheme] = useState<'light' | 'dark'>(() => {
-    const saved = localStorage.getItem('theme')
-    return (saved as 'light' | 'dark') || 'light'
-  })
-
   // 拖拽排序相关状态
   const [draggedId, setDraggedId] = useState<string | null>(null)
   const [dragOverId, setDragOverId] = useState<string | null>(null)
   const dragCounter = useRef(0)
-
-  useEffect(() => {
-    document.documentElement.setAttribute('data-theme', theme)
-    localStorage.setItem('theme', theme)
-  }, [theme])
-
-  function toggleTheme() {
-    setTheme(prev => prev === 'light' ? 'dark' : 'light')
-  }
 
   useEffect(() => {
     if (isAuthenticated()) {
@@ -231,9 +217,7 @@ function App() {
             >
               {showAddForm ? '取消' : <><Plus size={16} /> 添加监控</>}
             </button>
-            <button className="btn-theme" onClick={toggleTheme} title={theme === 'light' ? '切换到深色模式' : '切换到浅色模式'} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '36px', height: '36px', padding: 0 }}>
-              {theme === 'light' ? <Moon size={18} /> : <Sun size={18} />}
-            </button>
+
             <button className="btn-logout" onClick={handleLogout} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
               <LogOut size={16} /> 退出登录
             </button>
