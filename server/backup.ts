@@ -59,11 +59,15 @@ export async function performBackup(): Promise<{success: boolean, message: strin
 
     const fileBuffer = fs.readFileSync(dbPath)
     
-    // 生成东八区日期的字符串作为文件名 (防止服务器UTC时间导致文件名差一天)
+    // 生成东八区日期的字符串作为文件前缀
     const offset = 8 * 60 * 60 * 1000
     const now8 = new Date(Date.now() + offset)
     const dateStr = now8.toISOString().split('T')[0]
-    const filename = `monitora_backup_${dateStr}.sqlite`
+    
+    // 采用 7 天滚动覆盖策略（星期一、星期二...）
+    const weekdays = ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六']
+    const weekdayStr = weekdays[now8.getDay()]
+    const filename = `monitora_backup_${weekdayStr}.sqlite`
 
     let successCount = 0
     let errors: string[] = []
