@@ -141,17 +141,7 @@ docker-compose up -d
     *   **Request Body**: 保持默认 JSON 格式即可。
 4.  **效果**：当哪吒探针检测到服务器离线/上线，会发送 Webhook 给 CloudEye，CloudEye 会更新面板状态并发送 TG 通知。
 
-### 4. Telegram 消息监听 (被动监控)
 
-适用于：你的服务器在内网，没有公网 IP，但能发 TG 消息。
-
-1.  让服务器的脚本定时往群里发 "Server A is Online"。
-2.  在面板添加 **Telegram** 监控。
-3.  配置：
-    *   监听群组 ID。
-    *   上线关键词：`Online`。
-    *   服务器名称：`Server A`。
-4.  逻辑：面板如果没有在规定时间内（间隔 x 2）收到包含 `Server A` 和 `Online` 的消息，就标记为 **Down**。
 
 ---
 
