@@ -1272,3 +1272,4 @@
     grid-column: span 1;
   }
 }
+@keyframes spin { 100% { transform: rotate(360deg); } }

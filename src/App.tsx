@@ -11,6 +11,7 @@ import ProbeNotifySettings from './components/ProbeNotifySettings'
 import WebtaskSettings from './components/WebtaskSettings'
 import BackupSettings from './components/BackupSettings'
 import { verifyPassword, setAuthToken, generateAuthToken, isAuthenticated, clearAuthToken } from './lib/auth'
+import { Bot, Radio, Key, Save, Sun, Moon, Plus, LogOut, KeyRound } from 'lucide-react'
 import './App.css'
 
 export interface MonitorWithStatus extends Monitor {
@@ -235,29 +236,30 @@ function App() {
                   setShowAddForm(true)
                 }
               }}
+              style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
             >
-              {showAddForm ? '取消' : '+ 添加监控'}
+              {showAddForm ? '取消' : <><Plus size={16} /> 添加监控</>}
             </button>
-            <button className="btn-theme" onClick={toggleTheme} title={theme === 'light' ? '切换到深色模式' : '切换到浅色模式'}>
-              {theme === 'light' ? '🌙' : '☀️'}
+            <button className="btn-theme" onClick={toggleTheme} title={theme === 'light' ? '切换到深色模式' : '切换到浅色模式'} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '36px', height: '36px', padding: 0 }}>
+              {theme === 'light' ? <Moon size={18} /> : <Sun size={18} />}
             </button>
-            <button className="btn-change-password" onClick={() => setShowChangePassword(true)}>
-              修改密码
+            <button className="btn-change-password" onClick={() => setShowChangePassword(true)} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <KeyRound size={16} /> 修改密码
             </button>
-            <button className="btn-logout" onClick={handleLogout}>
-              退出登录
+            <button className="btn-logout" onClick={handleLogout} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <LogOut size={16} /> 退出登录
             </button>
-            <button className="btn-telegram" onClick={() => setShowTelegramSettings(true)} title="Telegram Bot 设置">
-              🤖
+            <button className="btn-telegram" onClick={() => setShowTelegramSettings(true)} title="Telegram Bot 设置" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '36px', height: '36px', padding: 0 }}>
+              <Bot size={18} />
             </button>
-            <button className="btn-telegram" onClick={() => setShowProbeSettings(true)} title="探针通知设置 (Komari/Nezha)" style={{ marginLeft: '4px' }}>
-              📡
+            <button className="btn-telegram" onClick={() => setShowProbeSettings(true)} title="探针通知设置 (Komari/Nezha)" style={{ marginLeft: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', width: '36px', height: '36px', padding: 0 }}>
+              <Radio size={18} />
             </button>
-            <button className="btn-telegram" onClick={() => setShowWebtaskSettings(true)} title="WebTask 鉴权设置" style={{ marginLeft: '4px' }}>
-              🔑
+            <button className="btn-telegram" onClick={() => setShowWebtaskSettings(true)} title="WebTask 鉴权设置" style={{ marginLeft: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', width: '36px', height: '36px', padding: 0 }}>
+              <Key size={18} />
             </button>
-            <button className="btn-telegram" onClick={() => setShowBackupSettings(true)} title="备份与恢复设置" style={{ marginLeft: '4px' }}>
-              💾
+            <button className="btn-telegram" onClick={() => setShowBackupSettings(true)} title="备份与恢复设置" style={{ marginLeft: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', width: '36px', height: '36px', padding: 0 }}>
+              <Save size={18} />
             </button>
           </div>
         </div>

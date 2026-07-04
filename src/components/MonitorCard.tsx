@@ -10,6 +10,7 @@ import {
   checkNow,
   getKomariStatus
 } from '../lib/api'
+import { RefreshCw, Edit2, Trash2, Loader2, Link } from 'lucide-react'
 
 // 从国旗 emoji 提取国家代码
 function extractCountryCode(region: string): string {
@@ -173,14 +174,15 @@ export default function MonitorCard({ monitor, onUpdate, onEdit }: MonitorCardPr
             onClick={handleCheckNow}
             disabled={isChecking}
             title="立即检查"
+            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}
           >
-            {isChecking ? '⏳' : '🔄'}
+            {isChecking ? <Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} /> : <RefreshCw size={16} />}
           </button>
-          <button className="btn-icon" onClick={onEdit} title="编辑">
-            ✏️
+          <button className="btn-icon" onClick={onEdit} title="编辑" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <Edit2 size={16} />
           </button>
-          <button className="btn-icon" onClick={handleDelete} disabled={isDeleting} title="删除">
-            🗑️
+          <button className="btn-icon" onClick={handleDelete} disabled={isDeleting} title="删除" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            {isDeleting ? <Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} /> : <Trash2 size={16} />}
           </button>
         </div>
       </div>
@@ -282,8 +284,9 @@ export default function MonitorCard({ monitor, onUpdate, onEdit }: MonitorCardPr
               onClick={loadKomariServers}
               disabled={isLoadingServers}
               title="刷新服务器状态"
+              style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '4px', background: 'none', border: 'none', color: 'var(--color-text-secondary)', cursor: 'pointer' }}
             >
-              {isLoadingServers ? '⏳' : '🔄'}
+              {isLoadingServers ? <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> : <RefreshCw size={14} />}
             </button>
           </div>
           {isLoadingServers ? (
