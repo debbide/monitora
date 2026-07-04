@@ -364,9 +364,12 @@ export function cleanOldData(daysToKeep = 3) {
     // 清理已解决的旧 incidents
     db.run(`DELETE FROM incidents WHERE resolved_at IS NOT NULL AND resolved_at < ?`, [timeThreshold])
     
+    // 执行 VACUUM，彻底释放删除数据留下的空白空间，压缩文件体积
+    db.run('VACUUM')
+    
     // 强制保存
     saveDatabase()
-    console.log(`[DB Cleanup] Cleaned up records older than ${daysToKeep} days.`)
+    console.log(`[DB Cleanup] Cleaned up records older than ${daysToKeep} days and vacuumed database.`)
   } catch (error) {
     console.error('[DB Cleanup] Error during cleanup:', error)
   }
