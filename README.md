@@ -282,54 +282,6 @@ CloudEye 现已支持作为 **WebTask 自动化脚本插件** 的任务调度中
 
 ---
 
-## ✉️ 邮件验证码抓取 (Gmail IMAP)
-
-用于“读取邮箱验证码”的自动化场景（如油猴脚本登录网站后拉取验证码）。
-
-### 1. 开启 Gmail IMAP + App Password
-- Gmail 设置中开启 IMAP
-- 开启 2FA 后生成 App Password（用于 IMAP 登录）
-
-### 2. 面板配置
-在面板右上角点击 ✉️ 配置 IMAP 账号，然后在“添加监控”中选择“邮件验证码监控”添加规则：
-- IMAP Host: `imap.gmail.com`
-- Port: `993`
-- TLS: 开启
-- 邮箱账号 + App Password
-- 添加规则：`site_key` + `from` + `code_regex` 等
-
-### 3. API 调用示例
-脚本调用（等待验证码，长轮询）：
-
-```bash
-curl -X POST http://<你的面板>/api/email-code/request \
-  -H "Content-Type: application/json" \
-  -d '{"site_key":"site_a","timeout_seconds":120}'
-```
-
-立即获取最新验证码：
-
-```bash
-curl http://<你的面板>/api/email-code/latest?site_key=site_a
-```
-
-返回示例：
-
-```json
-{
-  "success": true,
-  "code": {
-    "id": 1,
-    "rule_id": "...",
-    "code": "123456",
-    "from_address": "no-reply@site.com",
-    "subject": "Your code",
-    "received_at": "2026-03-02T12:00:00.000Z"
-  }
-}
-```
-
----
 
 ## 🤝 贡献与反馈
 欢迎提交 Issue 或 Pull Request。更多详情请查看 [CONTRIBUTING.md](./CONTRIBUTING.md)。
