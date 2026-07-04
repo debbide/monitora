@@ -117,11 +117,11 @@ export default function BackupSettings({ onClose }: BackupSettingsProps) {
 
                 <div className="settings-section">
                     <h4>📥 手动操作</h4>
-                    <div className="form-group" style={{ flexDirection: 'row', gap: '10px' }}>
-                        <a href="/api/backup/download" target="_blank" rel="noopener noreferrer" className="btn btn-primary" style={{ textDecoration: 'none', display: 'inline-block', lineHeight: 'normal' }}>
+                    <div style={{ display: 'flex', gap: '12px', marginTop: '16px' }}>
+                        <a href="/api/backup/download" target="_blank" rel="noopener noreferrer" className="btn-primary" style={{ textDecoration: 'none', padding: '10px 16px', borderRadius: '8px', fontSize: '0.875rem', display: 'flex', alignItems: 'center' }}>
                             💾 下载当前数据库
                         </a>
-                        <button className="btn btn-secondary" onClick={() => fileInputRef.current?.click()}>
+                        <button className="btn-secondary" onClick={() => fileInputRef.current?.click()} style={{ padding: '10px 16px', borderRadius: '8px', fontSize: '0.875rem', display: 'flex', alignItems: 'center' }}>
                             📤 上传恢复数据库
                         </button>
                         <input 
@@ -132,7 +132,7 @@ export default function BackupSettings({ onClose }: BackupSettingsProps) {
                             onChange={handleRestore}
                         />
                     </div>
-                    <span className="form-hint" style={{ marginTop: '10px', display: 'block' }}>
+                    <span className="form-hint" style={{ marginTop: '12px', display: 'block' }}>
                         注意：上传恢复会覆盖现有数据，并导致监控系统重启。
                     </span>
                 </div>
@@ -150,14 +150,15 @@ export default function BackupSettings({ onClose }: BackupSettingsProps) {
                         />
                     </div>
 
-                    <div className="form-group checkbox-group" style={{ marginTop: '15px' }}>
-                        <label>
+                    <div style={{ marginTop: '20px', marginBottom: '15px' }}>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', fontSize: '0.9rem', color: 'var(--color-text)' }}>
                             <input
                                 type="checkbox"
+                                style={{ width: '18px', height: '18px', margin: 0, padding: 0 }}
                                 checked={settings.backup_tg_enabled === '1'}
                                 onChange={(e) => setSettings({ ...settings, backup_tg_enabled: e.target.checked ? '1' : '0' })}
                             />
-                            推送到 Telegram (需在TG设置中配好全局Bot Token)
+                            <strong>推送到 Telegram</strong> (需在TG设置中配好全局Bot Token)
                         </label>
                     </div>
                     
@@ -172,14 +173,15 @@ export default function BackupSettings({ onClose }: BackupSettingsProps) {
                         </div>
                     )}
 
-                    <div className="form-group checkbox-group" style={{ marginTop: '15px' }}>
-                        <label>
+                    <div style={{ marginTop: '20px', marginBottom: '15px' }}>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', fontSize: '0.9rem', color: 'var(--color-text)' }}>
                             <input
                                 type="checkbox"
+                                style={{ width: '18px', height: '18px', margin: 0, padding: 0 }}
                                 checked={settings.backup_webdav_enabled === '1'}
                                 onChange={(e) => setSettings({ ...settings, backup_webdav_enabled: e.target.checked ? '1' : '0' })}
                             />
-                            推送到 WebDAV (坚果云 / Nextcloud 等)
+                            <strong>推送到 WebDAV</strong> (坚果云 / Nextcloud 等)
                         </label>
                     </div>
 
