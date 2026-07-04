@@ -85,13 +85,29 @@ export interface MonitorStats {
 }
 
 async function fetchAPI(path: string, options?: RequestInit) {
+  const token = localStorage.getItem('monitor_auth_token')
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    ...(options?.headers as Record<string, string>),
+  }
+
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`
+  }
+
   const response = await fetch(`${API_URL}${path}`, {
     ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      ...options?.headers,
-    },
+    headers,
   })
+
+  if (response.status === 401) {
+    // If it's a 401 Unauthorized, token might be expired.
+    // Clear it and reload the page to force login.
+    localStorage.removeItem('monitor_auth_token')
+    localStorage.removeItem('monitor_auth_expiry')
+    window.location.reload()
+    throw new Error('Authentication expired')
+  }
 
   if (!response.ok) {
     const error = await response.json().catch(() => ({ error: 'Request failed' }))
@@ -226,15 +242,15 @@ export async function checkNow(monitorId: string): Promise<{ success: boolean; c
   })
 }
 
-export async function verifyPassword(password: string): Promise<boolean> {
+export async function verifyPassword(password: string): Promise<{ valid: boolean, token?: string }> {
   try {
     const result = await fetchAPI('/api/auth/verify', {
       method: 'POST',
       body: JSON.stringify({ password }),
     })
-    return result.valid === true
+    return result
   } catch (error) {
-    return false
+    return { valid: false }
   }
 }
 

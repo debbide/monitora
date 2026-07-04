@@ -3,7 +3,7 @@ import { verifyPassword as apiVerifyPassword } from './api'
 const AUTH_KEY = 'monitor_auth_token'
 const AUTH_EXPIRY = 'monitor_auth_expiry'
 
-export async function verifyPassword(password: string): Promise<boolean> {
+export async function verifyPassword(password: string): Promise<{ valid: boolean, token?: string }> {
   return apiVerifyPassword(password)
 }
 
@@ -38,6 +38,4 @@ export function isAuthenticated(): boolean {
   return getAuthToken() !== null
 }
 
-export function generateAuthToken(): string {
-  return Math.random().toString(36).substring(2) + Date.now().toString(36)
-}
+// generateAuthToken removed as we now use backend-generated JWT

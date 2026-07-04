@@ -8,6 +8,7 @@ import { WebSocketServer, WebSocket } from 'ws'
 import type { RawData } from 'ws'
 import type { IncomingMessage } from 'http'
 import { initDatabase, queryAll, queryFirst, run, saveNow } from './db.js'
+import { generateToken, requireAuth } from './auth.js'
 import { Monitor, MonitorCheck } from './types.js'
 import {
   checkAllMonitors,
@@ -69,6 +70,24 @@ app.get('/health', (req, res) => {
     timestamp: new Date().toISOString(),
     memory: process.memoryUsage().heapUsed
   })
+})
+
+// API 鉴权中间件拦截
+app.use('/api', (req, res, next) => {
+  const publicPaths = [
+    '/auth/verify',
+    '/komari-notify',
+    '/webhook/komari',
+    '/komari-status',
+    '/nezha-notify-v1',
+    '/callback',
+    '/webtask',
+    '/sse/status'
+  ]
+  if (publicPaths.some(p => req.path.startsWith(p))) {
+    return next()
+  }
+  return requireAuth(req, res, next)
 })
 
 // API 路由
@@ -655,7 +674,8 @@ app.post('/api/auth/verify', async (req, res) => {
     const isValid = await verifyPassword(password, result.password_hash)
 
     if (isValid) {
-      res.json({ valid: true })
+      const token = generateToken()
+      res.json({ valid: true, token })
     } else {
       res.status(401).json({ valid: false })
     }

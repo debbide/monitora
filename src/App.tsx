@@ -6,7 +6,7 @@ import AddMonitorForm from './components/AddMonitorForm'
 import LoginForm from './components/LoginForm'
 import DashboardStats from './components/DashboardStats'
 import SettingsModal from './components/SettingsModal'
-import { verifyPassword, setAuthToken, generateAuthToken, isAuthenticated, clearAuthToken } from './lib/auth'
+import { verifyPassword, setAuthToken, isAuthenticated, clearAuthToken } from './lib/auth'
 import { Sun, Moon, Plus, LogOut, Settings } from 'lucide-react'
 import './App.css'
 
@@ -60,16 +60,15 @@ function App() {
   }, [authenticated])
 
   async function handleLogin(password: string): Promise<boolean> {
-    const valid = await verifyPassword(password)
-    if (valid) {
-      const token = generateAuthToken()
-      setAuthToken(token)
+    const response = await verifyPassword(password)
+    if (response.valid && response.token) {
+      setAuthToken(response.token)
       setAuthenticated(true)
       toast.success('欢迎回来！')
     } else {
       toast.error('密码错误')
     }
-    return valid
+    return response.valid
   }
 
   function handleLogout() {
