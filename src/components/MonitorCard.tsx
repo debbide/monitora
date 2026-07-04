@@ -10,7 +10,7 @@ import {
   checkNow,
   getKomariStatus
 } from '../lib/api'
-import { RefreshCw, Edit2, Trash2, Loader2, Link } from 'lucide-react'
+import { RefreshCw, Edit2, Trash2, Loader2 } from 'lucide-react'
 
 // 从国旗 emoji 提取国家代码
 function extractCountryCode(region: string): string {
