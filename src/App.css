@@ -547,32 +547,56 @@
   gap: 6px;
   padding: 4px 10px;
   border-radius: 20px;
-  font-size: 0.6875rem;
-  font-weight: 600;
+  font-size: 0.75rem;
+  font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.3px;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+  letter-spacing: 0.5px;
+  background: var(--status-bg);
+  color: var(--status-color);
+  border: 1px solid var(--status-border);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  backdrop-filter: blur(8px);
+}
+
+.monitor-status.status-up {
+  --status-bg: rgba(52, 211, 153, 0.15);
+  --status-color: #34d399;
+  --status-border: rgba(52, 211, 153, 0.25);
+}
+
+.monitor-status.status-down {
+  --status-bg: rgba(248, 113, 113, 0.15);
+  --status-color: #f87171;
+  --status-border: rgba(248, 113, 113, 0.25);
+}
+
+.monitor-status.status-unknown {
+  --status-bg: rgba(148, 163, 184, 0.15);
+  --status-color: #94a3b8;
+  --status-border: rgba(148, 163, 184, 0.25);
 }
 
 .status-dot {
   width: 6px;
   height: 6px;
-  background: currentColor;
+  background: var(--status-color);
   border-radius: 50%;
-  animation: pulse 2s ease-in-out infinite;
-  box-shadow: 0 0 6px currentColor;
+  animation: pulse-glow 2s ease-in-out infinite;
+  box-shadow: 0 0 8px var(--status-color);
 }
 
-@keyframes pulse {
+@keyframes pulse-glow {
   0%,
   100% {
     opacity: 1;
     transform: scale(1);
+    box-shadow: 0 0 10px var(--status-color);
   }
 
   50% {
-    opacity: 0.6;
+    opacity: 0.4;
     transform: scale(0.9);
+    box-shadow: 0 0 2px var(--status-color);
   }
 }
 
