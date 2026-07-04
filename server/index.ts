@@ -2,6 +2,7 @@ import express from 'express'
 import cors from 'cors'
 import cron from 'node-cron'
 import path from 'path'
+import fs from 'fs'
 import { fileURLToPath } from 'url'
 import crypto from 'crypto'
 import { WebSocketServer, WebSocket } from 'ws'
@@ -978,17 +979,15 @@ app.post('/api/backup/restore', express.raw({ type: '*/*', limit: '100mb' }), (r
     const dbPath = path.join(dataDir, 'monitor.db')
     
     // 覆盖本地文件
-    import('fs').then(fs => {
-        fs.writeFileSync(dbPath, req.body)
-        console.log('Database restored from upload. Restarting...')
-        
-        res.json({ success: true, message: 'Database restored successfully, restarting server...' })
-        
-        // 重启服务端以重新加载数据库文件
-        setTimeout(() => {
-          process.exit(0)
-        }, 1000)
-    })
+    fs.writeFileSync(dbPath, req.body)
+    console.log('Database restored from upload. Restarting...')
+    
+    res.json({ success: true, message: 'Database restored successfully, restarting server...' })
+    
+    // 重启服务端以重新加载数据库文件
+    setTimeout(() => {
+      process.exit(0)
+    }, 1000)
   } catch (error: any) {
     res.status(500).json({ error: error.message })
   }
