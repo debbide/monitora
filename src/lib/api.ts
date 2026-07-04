@@ -422,8 +422,14 @@ export async function restoreBackup(file: File) {
     body: file
   })
   if (!response.ok) {
-    const err = await response.json().catch(() => ({}))
-    throw new Error(err.error || '上传恢复失败')
+    let errMsg = ''
+    try {
+      const err = await response.json()
+      errMsg = err.error
+    } catch (e) {
+      // response wasn't JSON
+    }
+    throw new Error(errMsg || `上传恢复失败 (HTTP ${response.status} ${response.statusText})`)
   }
   return response.json()
 }
