@@ -37,7 +37,7 @@ import { initBackupScheduler, performBackup } from './backup.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const app = express()
-const PORT = process.env.PORT || 3000
+const PORT = process.env.SERVER_PORT || process.env.PORT || 3000
 
 function getHttpClientMode(mode: unknown): 'fetch' | 'curl' {
   return mode === 'curl' ? 'curl' : 'fetch'
