@@ -59,7 +59,7 @@ export default function AddMonitorForm({ onSuccess, onCancel, editMonitor }: Add
   const [emailMaxAgeSeconds, setEmailMaxAgeSeconds] = useState('300')
 
   // Request Configuration (HTTP & Scheduled Webhook)
-  const [httpAdvancedMode, setHttpAdvancedMode] = useState<'none' | 'api' | 'webhook' | 'both'>('none')
+  const [httpAdvancedMode, setHttpAdvancedMode] = useState<'none' | 'api' | 'webhook'>('none')
   const [checkContentType, setCheckContentType] = useState('application/json')
   const [checkHeaders, setCheckHeaders] = useState('')
   const [checkBody, setCheckBody] = useState('')
@@ -179,8 +179,7 @@ export default function AddMonitorForm({ onSuccess, onCancel, editMonitor }: Add
       );
       const hasWebhook = !!editMonitor.webhook_url;
 
-      if (hasApi && hasWebhook) setHttpAdvancedMode('both')
-      else if (hasApi) setHttpAdvancedMode('api')
+      if (hasApi) setHttpAdvancedMode('api')
       else if (hasWebhook) setHttpAdvancedMode('webhook')
       else setHttpAdvancedMode('none')
 
@@ -362,7 +361,7 @@ export default function AddMonitorForm({ onSuccess, onCancel, editMonitor }: Add
         tg_notify_chat_id: tgNotifyChatId.trim() || undefined,
         daily_window_start: finalDailyWindowStart,
         daily_window_end: finalDailyWindowEnd,
-        webhook_url: (httpAdvancedMode === 'webhook' || httpAdvancedMode === 'both') ? (webhookUrl.trim() || undefined) : undefined,
+        webhook_url: httpAdvancedMode === 'webhook' ? (webhookUrl.trim() || undefined) : undefined,
         webhook_content_type: contentType,
         webhook_method: webhookMethod,
         webhook_headers: Object.keys(parsedHeaders).length > 0 ? parsedHeaders : undefined,
@@ -942,7 +941,6 @@ export default function AddMonitorForm({ onSuccess, onCancel, editMonitor }: Add
               <option value="none">1. 普通网页 (无需配置鉴权，仅做基础存活检测)</option>
               <option value="api">2. API 接口模式 (需展开 Header/Cookie 等高级鉴权参数)</option>
               <option value="webhook">3. Webhook 报警模式 (需展开底部的 Webhook 通知配置)</option>
-              <option value="both">4. API 鉴权 + Webhook 报警全开</option>
             </select>
           </div>
         </div>
@@ -951,7 +949,7 @@ export default function AddMonitorForm({ onSuccess, onCancel, editMonitor }: Add
       {(checkType === 'http' ||
         checkType === 'scheduled_webhook' ||
         checkType === 'feedback_linkage') && (
-        <div className="form-section" style={{ display: (checkType !== 'http' || httpAdvancedMode === 'api' || httpAdvancedMode === 'both') ? 'block' : 'none' }}>
+        <div className="form-section" style={{ display: (checkType !== 'http' || httpAdvancedMode === 'api') ? 'block' : 'none' }}>
           <h4 style={{ margin: '0 0 16px 0' }}>高级配置 (Request Configuration)</h4>
               {(checkType === 'scheduled_webhook' || checkType === 'feedback_linkage') && (
             <div className="form-row">
@@ -1602,7 +1600,7 @@ export default function AddMonitorForm({ onSuccess, onCancel, editMonitor }: Add
         </div>
       )}
 
-      <div className="form-section" style={{ display: (checkType !== 'http' || httpAdvancedMode === 'webhook' || httpAdvancedMode === 'both') ? 'block' : 'none' }}>
+      <div className="form-section" style={{ display: (checkType !== 'http' || httpAdvancedMode === 'webhook') ? 'block' : 'none' }}>
         <h4>Webhook 通知 (报警联动, 可选)</h4>
 
         <div className="form-group">
