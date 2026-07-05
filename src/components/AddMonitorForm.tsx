@@ -170,9 +170,9 @@ export default function AddMonitorForm({ onSuccess, onCancel, editMonitor }: Add
 
       const hasApi = !!(
         (editMonitor.check_method && editMonitor.check_method !== 'GET') ||
-        editMonitor.check_headers ||
-        editMonitor.check_body ||
-        (editMonitor.expected_status_codes && editMonitor.expected_status_codes !== '200,201,204,301,302') ||
+        (editMonitor.check_headers && editMonitor.check_headers !== '{}' && editMonitor.check_headers !== '[]' && editMonitor.check_headers !== 'null') ||
+        (editMonitor.check_body && editMonitor.check_body !== '{}' && editMonitor.check_body !== '[]' && editMonitor.check_body !== 'null') ||
+        (editMonitor.expected_status_codes && editMonitor.expected_status_codes !== '200,201,204,301,302' && editMonitor.expected_status_codes !== '200') ||
         editMonitor.expected_keyword ||
         editMonitor.forbidden_keyword ||
         editMonitor.http_client_mode === 'curl'
