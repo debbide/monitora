@@ -2035,14 +2035,14 @@ async function handleFeedbackCallback(
       const timeStr = new Date().toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' })
       const icon = isSuccess ? '✅' : '❌'
       const statusText = isSuccess ? '成功' : '失败'
-      const remainHours = remaining_time !== undefined ? (remaining_time / 3600).toFixed(2) : '未知'
+      const remainTime = remaining_time !== undefined ? (remaining_time / multiplier).toFixed(2) : '未知'
 
       const msg = [
         `${icon} *反馈联动回调: ${statusText}*`,
         ``,
         `📋 *任务:* ${monitor.name}`,
-        `⏱ *剩余时间:* ${remainHours}h`,
-        `🎯 *触发点:* ${triggerPointHours.toFixed(2)}h`,
+        `⏱ *剩余时间:* ${remainTime}${unitLabel}`,
+        `🎯 *触发点:* ${triggerPoint.toFixed(2)}${unitLabel}`,
         remaining_time !== undefined && remaining_time > triggerPointSeconds
           ? `⏳ *状态:* 未到触发点，等待中`
           : `🔥 *状态:* 已到触发点，准备执行`,
@@ -2069,7 +2069,7 @@ async function handleFeedbackCallback(
     return res.json({
       success: true,
       matched_monitor: monitor.name,
-      trigger_point_hours: Number(triggerPointHours.toFixed(2)),
+      trigger_point: Number(triggerPoint.toFixed(2)),
       next_check_at: nextCheckAt
     })
   } catch (error: any) {

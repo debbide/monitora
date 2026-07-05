@@ -47,6 +47,7 @@ export interface Monitor {
   feedback_threshold: number
   feedback_fluctuation_min: number | null
   feedback_fluctuation_max: number | null
+  feedback_unit?: string | null
   created_at: string
   updated_at: string
 }

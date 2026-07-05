@@ -40,10 +40,11 @@ export interface Monitor {
   webhook_username: string | null
   is_active: number
   sort_order: number
-  feedback_linkage: number  // 是否开启反馈联动
-  feedback_threshold: number // 续期窗口阈值 (小时)
-  feedback_fluctuation_min: number | null // 执行波动范围 - 最小 (小时)
-  feedback_fluctuation_max: number | null // 执行波动范围 - 最大 (小时)
+  feedback_linkage?: number
+  feedback_threshold?: number
+  feedback_fluctuation_min?: number
+  feedback_fluctuation_max?: number
+  feedback_unit?: string | null // 执行波动范围 - 最小 (小时)
   created_at: string
   updated_at: string
 }
