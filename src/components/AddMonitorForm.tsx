@@ -927,31 +927,31 @@ export default function AddMonitorForm({ onSuccess, onCancel, editMonitor }: Add
         </div>
       )}
 
+      {checkType === 'http' && (
+        <div className="form-section">
+          <h4>HTTP 监控模式</h4>
+          <div className="form-group">
+            <select
+              value={advancedHttpMode ? 'api' : 'web'}
+              onChange={e => setAdvancedHttpMode(e.target.value === 'api')}
+            >
+              <option value="web">普通网页 (无需鉴权，直接访问)</option>
+              <option value="api">自定义 API / 需携带 Cookie 或 Header 鉴权</option>
+            </select>
+            <span className="form-hint">
+              {advancedHttpMode
+                ? '此模式可自定义 Method、Headers、Cookie、Body 以及期望状态码和返回关键词'
+                : '最简模式，仅发送 GET 请求并检测网址是否返回 200 成功'}
+            </span>
+          </div>
+        </div>
+      )}
+
       {(checkType === 'http' ||
         checkType === 'scheduled_webhook' ||
         checkType === 'feedback_linkage') && (
-        <div className="form-section">
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
-            <h4 style={{ margin: 0 }}>高级配置 (Request Configuration)</h4>
-            {checkType === 'http' && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span style={{ fontSize: '14px', color: 'var(--text-secondary)' }}>
-                  开启高级配置
-                </span>
-                <label className="switch">
-                  <input
-                    type="checkbox"
-                    checked={advancedHttpMode}
-                    onChange={e => setAdvancedHttpMode(e.target.checked)}
-                  />
-                  <span className="slider round"></span>
-                </label>
-              </div>
-            )}
-          </div>
-
-          {(checkType !== 'http' || advancedHttpMode) && (
-            <>
+        <div className="form-section" style={{ display: (checkType !== 'http' || advancedHttpMode) ? 'block' : 'none' }}>
+          <h4 style={{ margin: '0 0 16px 0' }}>高级配置 (Request Configuration)</h4>
               {(checkType === 'scheduled_webhook' || checkType === 'feedback_linkage') && (
             <div className="form-row">
               <div className="form-group">
@@ -1079,8 +1079,6 @@ export default function AddMonitorForm({ onSuccess, onCancel, editMonitor }: Add
                   响应内容包含此关键词则判定为故障（用于监控探针页面）
                 </span>
               </div>
-            </>
-          )}
             </>
           )}
         </div>
