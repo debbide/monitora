@@ -652,33 +652,20 @@
 }
 
 .monitor-card.list-view .monitor-stats {
+  display: none; /* 列表模式隐藏文本统计，腾出空间给曲线 */
+}
+
+.monitor-card.list-view .monitor-chart {
+  display: block; /* 列表模式下强制显示波形图 */
   order: 3;
   flex: 2;
-  display: flex;
-  flex-direction: row;
-  justify-content: center;
-  align-items: center;
-  gap: calc(var(--spacing-unit) * 3);
-  margin-top: 0;
-  padding: 0;
-  background: transparent;
-  border: none;
-  box-shadow: none;
+  margin-top: 0 !important;
+  height: 44px !important; /* 将曲线压扁一点，适合列表高度 */
+  min-width: 150px;
 }
 
-.monitor-card.list-view .monitor-stats .stat {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
-
-.monitor-card.list-view .monitor-stats .stat-label {
-  font-size: 0.65rem;
-  margin-bottom: 2px;
-}
-
-.monitor-card.list-view .monitor-stats .stat-value {
-  font-size: 0.85rem;
+.monitor-card.list-view .monitor-chart .recharts-responsive-container {
+  height: 100% !important;
 }
 
 .monitor-card.list-view .monitor-footer {
@@ -714,7 +701,6 @@
   margin-left: calc(var(--spacing-unit) * 2);
 }
 
-.monitor-card.list-view .monitor-chart,
 .monitor-card.list-view .komari-servers,
 .monitor-card.list-view .monitor-error {
   display: none;
