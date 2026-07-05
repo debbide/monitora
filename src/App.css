@@ -638,7 +638,8 @@
 
 .monitor-card.list-view .monitor-title-row {
   margin-bottom: 0;
-  justify-content: flex-start;
+  width: 100%;
+  justify-content: space-between;
 }
 
 .monitor-card.list-view h3 {
