@@ -59,6 +59,7 @@ export default function AddMonitorForm({ onSuccess, onCancel, editMonitor }: Add
   const [emailMaxAgeSeconds, setEmailMaxAgeSeconds] = useState('300')
 
   // Request Configuration (HTTP & Scheduled Webhook)
+  const [advancedHttpMode, setAdvancedHttpMode] = useState(false)
   const [checkContentType, setCheckContentType] = useState('application/json')
   const [checkHeaders, setCheckHeaders] = useState('')
   const [checkBody, setCheckBody] = useState('')
@@ -166,6 +167,18 @@ export default function AddMonitorForm({ onSuccess, onCancel, editMonitor }: Add
       setCheckContentType(editMonitor.check_content_type || 'application/json')
       setCheckHeaders(editMonitor.check_headers || '')
       setCheckBody(editMonitor.check_body || '')
+
+      if (
+        (editMonitor.check_method && editMonitor.check_method !== 'GET') ||
+        editMonitor.check_headers ||
+        editMonitor.check_body ||
+        (editMonitor.expected_status_codes && editMonitor.expected_status_codes !== '200,201,204,301,302') ||
+        editMonitor.expected_keyword ||
+        editMonitor.forbidden_keyword ||
+        editMonitor.http_client_mode === 'curl'
+      ) {
+        setAdvancedHttpMode(true)
+      }
 
       setTgChatId(editMonitor.tg_chat_id || '')
       setTgServerName(editMonitor.tg_server_name || '')
@@ -690,21 +703,6 @@ export default function AddMonitorForm({ onSuccess, onCancel, editMonitor }: Add
       {checkType === 'feedback_linkage' && (
         <div className="form-section">
           <h4>检测配置</h4>
-          <div className="form-group">
-            <label htmlFor="checkType">检测类型</label>
-            <select
-              id="checkType"
-              value={checkType}
-              onChange={e => setCheckType(e.target.value as any)}
-            >
-              <option value="http">HTTP 检测</option>
-              <option value="tcp">TCP 连通性检测 (Ping)</option>
-              <option value="komari_webhook">Komari Webhook 监控</option>
-              <option value="nezha_webhook">哪吒 (Nezha) Webhook 监控</option>
-              <option value="scheduled_webhook">定时触发 (Webhook/Cron)</option>
-              <option value="feedback_linkage">反馈联动监控 (Feedback Linkage)</option>
-            </select>
-          </div>
 
           <div
             className="form-group"
@@ -933,9 +931,28 @@ export default function AddMonitorForm({ onSuccess, onCancel, editMonitor }: Add
         checkType === 'scheduled_webhook' ||
         checkType === 'feedback_linkage') && (
         <div className="form-section">
-          <h4>Request Configuration</h4>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
+            <h4 style={{ margin: 0 }}>高级配置 (Request Configuration)</h4>
+            {checkType === 'http' && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '14px', color: 'var(--text-secondary)' }}>
+                  开启高级配置
+                </span>
+                <label className="switch">
+                  <input
+                    type="checkbox"
+                    checked={advancedHttpMode}
+                    onChange={e => setAdvancedHttpMode(e.target.checked)}
+                  />
+                  <span className="slider round"></span>
+                </label>
+              </div>
+            )}
+          </div>
 
-          {(checkType === 'scheduled_webhook' || checkType === 'feedback_linkage') && (
+          {(checkType !== 'http' || advancedHttpMode) && (
+            <>
+              {(checkType === 'scheduled_webhook' || checkType === 'feedback_linkage') && (
             <div className="form-row">
               <div className="form-group">
                 <label htmlFor="url">触发 URL (Trigger Webhook)</label>
@@ -1062,6 +1079,8 @@ export default function AddMonitorForm({ onSuccess, onCancel, editMonitor }: Add
                   响应内容包含此关键词则判定为故障（用于监控探针页面）
                 </span>
               </div>
+            </>
+          )}
             </>
           )}
         </div>
