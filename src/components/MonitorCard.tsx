@@ -37,9 +37,10 @@ interface MonitorCardProps {
   monitor: Monitor & { latestCheck?: MonitorCheck; recentChecks?: MonitorCheck[]; uptime?: number }
   onUpdate: () => void
   onEdit: () => void
+  viewMode?: 'grid' | 'list'
 }
 
-export default function MonitorCard({ monitor, onUpdate, onEdit }: MonitorCardProps) {
+export default function MonitorCard({ monitor, onUpdate, onEdit, viewMode = 'grid' }: MonitorCardProps) {
   const [isDeleting, setIsDeleting] = useState(false)
   const [isTesting, setIsTesting] = useState(false)
   const [isChecking, setIsChecking] = useState(false)
@@ -161,7 +162,7 @@ export default function MonitorCard({ monitor, onUpdate, onEdit }: MonitorCardPr
   }
 
   return (
-    <div className="monitor-card">
+    <div className={`monitor-card ${viewMode === 'list' ? 'list-view' : ''}`}>
       <div className="monitor-header">
         <div className={`monitor-status status-${status}`}>
           <span className="status-dot"></span>
@@ -187,23 +188,25 @@ export default function MonitorCard({ monitor, onUpdate, onEdit }: MonitorCardPr
         </div>
       </div>
 
-      <div className="monitor-title-row">
-        <h3 className="monitor-name">{monitor.name}</h3>
-        {modeLabel && (
-          <span className={`mode-badge mode-${monitor.check_type}`} title={`模式: ${modeLabel}`}>
-            {modeLabel}
-          </span>
+      <div className="monitor-info" style={{ display: 'flex', flexDirection: 'column' }}>
+        <div className="monitor-title-row">
+          <h3 className="monitor-name">{monitor.name}</h3>
+          {modeLabel && (
+            <span className={`mode-badge mode-${monitor.check_type}`} title={`模式: ${modeLabel}`}>
+              {modeLabel}
+            </span>
+          )}
+        </div>
+        {displayUrl && (
+          isEmailCode ? (
+            <span className="monitor-url">{displayUrl}</span>
+          ) : (
+            <a href={displayUrl} target="_blank" rel="noopener noreferrer" className="monitor-url">
+              {displayUrl}
+            </a>
+          )
         )}
       </div>
-      {displayUrl && (
-        isEmailCode ? (
-          <span className="monitor-url">{displayUrl}</span>
-        ) : (
-          <a href={displayUrl} target="_blank" rel="noopener noreferrer" className="monitor-url">
-            {displayUrl}
-          </a>
-        )
-      )}
 
       {!isEmailCode && (
         <div className="monitor-stats">

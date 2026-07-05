@@ -66,6 +66,7 @@
 }
 
 .btn-change-password,
+.btn-view-mode,
 .btn-logout {
   background: var(--color-surface);
   backdrop-filter: var(--blur);
@@ -80,6 +81,7 @@
 }
 
 .btn-change-password:hover,
+.btn-view-mode:hover,
 .btn-logout:hover {
   background: var(--color-surface-hover);
   color: var(--color-text);
@@ -456,6 +458,12 @@
   gap: calc(var(--spacing-unit) * 2);
 }
 
+.monitors-list {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--spacing-unit) * 1.5);
+}
+
 /* 拖拽排序样式 */
 .monitor-drag-wrapper {
   cursor: grab;
@@ -597,6 +605,56 @@
 .monitor-actions {
   display: flex;
   gap: 4px;
+}
+
+/* 列表模式下的覆盖样式 */
+.monitor-card.list-view {
+  flex-direction: row;
+  align-items: center;
+  padding: calc(var(--spacing-unit) * 1);
+  height: auto;
+  gap: calc(var(--spacing-unit) * 2);
+}
+
+.monitor-card.list-view .monitor-header {
+  margin-bottom: 0;
+  flex: 1;
+  display: flex;
+  justify-content: flex-start;
+  gap: calc(var(--spacing-unit) * 2);
+}
+
+.monitor-card.list-view .monitor-info {
+  display: flex;
+  flex: 2;
+  align-items: center;
+  gap: calc(var(--spacing-unit) * 2);
+}
+
+.monitor-card.list-view h3 {
+  margin-bottom: 0;
+  font-size: 1rem;
+  white-space: nowrap;
+}
+
+.monitor-card.list-view .monitor-url {
+  margin-bottom: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 250px;
+}
+
+.monitor-card.list-view .monitor-chart {
+  display: none; /* 列表模式隐藏波形图 */
+}
+
+.monitor-card.list-view .monitor-meta {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: none;
+  flex: 1;
+  justify-content: flex-end;
 }
 
 .monitor-title-row {

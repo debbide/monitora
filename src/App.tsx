@@ -7,7 +7,7 @@ import LoginForm from './components/LoginForm'
 import DashboardStats from './components/DashboardStats'
 import SettingsModal from './components/SettingsModal'
 import { verifyPassword, setAuthToken, isAuthenticated, clearAuthToken } from './lib/auth'
-import { Plus, LogOut, Settings } from 'lucide-react'
+import { Plus, LogOut, Settings, LayoutGrid, List } from 'lucide-react'
 import './App.css'
 
 export interface MonitorWithStatus extends Monitor {
@@ -27,6 +27,15 @@ function App() {
   const [draggedId, setDraggedId] = useState<string | null>(null)
   const [dragOverId, setDragOverId] = useState<string | null>(null)
   const dragCounter = useRef(0)
+  
+  // 视图模式状态
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>(() => {
+    return (localStorage.getItem('monitora_view_mode') as 'grid' | 'list') || 'grid'
+  })
+
+  useEffect(() => {
+    localStorage.setItem('monitora_view_mode', viewMode)
+  }, [viewMode])
 
   useEffect(() => {
     if (isAuthenticated()) {
@@ -218,6 +227,15 @@ function App() {
               {showAddForm ? '取消' : <><Plus size={16} /> 添加监控</>}
             </button>
 
+            <button
+              className="btn-view-mode"
+              onClick={() => setViewMode(prev => prev === 'grid' ? 'list' : 'grid')}
+              title={viewMode === 'grid' ? '切换到列表视图' : '切换到网格视图'}
+              style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '36px', height: '36px', padding: 0 }}
+            >
+              {viewMode === 'grid' ? <List size={18} /> : <LayoutGrid size={18} />}
+            </button>
+
             <button className="btn-logout" onClick={handleLogout} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
               <LogOut size={16} /> 退出登录
             </button>
@@ -236,7 +254,7 @@ function App() {
             <p className="empty-hint">点击上方按钮添加第一个监控</p>
           </div>
         ) : (
-          <div className="monitors-grid">
+          <div className={`monitors-${viewMode}`}>
             {monitors.map(monitor => (
               <div
                 key={monitor.id}
@@ -253,6 +271,7 @@ function App() {
                   monitor={monitor}
                   onUpdate={loadMonitors}
                   onEdit={() => handleEdit(monitor)}
+                  viewMode={viewMode}
                 />
               </div>
             ))}
