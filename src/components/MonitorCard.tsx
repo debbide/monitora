@@ -58,7 +58,7 @@ export default function MonitorCard({ monitor, onUpdate, onEdit, viewMode = 'gri
   const isEmailCode = monitor.check_type === 'email_code'
   // 优先使用 Komari 实时状态，否则使用 latestCheck
   const status = isEmailCode ? 'unknown' : komariRealTimeStatus || monitor.latestCheck?.status || 'unknown'
-  // const statusColor = status === 'up' ? '#10b981' : status === 'down' ? '#ef4444' : '#6b7280' // No longer needed, handled via CSS classes
+  const chartColor = status === 'up' ? '#10b981' : status === 'down' ? '#ef4444' : '#6b7280'
   const statusText =
     status === 'up' ? '正常' : status === 'down' ? '故障' : isEmailCode ? '按需' : '未知'
   const displayUrl = isEmailCode
@@ -249,8 +249,8 @@ export default function MonitorCard({ monitor, onUpdate, onEdit, viewMode = 'gri
             <AreaChart data={chartData}>
               <defs>
                 <linearGradient id={`gradient-${monitor.id}`} x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#6366f1" stopOpacity={0.3} />
-                  <stop offset="95%" stopColor="#6366f1" stopOpacity={0} />
+                  <stop offset="5%" stopColor={chartColor} stopOpacity={0.3} />
+                  <stop offset="95%" stopColor={chartColor} stopOpacity={0} />
                 </linearGradient>
               </defs>
               <Tooltip
@@ -268,7 +268,7 @@ export default function MonitorCard({ monitor, onUpdate, onEdit, viewMode = 'gri
               <Area
                 type="monotone"
                 dataKey="value"
-                stroke="#6366f1"
+                stroke={chartColor}
                 strokeWidth={2}
                 fillOpacity={1}
                 fill={`url(#gradient-${monitor.id})`}
