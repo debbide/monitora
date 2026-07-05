@@ -1950,9 +1950,9 @@ async function handleFeedbackCallback(
     const now = Date.now()
     let nextCheckAt: string
 
-    const baseThreshold = parseFloat(monitor.feedback_threshold) || 24
-    const fluMin = parseFloat(monitor.feedback_fluctuation_min) || 0
-    const fluMax = parseFloat(monitor.feedback_fluctuation_max) || 0
+    const baseThreshold = Number(monitor.feedback_threshold) || 24
+    const fluMin = Number(monitor.feedback_fluctuation_min) || 0
+    const fluMax = Number(monitor.feedback_fluctuation_max) || 0
     const unit = monitor.feedback_unit || 'hours'
 
     // 根据单位计算倍数
