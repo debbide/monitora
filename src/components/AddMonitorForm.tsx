@@ -731,23 +731,21 @@ export default function AddMonitorForm({ onSuccess, onCancel, editMonitor }: Add
 
             <div className="form-row" style={{ marginTop: '16px' }}>
               <div className="form-group">
-                <label htmlFor="feedbackThreshold">续期触发阈值 (分钟)</label>
+                <label htmlFor="feedbackThreshold">续期触发阈值 (小时)</label>
                 <input
                   id="feedbackThreshold"
                   type="number"
-                  step="any"
                   value={feedbackThreshold}
                   onChange={e => setFeedbackThreshold(e.target.value)}
-                  placeholder="例如: 1440"
+                  placeholder="例如: 24"
                 />
                 <span className="form-hint">小于此剩余时间进入续期窗口</span>
               </div>
               <div className="form-group">
-                <label>执行波动范围 (分钟)</label>
+                <label>执行波动范围 (小时)</label>
                 <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                   <input
                     type="number"
-                    step="any"
                     value={feedbackFluctuationMin}
                     onChange={e => setFeedbackFluctuationMin(e.target.value)}
                     style={{ flex: 1 }}
@@ -756,7 +754,6 @@ export default function AddMonitorForm({ onSuccess, onCancel, editMonitor }: Add
                   <span style={{ fontSize: '14px' }}>至</span>
                   <input
                     type="number"
-                    step="any"
                     value={feedbackFluctuationMax}
                     onChange={e => setFeedbackFluctuationMax(e.target.value)}
                     style={{ flex: 1 }}
