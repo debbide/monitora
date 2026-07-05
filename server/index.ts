@@ -191,9 +191,9 @@ app.post('/api/monitors', async (req, res) => {
         initialNextCheck,
         1,
         body.feedback_linkage || body.check_type === 'feedback_linkage' ? 1 : 0,
-        parseInt(body.feedback_threshold) || 0,
-        parseInt(body.feedback_fluctuation_min) || 0,
-        parseInt(body.feedback_fluctuation_max) || 0
+        parseFloat(body.feedback_threshold) || 0,
+        parseFloat(body.feedback_fluctuation_min) || 0,
+        parseFloat(body.feedback_fluctuation_max) || 0
       ]
     )
 
@@ -385,9 +385,9 @@ app.put('/api/monitors/:id', (req, res) => {
         new Date().toISOString(),
         resetNextCheck,
         body.feedback_linkage || body.check_type === 'feedback_linkage' ? 1 : 0,
-        parseInt(body.feedback_threshold) || 0,
-        parseInt(body.feedback_fluctuation_min) || 0,
-        parseInt(body.feedback_fluctuation_max) || 0,
+        parseFloat(body.feedback_threshold) || 0,
+        parseFloat(body.feedback_fluctuation_min) || 0,
+        parseFloat(body.feedback_fluctuation_max) || 0,
         id
       ]
     )
@@ -1947,24 +1947,24 @@ async function handleFeedbackCallback(
     const now = Date.now()
     let nextCheckAt: string
 
-    const baseThresholdHours = monitor.feedback_threshold || 24
+    const baseThresholdMins = monitor.feedback_threshold || 1440
     const fluMin = monitor.feedback_fluctuation_min || 0
     const fluMax = monitor.feedback_fluctuation_max || 0
 
-    // 随机产生一个波动值 (小时)
+    // 随机产生一个波动值 (分钟)
     const randomOffset =
       fluMax !== null && fluMax > fluMin ? Math.random() * (fluMax - fluMin) + fluMin : fluMin
 
-    // 实际触发点 (小时)
-    const triggerPointHours = baseThresholdHours - randomOffset
-    const triggerPointSeconds = triggerPointHours * 3600
+    // 实际触发点 (分钟)
+    const triggerPointMins = baseThresholdMins - randomOffset
+    const triggerPointSeconds = triggerPointMins * 60
 
     if (remaining_time !== undefined && remaining_time > triggerPointSeconds) {
       // 剩余时间还在触发点之上，计算需要等待多久到达触发点
       const waitSeconds = remaining_time - triggerPointSeconds
       nextCheckAt = new Date(now + waitSeconds * 1000).toISOString()
       console.log(
-        `⏳ [${monitor.name}] 尚未到达触发点 (${triggerPointHours.toFixed(2)}h)，预计在 ${(waitSeconds / 3600).toFixed(2)}h 后再次检查`
+        `⏳ [${monitor.name}] 尚未到达触发点 (${triggerPointMins.toFixed(2)}m)，预计在 ${(waitSeconds / 60).toFixed(2)}m 后再次检查`
       )
     } else {
       // 已到达或低于触发点，立即触发检测逻辑 (或按默认小间隔重试以免错过)
@@ -1977,7 +1977,7 @@ async function handleFeedbackCallback(
       }
       nextCheckAt = new Date(now + nextInterval * 60 * 1000).toISOString()
       console.log(
-        `🔥 [${monitor.name}] 已到达触发点 (${triggerPointHours.toFixed(2)}h)，准备执行任务`
+        `🔥 [${monitor.name}] 已到达触发点 (${triggerPointMins.toFixed(2)}m)，准备执行任务`
       )
     }
 
