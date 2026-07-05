@@ -81,6 +81,7 @@ export default function AddMonitorForm({ onSuccess, onCancel, editMonitor }: Add
   const [feedbackFluctuationMin, setFeedbackFluctuationMin] = useState<string>('')
   const [feedbackFluctuationMax, setFeedbackFluctuationMax] = useState<string>('')
   const [feedbackUnit, setFeedbackUnit] = useState<'hours' | 'minutes'>('hours')
+  const [enableWebhook, setEnableWebhook] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   const isEditMode = !!editMonitor
@@ -191,6 +192,7 @@ export default function AddMonitorForm({ onSuccess, onCancel, editMonitor }: Add
       setHeaders(editMonitor.webhook_headers || '')
       setBody(editMonitor.webhook_body || '')
       setUsername(editMonitor.webhook_username || '')
+      if (editMonitor.webhook_url) setEnableWebhook(true)
       setFeedbackLinkage(
         editMonitor.feedback_linkage === 1 || editMonitor.check_type === 'feedback_linkage'
       )
@@ -358,7 +360,7 @@ export default function AddMonitorForm({ onSuccess, onCancel, editMonitor }: Add
         tg_notify_chat_id: tgNotifyChatId.trim() || undefined,
         daily_window_start: finalDailyWindowStart,
         daily_window_end: finalDailyWindowEnd,
-        webhook_url: webhookUrl.trim() || undefined,
+        webhook_url: enableWebhook ? (webhookUrl.trim() || undefined) : undefined,
         webhook_content_type: contentType,
         webhook_method: webhookMethod,
         webhook_headers: Object.keys(parsedHeaders).length > 0 ? parsedHeaders : undefined,
@@ -1602,9 +1604,26 @@ export default function AddMonitorForm({ onSuccess, onCancel, editMonitor }: Add
       )}
 
       <div className="form-section">
-        <h4>Webhook通知（可选）</h4>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
+          <h4 style={{ margin: 0 }}>Webhook 通知 (报警联动, 可选)</h4>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{ fontSize: '14px', color: 'var(--text-secondary)' }}>
+              启用高级报警
+            </span>
+            <label className="switch">
+              <input
+                type="checkbox"
+                checked={enableWebhook}
+                onChange={e => setEnableWebhook(e.target.checked)}
+              />
+              <span className="slider round"></span>
+            </label>
+          </div>
+        </div>
 
-        <div className="form-group">
+        {enableWebhook && (
+          <>
+            <div className="form-group">
           <label htmlFor="webhook">Webhook URL</label>
           <input
             id="webhook"
@@ -1678,6 +1697,8 @@ export default function AddMonitorForm({ onSuccess, onCancel, editMonitor }: Add
             可用变量: {`{{monitor_name}}, {{monitor_url}}, {{status}}, {{error}}, {{timestamp}}`}
           </span>
         </div>
+          </>
+        )}
       </div>
 
       <div className="form-actions">
