@@ -1380,124 +1380,82 @@ export default function AddMonitorForm({ onSuccess, onCancel, editMonitor }: Add
             </span>
           </div>
 
-          <div
-            className="form-group"
-            style={{
-              background: 'var(--bg-secondary)',
-              padding: '16px',
-              borderRadius: '12px',
-              marginTop: '16px',
-              border: '1px solid var(--border-color)'
-            }}
-          >
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                marginBottom: '12px'
-              }}
-            >
-              <h5 style={{ margin: 0, fontSize: '1.1rem' }}>
-                🔗 反馈联动模式 (Feedback Linkage Mode)
-              </h5>
-              <label className="switch">
+        </div>
+      )}
+
+      {checkType === 'feedback_linkage' && (
+        <div className="form-section">
+          <h4>🔗 反馈联动模式配置 (Feedback Linkage Config)</h4>
+          <div className="form-group" style={{ background: 'var(--bg-secondary)', padding: '16px', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
+            <div className="form-row">
+              <div className="form-group">
+                <label htmlFor="feedbackThreshold_alt">续期触发阈值 (小时)</label>
                 <input
-                  type="checkbox"
-                  checked={feedbackLinkage}
-                  onChange={e => setFeedbackLinkage(e.target.checked)}
+                  id="feedbackThreshold_alt"
+                  type="number"
+                  value={feedbackThreshold}
+                  onChange={e => setFeedbackThreshold(e.target.value)}
+                  placeholder="例如: 24"
                 />
-                <span className="slider round"></span>
-              </label>
-            </div>
-
-            {feedbackLinkage && (
-              <div
-                className="feedback-linkage-settings"
-                style={{
-                  padding: '12px',
-                  background: 'var(--bg-primary)',
-                  borderRadius: '8px',
-                  border: '1px solid var(--border-color)'
-                }}
-              >
-                <div className="form-row">
-                  <div className="form-group">
-                    <label htmlFor="feedbackThreshold_alt">续期触发阈值 (小时)</label>
-                    <input
-                      id="feedbackThreshold_alt"
-                      type="number"
-                      value={feedbackThreshold}
-                      onChange={e => setFeedbackThreshold(e.target.value)}
-                      placeholder="例如: 24"
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label>执行波动范围 (小时)</label>
-                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                      <input
-                        type="number"
-                        value={feedbackFluctuationMin}
-                        onChange={e => setFeedbackFluctuationMin(e.target.value)}
-                        style={{ flex: 1 }}
-                        placeholder="Min"
-                      />
-                      <span style={{ fontSize: '14px' }}>至</span>
-                      <input
-                        type="number"
-                        value={feedbackFluctuationMax}
-                        onChange={e => setFeedbackFluctuationMax(e.target.value)}
-                        style={{ flex: 1 }}
-                        placeholder="Max"
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                <div className="form-group" style={{ marginTop: '12px', marginBottom: 0 }}>
-                  <label>脚本回调 URL</label>
-                  <div
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '8px',
-                      background: 'var(--bg-tertiary)',
-                      padding: '8px 12px',
-                      borderRadius: '6px'
-                    }}
-                  >
-                    <code
-                      style={{
-                        fontSize: '0.9rem',
-                        color: 'var(--accent-color)',
-                        wordBreak: 'break-all'
-                      }}
-                    >
-                      {window.location.protocol}//{window.location.host}/api/callback
-                    </code>
-                    <button
-                      type="button"
-                      className="btn-text"
-                      onClick={() => {
-                        const url = `${window.location.protocol}//{window.location.host}/api/callback`
-                        navigator.clipboard.writeText(url)
-                        alert('已复制到剪贴板')
-                      }}
-                      title="复制链接"
-                    >
-                      📋
-                    </button>
-                  </div>
-                  <span className="form-hint" style={{ marginTop: '8px' }}>
-                    <strong>Payload:</strong>{' '}
-                    <code>
-                      {'{'} "server_name": "{expectedKeyword || '你的关键词'}", "remaining_time": 秒{' '}
-                      {'}'}
-                    </code>
-                  </span>
+              </div>
+              <div className="form-group">
+                <label>执行波动范围 (小时)</label>
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                  <input
+                    type="number"
+                    value={feedbackFluctuationMin}
+                    onChange={e => setFeedbackFluctuationMin(e.target.value)}
+                    style={{ flex: 1 }}
+                    placeholder="Min"
+                  />
+                  <span style={{ fontSize: '14px' }}>至</span>
+                  <input
+                    type="number"
+                    value={feedbackFluctuationMax}
+                    onChange={e => setFeedbackFluctuationMax(e.target.value)}
+                    style={{ flex: 1 }}
+                    placeholder="Max"
+                  />
                 </div>
               </div>
-            )}
+            </div>
+
+            <div className="form-group" style={{ marginTop: '12px', marginBottom: 0 }}>
+              <label>脚本回调 URL</label>
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  background: 'var(--bg-tertiary)',
+                  padding: '8px 12px',
+                  borderRadius: '6px'
+                }}
+              >
+                <code style={{ fontSize: '0.9rem', color: 'var(--accent-color)', wordBreak: 'break-all' }}>
+                  {window.location.protocol}//{window.location.host}/api/callback
+                </code>
+                <button
+                  type="button"
+                  className="btn-text"
+                  onClick={() => {
+                    const url = `${window.location.protocol}//{window.location.host}/api/callback`
+                    navigator.clipboard.writeText(url)
+                    alert('已复制到剪贴板')
+                  }}
+                  title="复制链接"
+                >
+                  📋
+                </button>
+              </div>
+              <span className="form-hint" style={{ marginTop: '8px' }}>
+                <strong>Payload:</strong>{' '}
+                <code>
+                  {'{'} "server_name": "{expectedKeyword || '你的关键词'}", "remaining_time": 秒{' '}
+                  {'}'}
+                </code>
+              </span>
+            </div>
           </div>
         </div>
       )}
