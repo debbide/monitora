@@ -1,5 +1,6 @@
 /* Dark Mode (Default & Only) - Glassmorphism */
 :root {
+  color-scheme: dark;
   --color-bg: #0f172a;
   --color-surface: rgba(30, 41, 59, 0.6);
   --color-surface-solid: rgba(30, 41, 59, 0.9);
@@ -153,6 +154,11 @@ button:disabled {
 
 input, textarea, select {
   font-family: inherit;
+}
+
+option {
+  background-color: #1e293b; /* slate-800 to match dark theme */
+  color: var(--color-text);
 }
 
 /* Scrollbar styling */
