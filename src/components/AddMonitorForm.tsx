@@ -76,9 +76,10 @@ export default function AddMonitorForm({ onSuccess, onCancel, editMonitor }: Add
   const [body, setBody] = useState('')
   const [username, setUsername] = useState('')
   const [feedbackLinkage, setFeedbackLinkage] = useState(false)
-  const [feedbackThreshold, setFeedbackThreshold] = useState('24')
-  const [feedbackFluctuationMin, setFeedbackFluctuationMin] = useState('0')
-  const [feedbackFluctuationMax, setFeedbackFluctuationMax] = useState('0')
+  const [feedbackThreshold, setFeedbackThreshold] = useState<string>('')
+  const [feedbackFluctuationMin, setFeedbackFluctuationMin] = useState<string>('')
+  const [feedbackFluctuationMax, setFeedbackFluctuationMax] = useState<string>('')
+  const [feedbackUnit, setFeedbackUnit] = useState<'hours' | 'minutes'>('hours')
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   const isEditMode = !!editMonitor
@@ -180,9 +181,10 @@ export default function AddMonitorForm({ onSuccess, onCancel, editMonitor }: Add
       setFeedbackLinkage(
         editMonitor.feedback_linkage === 1 || editMonitor.check_type === 'feedback_linkage'
       )
-      setFeedbackThreshold(String(editMonitor.feedback_threshold || 24))
-      setFeedbackFluctuationMin(String(editMonitor.feedback_fluctuation_min || 0))
-      setFeedbackFluctuationMax(String(editMonitor.feedback_fluctuation_max || 0))
+      setFeedbackThreshold(editMonitor.feedback_threshold?.toString() || '')
+      setFeedbackFluctuationMin(editMonitor.feedback_fluctuation_min?.toString() || '')
+      setFeedbackFluctuationMax(editMonitor.feedback_fluctuation_max?.toString() || '')
+      setFeedbackUnit((editMonitor as any).feedback_unit || 'hours')
     }
   }, [editMonitor])
 
@@ -352,9 +354,10 @@ export default function AddMonitorForm({ onSuccess, onCancel, editMonitor }: Add
         check_headers: Object.keys(parsedCheckHeaders).length > 0 ? parsedCheckHeaders : undefined,
         check_body: Object.keys(parsedCheckBody).length > 0 ? parsedCheckBody : undefined,
         feedback_linkage: feedbackLinkage || checkType === 'feedback_linkage' ? 1 : 0,
-        feedback_threshold: parseInt(feedbackThreshold) || 0,
-        feedback_fluctuation_min: parseInt(feedbackFluctuationMin) || 0,
-        feedback_fluctuation_max: parseInt(feedbackFluctuationMax) || 0
+        feedback_threshold: feedbackThreshold,
+        feedback_fluctuation_min: feedbackFluctuationMin,
+        feedback_fluctuation_max: feedbackFluctuationMax,
+        feedback_unit: feedbackUnit
       } as any
 
       if (isEditMode && editMonitor) {
@@ -420,9 +423,10 @@ export default function AddMonitorForm({ onSuccess, onCancel, editMonitor }: Add
     setBody('')
     setUsername('')
     setFeedbackLinkage(false)
-    setFeedbackThreshold('24')
-    setFeedbackFluctuationMin('0')
-    setFeedbackFluctuationMax('0')
+    setFeedbackThreshold('')
+    setFeedbackFluctuationMin('')
+    setFeedbackFluctuationMax('')
+    setFeedbackUnit('hours')
   }
 
   return (
@@ -731,21 +735,34 @@ export default function AddMonitorForm({ onSuccess, onCancel, editMonitor }: Add
 
             <div className="form-row" style={{ marginTop: '16px' }}>
               <div className="form-group">
-                <label htmlFor="feedbackThreshold">续期触发阈值 (小时)</label>
-                <input
-                  id="feedbackThreshold"
-                  type="number"
-                  value={feedbackThreshold}
-                  onChange={e => setFeedbackThreshold(e.target.value)}
-                  placeholder="例如: 24"
-                />
+                <label htmlFor="feedbackThreshold">续期触发阈值</label>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <input
+                    id="feedbackThreshold"
+                    type="number"
+                    step="any"
+                    value={feedbackThreshold}
+                    onChange={e => setFeedbackThreshold(e.target.value)}
+                    placeholder={feedbackUnit === 'hours' ? '例如: 24' : '例如: 60'}
+                    style={{ flex: 1 }}
+                  />
+                  <select
+                    value={feedbackUnit}
+                    onChange={e => setFeedbackUnit(e.target.value as any)}
+                    style={{ width: '100px' }}
+                  >
+                    <option value="hours">小时</option>
+                    <option value="minutes">分钟</option>
+                  </select>
+                </div>
                 <span className="form-hint">小于此剩余时间进入续期窗口</span>
               </div>
               <div className="form-group">
-                <label>执行波动范围 (小时)</label>
+                <label>执行波动范围</label>
                 <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                   <input
                     type="number"
+                    step="any"
                     value={feedbackFluctuationMin}
                     onChange={e => setFeedbackFluctuationMin(e.target.value)}
                     style={{ flex: 1 }}
