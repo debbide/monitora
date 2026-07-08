@@ -333,18 +333,20 @@ export default function AddMonitorForm({ onSuccess, onCancel, editMonitor }: Add
       const timeoutNum = parseInt(checkTimeout) || 30
       const thresholdNum = parseInt(komariOfflineThreshold) || 3
 
+      const useApiConfig = (checkType === 'http' && httpAdvancedMode === 'api') || checkType === 'scheduled_webhook' || checkType === 'feedback_linkage';
+
       const monitorData = {
         name: name.trim(),
         url: checkType === 'telegram' || checkType === 'email_code' ? '' : url.trim(),
         check_interval: finalInterval,
         check_interval_max: intervalMaxNum,
         check_type: checkType,
-        check_method: httpAdvancedMode === 'api' ? checkMethod : 'GET',
-        http_client_mode: httpAdvancedMode === 'api' ? httpClientMode : 'fetch',
+        check_method: useApiConfig ? checkMethod : 'GET',
+        http_client_mode: useApiConfig ? httpClientMode : 'fetch',
         check_timeout: timeoutNum,
-        expected_status_codes: httpAdvancedMode === 'api' ? (expectedStatusCodes.trim() || '200,201,204,301,302') : '200,201,204,301,302',
-        expected_keyword: httpAdvancedMode === 'api' ? (expectedKeyword.trim() || '') : '',
-        forbidden_keyword: httpAdvancedMode === 'api' ? (forbiddenKeyword.trim() || '') : '',
+        expected_status_codes: useApiConfig ? (expectedStatusCodes.trim() || '200,201,204,301,302') : '200,201,204,301,302',
+        expected_keyword: useApiConfig ? (expectedKeyword.trim() || '') : '',
+        forbidden_keyword: useApiConfig ? (forbiddenKeyword.trim() || '') : '',
         komari_offline_threshold: thresholdNum,
         email_site_key: emailSiteKey.trim() || undefined,
         email_from_filter: emailFromFilter.trim() || undefined,
@@ -367,8 +369,8 @@ export default function AddMonitorForm({ onSuccess, onCancel, editMonitor }: Add
         webhook_headers: httpAdvancedMode === 'webhook' && Object.keys(parsedHeaders).length > 0 ? parsedHeaders : {},
         webhook_body: httpAdvancedMode === 'webhook' && Object.keys(parsedBody).length > 0 ? parsedBody : {},
         webhook_username: httpAdvancedMode === 'webhook' ? (username.trim() || '') : '',
-        check_headers: httpAdvancedMode === 'api' && Object.keys(parsedCheckHeaders).length > 0 ? parsedCheckHeaders : {},
-        check_body: httpAdvancedMode === 'api' && Object.keys(parsedCheckBody).length > 0 ? parsedCheckBody : {},
+        check_headers: useApiConfig && Object.keys(parsedCheckHeaders).length > 0 ? parsedCheckHeaders : {},
+        check_body: useApiConfig && Object.keys(parsedCheckBody).length > 0 ? parsedCheckBody : {},
         feedback_linkage: feedbackLinkage || checkType === 'feedback_linkage' ? 1 : 0,
         feedback_threshold: feedbackThreshold,
         feedback_fluctuation_min: feedbackFluctuationMin,
