@@ -342,6 +342,7 @@ export default function AddMonitorForm({ onSuccess, onCancel, editMonitor }: Add
         check_interval: finalInterval,
         check_interval_max: intervalMaxNum,
         check_type: checkType,
+        check_content_type: checkContentType.trim() || 'application/json',
         check_method: useApiConfig ? checkMethod : 'GET',
         http_client_mode: useApiConfig ? httpClientMode : 'fetch',
         check_timeout: timeoutNum,
