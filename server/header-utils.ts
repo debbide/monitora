@@ -84,6 +84,7 @@ export function normalizeJsonForStorage(input: unknown): string | null {
   if (!input) return null
 
   if (typeof input === 'object') {
+    if (Object.keys(input as object).length === 0) return null
     return JSON.stringify(input)
   }
 
