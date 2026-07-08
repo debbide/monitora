@@ -334,6 +334,7 @@ export default function AddMonitorForm({ onSuccess, onCancel, editMonitor }: Add
       const thresholdNum = parseInt(komariOfflineThreshold) || 3
 
       const useApiConfig = (checkType === 'http' && httpAdvancedMode === 'api') || checkType === 'scheduled_webhook' || checkType === 'feedback_linkage';
+      const useWebhookConfig = (checkType === 'http' && httpAdvancedMode === 'webhook') || checkType !== 'http';
 
       const monitorData = {
         name: name.trim(),
@@ -363,12 +364,12 @@ export default function AddMonitorForm({ onSuccess, onCancel, editMonitor }: Add
         tg_notify_chat_id: tgNotifyChatId.trim() || undefined,
         daily_window_start: finalDailyWindowStart,
         daily_window_end: finalDailyWindowEnd,
-        webhook_url: httpAdvancedMode === 'webhook' ? (webhookUrl.trim() || '') : '',
-        webhook_content_type: httpAdvancedMode === 'webhook' ? contentType : 'application/json',
-        webhook_method: httpAdvancedMode === 'webhook' ? webhookMethod : 'POST',
-        webhook_headers: httpAdvancedMode === 'webhook' && Object.keys(parsedHeaders).length > 0 ? parsedHeaders : {},
-        webhook_body: httpAdvancedMode === 'webhook' && Object.keys(parsedBody).length > 0 ? parsedBody : {},
-        webhook_username: httpAdvancedMode === 'webhook' ? (username.trim() || '') : '',
+        webhook_url: useWebhookConfig ? (webhookUrl.trim() || '') : '',
+        webhook_content_type: useWebhookConfig ? contentType : 'application/json',
+        webhook_method: useWebhookConfig ? webhookMethod : 'POST',
+        webhook_headers: useWebhookConfig && Object.keys(parsedHeaders).length > 0 ? parsedHeaders : {},
+        webhook_body: useWebhookConfig && Object.keys(parsedBody).length > 0 ? parsedBody : {},
+        webhook_username: useWebhookConfig ? (username.trim() || '') : '',
         check_headers: useApiConfig && Object.keys(parsedCheckHeaders).length > 0 ? parsedCheckHeaders : {},
         check_body: useApiConfig && Object.keys(parsedCheckBody).length > 0 ? parsedCheckBody : {},
         feedback_linkage: feedbackLinkage || checkType === 'feedback_linkage' ? 1 : 0,
