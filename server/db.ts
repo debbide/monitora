@@ -360,8 +360,15 @@ export function cleanOldData(daysToKeep = 3) {
   try {
     const timeThreshold = new Date(Date.now() - daysToKeep * 24 * 60 * 60 * 1000).toISOString()
     
-    // 清理 monitor_checks
-    db.run(`DELETE FROM monitor_checks WHERE checked_at < ?`, [timeThreshold])
+    // 清理 monitor_checks，但必须保留每个 monitor 的最后一条记录（即 MAX(id)）
+    // 否则被动监控（如 webhook/cron）如果在 3 天内没有新记录，就会丢失状态变成"未知"
+    db.run(`
+      DELETE FROM monitor_checks 
+      WHERE checked_at < ? 
+      AND id NOT IN (
+        SELECT MAX(id) FROM monitor_checks GROUP BY monitor_id
+      )
+    `, [timeThreshold])
     
     // 清理已解决的旧 incidents
     db.run(`DELETE FROM incidents WHERE resolved_at IS NOT NULL AND resolved_at < ?`, [timeThreshold])

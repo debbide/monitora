@@ -205,7 +205,9 @@ app.post('/api/monitors', async (req, res) => {
       if (
         monitor.check_type === 'telegram' ||
         monitor.check_type === 'komari_webhook' ||
-        monitor.check_type === 'nezha_webhook'
+        monitor.check_type === 'nezha_webhook' ||
+        monitor.check_type === 'scheduled_webhook' ||
+        monitor.check_type === 'feedback_linkage'
       ) {
         // ... (保持不变) ...
         run(
@@ -1459,7 +1461,7 @@ app.post('/api/webhook/komari', async (req, res) => {
 
     // 查找匹配的 Komari 监控项
     const monitors = queryAll(
-      "SELECT * FROM monitors WHERE check_type = 'komari' AND is_active = 1"
+      "SELECT * FROM monitors WHERE check_type = 'komari_webhook' AND is_active = 1"
     ) as Monitor[]
 
     let matched = false
