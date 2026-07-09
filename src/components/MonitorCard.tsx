@@ -70,6 +70,10 @@ export default function MonitorCard({ monitor, onUpdate, onEdit, viewMode = 'gri
     monitor.check_type === 'telegram' ||
     monitor.check_type === 'komari_webhook' ||
     monitor.check_type === 'nezha_webhook'
+  const feedbackCallbackUrl =
+    monitor.check_type === 'feedback_linkage' && monitor.feedback_callback_token
+      ? `${window.location.protocol}//${window.location.host}/api/callback/${monitor.id}?token=${encodeURIComponent(monitor.feedback_callback_token)}`
+      : ''
   const modeLabelMap: Record<string, string> = {
     http: 'HTTP',
     tcp: 'TCP',
@@ -353,6 +357,26 @@ export default function MonitorCard({ monitor, onUpdate, onEdit, viewMode = 'gri
 
       {monitor.latestCheck?.error_message && status === 'down' && !isEmailCode && (
         <div className="monitor-error">错误: {monitor.latestCheck.error_message}</div>
+      )}
+
+      {monitor.check_type === 'feedback_linkage' && (
+        <div className="monitor-webhook-test">
+          <button
+            className="btn-test-webhook"
+            onClick={() => {
+              if (!feedbackCallbackUrl) {
+                toast.error('回调 Token 未生成，请刷新或重新保存监控')
+                return
+              }
+              navigator.clipboard.writeText(feedbackCallbackUrl)
+              toast.success('回调 URL 已复制')
+            }}
+            disabled={!feedbackCallbackUrl}
+            title="复制带 Token 的反馈联动回调 URL"
+          >
+            复制回调URL
+          </button>
+        </div>
       )}
 
       {!isEmailCode && (

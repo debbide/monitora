@@ -45,6 +45,7 @@ export interface Monitor {
   feedback_fluctuation_min?: number
   feedback_fluctuation_max?: number
   feedback_unit?: string | null // 执行波动范围 - 最小 (小时)
+  feedback_callback_token?: string | null
   created_at: string
   updated_at: string
 }

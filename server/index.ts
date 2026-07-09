@@ -43,6 +43,81 @@ function getHttpClientMode(mode: unknown): 'fetch' | 'curl' {
   return mode === 'curl' ? 'curl' : 'fetch'
 }
 
+function generateWebhookToken(): string {
+  return crypto.randomBytes(64).toString('hex')
+}
+
+function getSettingValue(key: string): string {
+  const row = queryFirst('SELECT value FROM system_settings WHERE key = ?', [key]) as { value: string } | null
+  return row?.value || ''
+}
+
+function setSettingValue(key: string, value: string): void {
+  run('INSERT OR REPLACE INTO system_settings (key, value, updated_at) VALUES (?, ?, datetime(\'now\'))', [
+    key,
+    value
+  ])
+}
+
+function ensureSystemToken(key: string): string {
+  const existing = getSettingValue(key)
+  if (existing) return existing
+
+  const token = generateWebhookToken()
+  setSettingValue(key, token)
+  return token
+}
+
+function extractWebhookToken(req: express.Request): string {
+  const headerToken = String(req.headers['x-webhook-token'] || '').trim()
+  const headerApiKey = String(req.headers['x-api-key'] || '').trim()
+  const authHeader = String(req.headers.authorization || '')
+  const bearerMatch = authHeader.match(/^Bearer\s+(.+)$/i)
+  const bearerToken = bearerMatch ? bearerMatch[1].trim() : ''
+  const queryToken = typeof req.query.token === 'string' ? req.query.token.trim() : ''
+  const queryApiKey = typeof req.query.api_key === 'string' ? req.query.api_key.trim() : ''
+  const body = req.body && typeof req.body === 'object' ? (req.body as Record<string, unknown>) : {}
+  const bodyToken = typeof body.token === 'string' ? body.token.trim() : ''
+  const bodyApiKey = typeof body.api_key === 'string' ? body.api_key.trim() : ''
+
+  return headerToken || headerApiKey || bearerToken || queryToken || queryApiKey || bodyToken || bodyApiKey
+}
+
+function timingSafeTokenEqual(provided: string, expected: string): boolean {
+  if (!provided || !expected) return false
+
+  const providedBuffer = Buffer.from(provided)
+  const expectedBuffer = Buffer.from(expected)
+  if (providedBuffer.length !== expectedBuffer.length) return false
+
+  return crypto.timingSafeEqual(providedBuffer, expectedBuffer)
+}
+
+function requireWebhookToken(req: express.Request, res: express.Response, expectedToken: string) {
+  if (!timingSafeTokenEqual(extractWebhookToken(req), expectedToken)) {
+    res.status(401).json({ error: 'Unauthorized webhook' })
+    return false
+  }
+  return true
+}
+
+function ensureIncomingWebhookTokens(): void {
+  ensureSystemToken('komari_notify_webhook_token')
+  ensureSystemToken('nezha_notify_webhook_token')
+
+  const monitors = queryAll(
+    "SELECT id FROM monitors WHERE check_type = 'feedback_linkage' AND (feedback_callback_token IS NULL OR feedback_callback_token = '')"
+  ) as { id: string }[]
+
+  for (const monitor of monitors) {
+    run('UPDATE monitors SET feedback_callback_token = ?, updated_at = ? WHERE id = ?', [
+      generateWebhookToken(),
+      new Date().toISOString(),
+      monitor.id
+    ])
+  }
+}
+
 function stripHtml(html: string): string {
   return html
     .replace(/<br\s*\/?>/gi, '\n')
@@ -75,7 +150,7 @@ app.get('/health', (req, res) => {
 
 // API 鉴权中间件拦截
 app.use('/api', (req, res, next) => {
-  const publicPaths = [
+  const exactPublicPaths = [
     '/auth/verify',
     '/komari-notify',
     '/webhook/komari',
@@ -85,7 +160,9 @@ app.use('/api', (req, res, next) => {
     '/webtask',
     '/sse/status'
   ]
-  if (publicPaths.some(p => req.path.startsWith(p))) {
+  const publicPrefixes = ['/callback/', '/komari-status/', '/webtask/']
+
+  if (exactPublicPaths.includes(req.path) || publicPrefixes.some(p => req.path.startsWith(p))) {
     return next()
   }
   return requireAuth(req, res, next)
@@ -105,6 +182,7 @@ app.post('/api/monitors', async (req, res) => {
   try {
     const body = req.body
     const id = crypto.randomUUID()
+    const feedbackCallbackToken = body.check_type === 'feedback_linkage' ? generateWebhookToken() : null
 
     // 计算初始 next_check_at (延迟首次执行)
     const now = Date.now()
@@ -148,8 +226,8 @@ app.post('/api/monitors', async (req, res) => {
         tg_chat_id, tg_server_name, tg_offline_keywords, tg_online_keywords, tg_notify_chat_id,
         webhook_url, webhook_content_type, webhook_method, webhook_headers, webhook_body, webhook_username,
         next_check_at, is_active, feedback_linkage, feedback_threshold,
-        feedback_fluctuation_min, feedback_fluctuation_max, feedback_unit
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        feedback_fluctuation_min, feedback_fluctuation_max, feedback_unit, feedback_callback_token
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         id,
         body.name,
@@ -194,7 +272,8 @@ app.post('/api/monitors', async (req, res) => {
         parseFloat(body.feedback_threshold) || 0,
         parseFloat(body.feedback_fluctuation_min) || 0,
         parseFloat(body.feedback_fluctuation_max) || 0,
-        body.feedback_unit || 'hours'
+        body.feedback_unit || 'hours',
+        feedbackCallbackToken
       ]
     )
 
@@ -420,8 +499,39 @@ app.put('/api/monitors/:id', (req, res) => {
       run('DELETE FROM email_rules WHERE id = ?', [id])
     }
 
+    if (body.check_type === 'feedback_linkage') {
+      run(
+        "UPDATE monitors SET feedback_callback_token = ?, updated_at = ? WHERE id = ? AND (feedback_callback_token IS NULL OR feedback_callback_token = '')",
+        [generateWebhookToken(), new Date().toISOString(), id]
+      )
+    }
+
     const monitor = queryFirst('SELECT * FROM monitors WHERE id = ?', [id])
     res.json(monitor)
+  } catch (error: any) {
+    res.status(500).json({ error: error.message })
+  }
+})
+
+app.post('/api/monitors/:id/feedback-callback-token/regenerate', (req, res) => {
+  try {
+    const { id } = req.params
+    const monitor = queryFirst('SELECT * FROM monitors WHERE id = ?', [id]) as Monitor | null
+    if (!monitor) {
+      return res.status(404).json({ error: '监控项不存在' })
+    }
+    if (monitor.check_type !== 'feedback_linkage') {
+      return res.status(400).json({ error: '仅反馈联动监控支持回调 Token' })
+    }
+
+    run('UPDATE monitors SET feedback_callback_token = ?, updated_at = ? WHERE id = ?', [
+      generateWebhookToken(),
+      new Date().toISOString(),
+      id
+    ])
+
+    const updated = queryFirst('SELECT * FROM monitors WHERE id = ?', [id]) as Monitor
+    res.json(updated)
   } catch (error: any) {
     res.status(500).json({ error: error.message })
   }
@@ -1124,12 +1234,14 @@ app.get('/api/settings/komari-notify', (req, res) => {
     const webhookBody = queryFirst(
       "SELECT value FROM system_settings WHERE key = 'komari_notify_webhook_body'"
     ) as { value: string } | null
+    const webhookToken = ensureSystemToken('komari_notify_webhook_token')
 
     res.json({
       enabled: enabled?.value === '1',
       chat_id: chatId?.value || '',
       webhook_url: webhookUrl?.value || '',
-      webhook_body: webhookBody?.value || ''
+      webhook_body: webhookBody?.value || '',
+      webhook_token: webhookToken
     })
   } catch (error: any) {
     res.status(500).json({ error: error.message })
@@ -1164,9 +1276,22 @@ app.post('/api/settings/komari-notify', (req, res) => {
   }
 })
 
+app.post('/api/settings/komari-notify/regenerate-token', (req, res) => {
+  try {
+    const token = generateWebhookToken()
+    setSettingValue('komari_notify_webhook_token', token)
+    res.json({ webhook_token: token })
+  } catch (error: any) {
+    res.status(500).json({ error: error.message })
+  }
+})
+
 // Komari 直接通知接收端点
 app.post('/api/komari-notify', async (req, res) => {
   try {
+    const expectedToken = ensureSystemToken('komari_notify_webhook_token')
+    if (!requireWebhookToken(req, res, expectedToken)) return
+
     const { message, title } = req.body
     const text = message || title || ''
 
@@ -1455,7 +1580,13 @@ app.post('/api/komari-notify', async (req, res) => {
 // 接收 Komari TG 中转服务的 Webhook
 app.post('/api/webhook/komari', async (req, res) => {
   try {
+    const expectedToken = ensureSystemToken('komari_notify_webhook_token')
+    if (!requireWebhookToken(req, res, expectedToken)) return
+
     const { source, status, server_name, raw_message, timestamp } = req.body
+    if (!server_name) {
+      return res.status(400).json({ error: 'server_name required' })
+    }
 
     console.log(`📩 收到 Komari TG 中转通知: ${server_name} -> ${status}`)
 
@@ -1627,10 +1758,12 @@ app.get('/api/settings/nezha-notify', (req, res) => {
     const chatId = queryFirst(
       "SELECT value FROM system_settings WHERE key = 'nezha_notify_chat_id'"
     ) as { value: string } | null
+    const webhookToken = ensureSystemToken('nezha_notify_webhook_token')
 
     res.json({
       enabled: enabled?.value === '1',
-      chat_id: chatId?.value || ''
+      chat_id: chatId?.value || '',
+      webhook_token: webhookToken
     })
   } catch (error: any) {
     res.status(500).json({ error: error.message })
@@ -1657,9 +1790,22 @@ app.post('/api/settings/nezha-notify', (req, res) => {
   }
 })
 
+app.post('/api/settings/nezha-notify/regenerate-token', (req, res) => {
+  try {
+    const token = generateWebhookToken()
+    setSettingValue('nezha_notify_webhook_token', token)
+    res.json({ webhook_token: token })
+  } catch (error: any) {
+    res.status(500).json({ error: error.message })
+  }
+})
+
 // Nezha 通知接收端点 (接收 JSON)
 app.post('/api/nezha-notify-v1', async (req, res) => {
   try {
+    const expectedToken = ensureSystemToken('nezha_notify_webhook_token')
+    if (!requireWebhookToken(req, res, expectedToken)) return
+
     // Nezha Payload Example:
     // {
     //   "project": "NezhaMonitor",
@@ -1905,13 +2051,19 @@ app.post('/api/callback', async (req, res) => {
     }
 
     // 搜索匹配关键词的反馈联动监控项
-    const monitor = queryFirst(
-      "SELECT * FROM monitors WHERE check_type = 'feedback_linkage' AND (expected_keyword LIKE ? OR name = ?)",
+    const monitors = queryAll(
+      "SELECT * FROM monitors WHERE check_type = 'feedback_linkage' AND is_active = 1 AND (expected_keyword LIKE ? OR name = ?)",
       [`%${server_name}%`, server_name]
-    ) as Monitor
+    ) as Monitor[]
 
-    if (!monitor) {
+    if (monitors.length === 0) {
       return res.status(404).json({ error: `未匹配到名称包含 "${server_name}" 的联动监控项` })
+    }
+
+    const providedToken = extractWebhookToken(req)
+    const monitor = monitors.find(item => timingSafeTokenEqual(providedToken, item.feedback_callback_token || ''))
+    if (!monitor) {
+      return res.status(401).json({ error: 'Unauthorized webhook' })
     }
 
     return handleFeedbackCallback(monitor, remaining_time, status, message, res)
@@ -1925,10 +2077,15 @@ app.post('/api/callback/:monitorId', async (req, res) => {
     const { monitorId } = req.params
     const { remaining_time, status, message } = req.body
 
-    const monitor = queryFirst('SELECT * FROM monitors WHERE id = ?', [monitorId]) as Monitor
+    const monitor = queryFirst(
+      "SELECT * FROM monitors WHERE id = ? AND check_type = 'feedback_linkage' AND is_active = 1",
+      [monitorId]
+    ) as Monitor | null
     if (!monitor) {
-      return res.status(404).json({ error: '监控项不存在' })
+      return res.status(404).json({ error: '监控项不存在或不是启用中的反馈联动监控' })
     }
+
+    if (!requireWebhookToken(req, res, monitor.feedback_callback_token || '')) return
 
     return handleFeedbackCallback(monitor, remaining_time, status, message, res)
   } catch (error: any) {
@@ -2369,6 +2526,7 @@ app.get('*', (req, res) => {
 // 初始化并启动服务
 async function start() {
   await initDatabase()
+  ensureIncomingWebhookTokens()
 
   // 检查是否需要重置密码（通过环境变量）
   const resetPassword = process.env.RESET_PASSWORD

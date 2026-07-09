@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import {
-    getKomariNotifySettings, saveKomariNotifySettings, KomariNotifySettings,
-    getNezhaNotifySettings, saveNezhaNotifySettings, NezhaNotifySettings
+    getKomariNotifySettings, saveKomariNotifySettings, regenerateKomariNotifyToken, KomariNotifySettings,
+    getNezhaNotifySettings, saveNezhaNotifySettings, regenerateNezhaNotifyToken, NezhaNotifySettings
 } from '../lib/api'
 
 interface ProbeNotifySettingsProps {
@@ -19,13 +19,15 @@ export default function ProbeNotifySettingsComponent({ onClose, initialTab = 'ko
         enabled: false,
         chat_id: '',
         webhook_url: '',
-        webhook_body: ''
+        webhook_body: '',
+        webhook_token: ''
     })
 
     // Nezha Data
     const [nezhaSettings, setNezhaSettings] = useState<NezhaNotifySettings>({
         enabled: false,
-        chat_id: ''
+        chat_id: '',
+        webhook_token: ''
     })
 
     useEffect(() => {
@@ -66,6 +68,30 @@ export default function ProbeNotifySettingsComponent({ onClose, initialTab = 'ko
             setSaving(false)
         }
     }
+
+    function copyText(text: string) {
+        navigator.clipboard.writeText(text)
+        alert('已复制到剪贴板')
+    }
+
+    async function handleRegenerateKomariToken() {
+        if (!confirm('重新生成 Token 会让旧的 Komari Webhook URL 立即失效，需要同步更新 Komari 配置。确定继续？')) return
+        const result = await regenerateKomariNotifyToken()
+        setKomariSettings({ ...komariSettings, webhook_token: result.webhook_token })
+        alert('✅ Komari Token 已重新生成')
+    }
+
+    async function handleRegenerateNezhaToken() {
+        if (!confirm('重新生成 Token 会让旧的哪吒 Webhook URL 立即失效，需要同步更新哪吒配置。确定继续？')) return
+        const result = await regenerateNezhaNotifyToken()
+        setNezhaSettings({ ...nezhaSettings, webhook_token: result.webhook_token })
+        alert('✅ 哪吒 Token 已重新生成')
+    }
+
+    const origin = `${window.location.protocol}//${window.location.host}`
+    const komariNotifyUrl = `${origin}/api/komari-notify?token=${encodeURIComponent(komariSettings.webhook_token)}`
+    const komariRelayUrl = `${origin}/api/webhook/komari?token=${encodeURIComponent(komariSettings.webhook_token)}`
+    const nezhaNotifyUrl = `${origin}/api/nezha-notify-v1?token=${encodeURIComponent(nezhaSettings.webhook_token)}`
 
     if (loading) {
         return (
@@ -155,9 +181,21 @@ export default function ProbeNotifySettingsComponent({ onClose, initialTab = 'ko
                             <div className="form-group" style={{ marginTop: '20px', padding: '12px', background: 'var(--bg-tertiary)', borderRadius: '8px', border: '1px solid var(--color-border)' }}>
                                 <strong>📋 配置说明：</strong>
                                 <ol style={{ margin: '8px 0 0 20px', lineHeight: '1.8', fontSize: '0.85rem', color: 'var(--color-text-secondary)' }}>
-                                    <li>在 Komari 面板设置 Webhook URL：<br /><code style={{ background: 'var(--color-surface-hover)', padding: '2px 6px', borderRadius: '4px', border: '1px solid var(--color-border)', display: 'inline-block', marginTop: '4px' }}>{window.location.protocol}//{window.location.host}/api/komari-notify</code></li>
+                                    <li>
+                                        在 Komari 面板设置 Webhook URL：<br />
+                                        <code style={{ background: 'var(--color-surface-hover)', padding: '2px 6px', borderRadius: '4px', border: '1px solid var(--color-border)', display: 'inline-block', marginTop: '4px', wordBreak: 'break-all' }}>{komariNotifyUrl}</code>
+                                        <button type="button" className="btn-text" onClick={() => copyText(komariNotifyUrl)} style={{ marginLeft: '8px' }}>复制</button>
+                                    </li>
+                                    <li>
+                                        Komari TG 中转服务 URL：<br />
+                                        <code style={{ background: 'var(--color-surface-hover)', padding: '2px 6px', borderRadius: '4px', border: '1px solid var(--color-border)', display: 'inline-block', marginTop: '4px', wordBreak: 'break-all' }}>{komariRelayUrl}</code>
+                                        <button type="button" className="btn-text" onClick={() => copyText(komariRelayUrl)} style={{ marginLeft: '8px' }}>复制</button>
+                                    </li>
                                     <li>在下方添加 <strong>Komari 类型监控</strong>，填写"监控目标服务器"和"Webhook 配置"</li>
                                 </ol>
+                                <button type="button" className="btn-secondary" onClick={handleRegenerateKomariToken} style={{ marginTop: '12px' }}>
+                                    重新生成 Komari Token
+                                </button>
                             </div>
                         </div>
                     )}
@@ -197,9 +235,16 @@ export default function ProbeNotifySettingsComponent({ onClose, initialTab = 'ko
                                 <ol style={{ margin: '8px 0 0 20px', lineHeight: '1.8', fontSize: '0.85rem', color: 'var(--color-text-secondary)' }}>
                                     <li>在哪吒面板设置中找到 <strong>报警通知 (Nezha)</strong></li>
                                     <li>添加通知方式: <strong>Webhook</strong></li>
-                                    <li>URL 填写: <br /><code style={{ background: 'var(--color-surface-hover)', padding: '2px 6px', borderRadius: '4px', border: '1px solid var(--color-border)', display: 'inline-block', marginTop: '4px' }}>{window.location.protocol}//{window.location.host}/api/nezha-notify-v1</code></li>
+                                    <li>
+                                        URL 填写: <br />
+                                        <code style={{ background: 'var(--color-surface-hover)', padding: '2px 6px', borderRadius: '4px', border: '1px solid var(--color-border)', display: 'inline-block', marginTop: '4px', wordBreak: 'break-all' }}>{nezhaNotifyUrl}</code>
+                                        <button type="button" className="btn-text" onClick={() => copyText(nezhaNotifyUrl)} style={{ marginLeft: '8px' }}>复制</button>
+                                    </li>
                                     <li>Request Body 保持默认 JSON 格式即可</li>
                                 </ol>
+                                <button type="button" className="btn-secondary" onClick={handleRegenerateNezhaToken} style={{ marginTop: '12px' }}>
+                                    重新生成哪吒 Token
+                                </button>
                             </div>
                         </div>
                     )}

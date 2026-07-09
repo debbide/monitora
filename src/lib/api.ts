@@ -48,6 +48,7 @@ export interface Monitor {
   feedback_fluctuation_min: number | null
   feedback_fluctuation_max: number | null
   feedback_unit?: string | null
+  feedback_callback_token?: string | null
   created_at: string
   updated_at: string
 }
@@ -250,6 +251,12 @@ export async function updateMonitor(id: string, monitor: {
   })
 }
 
+export async function regenerateFeedbackCallbackToken(id: string): Promise<Monitor> {
+  return fetchAPI(`/api/monitors/${id}/feedback-callback-token/regenerate`, {
+    method: 'POST',
+  })
+}
+
 export async function getChecks(monitorId: string): Promise<MonitorCheck[]> {
   return fetchAPI(`/api/checks?monitor_id=${monitorId}`)
 }
@@ -336,6 +343,7 @@ export interface KomariNotifySettings {
   chat_id: string
   webhook_url: string
   webhook_body: string
+  webhook_token: string
 }
 
 export async function getKomariNotifySettings(): Promise<KomariNotifySettings> {
@@ -349,10 +357,17 @@ export async function saveKomariNotifySettings(settings: Partial<KomariNotifySet
   })
 }
 
+export async function regenerateKomariNotifyToken(): Promise<{ webhook_token: string }> {
+  return fetchAPI('/api/settings/komari-notify/regenerate-token', {
+    method: 'POST',
+  })
+}
+
 // Nezha 通知配置
 export interface NezhaNotifySettings {
   enabled: boolean
   chat_id: string
+  webhook_token: string
 }
 
 export async function getNezhaNotifySettings(): Promise<NezhaNotifySettings> {
@@ -363,6 +378,12 @@ export async function saveNezhaNotifySettings(settings: Partial<NezhaNotifySetti
   return fetchAPI('/api/settings/nezha-notify', {
     method: 'POST',
     body: JSON.stringify(settings),
+  })
+}
+
+export async function regenerateNezhaNotifyToken(): Promise<{ webhook_token: string }> {
+  return fetchAPI('/api/settings/nezha-notify/regenerate-token', {
+    method: 'POST',
   })
 }
 

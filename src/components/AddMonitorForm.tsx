@@ -84,6 +84,20 @@ export default function AddMonitorForm({ onSuccess, onCancel, editMonitor }: Add
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   const isEditMode = !!editMonitor
+  const origin = `${window.location.protocol}//${window.location.host}`
+  const feedbackToken = editMonitor?.feedback_callback_token || ''
+  const feedbackMonitorCallbackUrl =
+    editMonitor?.id && feedbackToken
+      ? `${origin}/api/callback/${editMonitor.id}?token=${encodeURIComponent(feedbackToken)}`
+      : ''
+  const feedbackGenericCallbackUrl = feedbackToken
+    ? `${origin}/api/callback?token=${encodeURIComponent(feedbackToken)}`
+    : ''
+
+  function copyToClipboard(text: string) {
+    navigator.clipboard.writeText(text)
+    alert('已复制到剪贴板')
+  }
 
   useEffect(() => {
     if (editMonitor) {
@@ -862,65 +876,76 @@ export default function AddMonitorForm({ onSuccess, onCancel, editMonitor }: Add
             <h5 style={{ margin: '0 0 12px 0', fontSize: '1rem' }}>
               📡 脚本对接指引 (Callback Guide)
             </h5>
-            <label>通用回调接口 (通过关键词匹配)</label>
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-                background: 'var(--bg-primary)',
-                padding: '8px 12px',
-                borderRadius: '6px',
-                border: '1px solid var(--border-color)',
-                marginBottom: '12px'
-              }}
-            >
-              <code
-                style={{
-                  fontSize: '0.85rem',
-                  color: 'var(--accent-color)',
-                  wordBreak: 'break-all'
-                }}
-              >
-                {window.location.protocol}//{window.location.host}/api/callback
-              </code>
-              <button
-                type="button"
-                className="btn-text"
-                onClick={() => {
-                  const url = `${window.location.protocol}//${window.location.host}/api/callback`
-                  navigator.clipboard.writeText(url)
-                  alert('已复制到剪贴板')
-                }}
-                title="复制链接"
-              >
-                📋
-              </button>
-            </div>
+            {feedbackMonitorCallbackUrl ? (
+              <>
+                <label>特定监控 ID 接口（推荐）</label>
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    background: 'var(--bg-primary)',
+                    padding: '8px 12px',
+                    borderRadius: '6px',
+                    border: '1px solid var(--border-color)',
+                    marginBottom: '12px'
+                  }}
+                >
+                  <code
+                    style={{
+                      fontSize: '0.85rem',
+                      color: 'var(--accent-color)',
+                      wordBreak: 'break-all'
+                    }}
+                  >
+                    {feedbackMonitorCallbackUrl}
+                  </code>
+                  <button
+                    type="button"
+                    className="btn-text"
+                    onClick={() => copyToClipboard(feedbackMonitorCallbackUrl)}
+                    title="复制链接"
+                  >
+                    📋
+                  </button>
+                </div>
 
-            <label>特定监控 ID 接口</label>
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-                background: 'var(--bg-primary)',
-                padding: '8px 12px',
-                borderRadius: '6px',
-                border: '1px solid var(--border-color)'
-              }}
-            >
-              <code
-                style={{
-                  fontSize: '0.85rem',
-                  color: 'var(--accent-color)',
-                  wordBreak: 'break-all'
-                }}
-              >
-                {window.location.protocol}//{window.location.host}/api/callback/
-                {editMonitor?.id || 'NEW_ID'}
-              </code>
-            </div>
+                <label>通用回调接口 (通过关键词匹配)</label>
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    background: 'var(--bg-primary)',
+                    padding: '8px 12px',
+                    borderRadius: '6px',
+                    border: '1px solid var(--border-color)'
+                  }}
+                >
+                  <code
+                    style={{
+                      fontSize: '0.85rem',
+                      color: 'var(--accent-color)',
+                      wordBreak: 'break-all'
+                    }}
+                  >
+                    {feedbackGenericCallbackUrl}
+                  </code>
+                  <button
+                    type="button"
+                    className="btn-text"
+                    onClick={() => copyToClipboard(feedbackGenericCallbackUrl)}
+                    title="复制链接"
+                  >
+                    📋
+                  </button>
+                </div>
+              </>
+            ) : (
+              <div className="form-hint" style={{ marginTop: '8px' }}>
+                保存监控后会自动生成专属回调 Token，可在监控卡片或编辑页复制完整 URL。
+              </div>
+            )}
 
             <div className="form-hint" style={{ marginTop: '12px' }}>
               <strong>POST Payload:</strong>
@@ -1187,16 +1212,7 @@ export default function AddMonitorForm({ onSuccess, onCancel, editMonitor }: Add
               <br />
               1. 在顶栏 📡 按钮中启用 Komari 通知接收并填写 TG 群组 ID
               <br />
-              2. 在 Komari 面板设置 Webhook 指向：
-              <code
-                style={{
-                  background: 'var(--bg-secondary)',
-                  padding: '2px 6px',
-                  borderRadius: '4px'
-                }}
-              >
-                https://你的域名/api/komari-notify
-              </code>
+              2. 在顶栏 📡 探针通知设置中复制带 Token 的 Komari Webhook URL，并填入 Komari 面板
               <br />
               3. 收到离线通知时会匹配此监控项并触发下方配置的 Webhook
             </span>
@@ -1238,16 +1254,7 @@ export default function AddMonitorForm({ onSuccess, onCancel, editMonitor }: Add
               <br />
               2. 在哪吒面板添加通知方式：Webhook
               <br />
-              3. URL:{' '}
-              <code
-                style={{
-                  background: 'var(--bg-secondary)',
-                  padding: '2px 6px',
-                  borderRadius: '4px'
-                }}
-              >
-                {window.location.protocol}//{window.location.host}/api/nezha-notify-v1
-              </code>
+              3. 在顶栏 📡 探针通知设置中复制带 Token 的 Nezha Webhook URL，并填入哪吒面板
               <br />
               4. 这里的"服务器名称"必须与哪吒面板中的名称完全一致
             </span>
@@ -1426,32 +1433,34 @@ export default function AddMonitorForm({ onSuccess, onCancel, editMonitor }: Add
 
             <div className="form-group" style={{ marginTop: '12px', marginBottom: 0 }}>
               <label>脚本回调 URL</label>
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '8px',
-                  background: 'var(--bg-tertiary)',
-                  padding: '8px 12px',
-                  borderRadius: '6px'
-                }}
-              >
-                <code style={{ fontSize: '0.9rem', color: 'var(--accent-color)', wordBreak: 'break-all' }}>
-                  {window.location.protocol}//{window.location.host}/api/callback
-                </code>
-                <button
-                  type="button"
-                  className="btn-text"
-                  onClick={() => {
-                    const url = `${window.location.protocol}//{window.location.host}/api/callback`
-                    navigator.clipboard.writeText(url)
-                    alert('已复制到剪贴板')
+              {feedbackMonitorCallbackUrl ? (
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    background: 'var(--bg-tertiary)',
+                    padding: '8px 12px',
+                    borderRadius: '6px'
                   }}
-                  title="复制链接"
                 >
-                  📋
-                </button>
-              </div>
+                  <code style={{ fontSize: '0.9rem', color: 'var(--accent-color)', wordBreak: 'break-all' }}>
+                    {feedbackMonitorCallbackUrl}
+                  </code>
+                  <button
+                    type="button"
+                    className="btn-text"
+                    onClick={() => copyToClipboard(feedbackMonitorCallbackUrl)}
+                    title="复制链接"
+                  >
+                    📋
+                  </button>
+                </div>
+              ) : (
+                <span className="form-hint" style={{ marginTop: '8px' }}>
+                  保存监控后会自动生成专属回调 Token，可在监控卡片或编辑页复制完整 URL。
+                </span>
+              )}
               <span className="form-hint" style={{ marginTop: '8px' }}>
                 <strong>Payload:</strong>{' '}
                 <code>
