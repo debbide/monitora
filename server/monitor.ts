@@ -62,7 +62,14 @@ export function calculateNextDailyWindowTime(startStr: string, endStr: string, i
   return new Date(randomTime8.getTime() - offset).toISOString()
 }
 
+let isChecking = false
+
 export async function checkAllMonitors() {
+  if (isChecking) {
+    console.log('⏳ Monitor check already running, skipping this cycle')
+    return
+  }
+  isChecking = true
   try {
     // 排除 telegram、komari_webhook、nezha_webhook 类型，它们是被动接收通知的
     const monitors = queryAll(
@@ -121,6 +128,8 @@ export async function checkAllMonitors() {
     }
   } catch (error) {
     console.error('Error checking monitors:', error)
+  } finally {
+    isChecking = false
   }
 }
 

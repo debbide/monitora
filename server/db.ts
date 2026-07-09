@@ -67,6 +67,8 @@ export async function initDatabase(): Promise<Database> {
     db = new SQL.Database()
   }
 
+  db.run('PRAGMA foreign_keys = ON')
+
   // 初始化数据库表
   db.run(`
     CREATE TABLE IF NOT EXISTS admin_credentials (

@@ -498,6 +498,8 @@ app.put('/api/monitors/:id', (req, res) => {
 app.delete('/api/monitors/:id', (req, res) => {
   try {
     const { id } = req.params
+    run('DELETE FROM monitor_checks WHERE monitor_id = ?', [id])
+    run('DELETE FROM incidents WHERE monitor_id = ?', [id])
     run('DELETE FROM monitors WHERE id = ?', [id])
     run('DELETE FROM email_rules WHERE id = ?', [id])
     res.json({ success: true })
@@ -1039,6 +1041,7 @@ function claimPendingWebtask(clientId: string) {
 app.use('/api/webtask/pending', requireWebtaskAuth)
 app.use('/api/webtask/report', requireWebtaskAuth)
 app.use('/api/webtask/heartbeat', requireWebtaskAuth)
+app.use('/api/webtask/queue', requireWebtaskAuth)
 
 // ---------------- 备份与恢复 API ----------------
 app.get('/api/backup/download', (req, res) => {
@@ -2481,9 +2484,13 @@ app.post('/api/webtask/report', async (req, res) => {
 })
 
 // 手动触发检查
-app.get('/trigger', async (req, res) => {
-  await checkAllMonitors()
-  res.json({ message: 'Monitor check triggered' })
+app.get('/api/trigger', async (req, res) => {
+  try {
+    await checkAllMonitors()
+    res.json({ message: 'Monitor check triggered' })
+  } catch (error: any) {
+    res.status(500).json({ error: 'Check failed' })
+  }
 })
 
 // SPA fallback
@@ -2516,7 +2523,7 @@ async function start() {
   // 启动定时任务 - 每分钟检查一次，根据各监控的间隔决定是否执行
   cron.schedule('* * * * *', () => {
     console.log('Running scheduled monitor check...')
-    checkAllMonitors()
+    checkAllMonitors().catch(err => console.error('Monitor check error:', err))
   })
 
   const httpServer = app.listen(PORT, () => {
