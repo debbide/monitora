@@ -95,11 +95,15 @@ export async function sendWebhookNotification(
 
     try {
         const method = getWebhookMethod(monitor.webhook_method)
+        const controller = new AbortController()
+        const timeoutId = setTimeout(() => controller.abort(), 15000)
         const response = await fetch(monitor.webhook_url, {
             method,
             headers,
-            body: method === 'GET' ? undefined : JSON.stringify(payload)
+            body: method === 'GET' ? undefined : JSON.stringify(payload),
+            signal: controller.signal
         })
+        clearTimeout(timeoutId)
 
         if (!response.ok) {
             return { success: false, error: `HTTP ${response.status} ${response.statusText}` }

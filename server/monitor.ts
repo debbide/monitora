@@ -501,7 +501,7 @@ async function checkTCP(
     ) {
       return { success: false, error: '连接失败' }
     }
-    return { success: true }
+    return { success: false, error: error.message || '未知错误' }
   }
 }
 

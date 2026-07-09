@@ -123,7 +123,7 @@ function stripHtml(html: string): string {
 }
 
 app.use(cors())
-app.use(express.json({ limit: '100mb' }))
+app.use(express.json({ limit: '2mb' }))
 
 // 静态文件服务
 app.use(express.static(path.join(__dirname, '../public')))
@@ -165,7 +165,8 @@ app.get('/api/monitors', (req, res) => {
     const monitors = queryAll('SELECT * FROM monitors ORDER BY sort_order ASC, created_at DESC')
     res.json(monitors)
   } catch (error: any) {
-    res.status(500).json({ error: error.message })
+    console.error(error)
+    res.status(500).json({ error: '服务器内部错误' })
   }
 })
 
@@ -258,7 +259,7 @@ app.post('/api/monitors', async (req, res) => {
         body.webhook_username || null,
         initialNextCheck,
         1,
-        body.feedback_linkage || body.check_type === 'feedback_linkage' ? 1 : 0,
+        (body.feedback_linkage === true || body.feedback_linkage === 1 || body.check_type === 'feedback_linkage') ? 1 : 0,
         parseFloat(body.feedback_threshold) || 0,
         parseFloat(body.feedback_fluctuation_min) || 0,
         parseFloat(body.feedback_fluctuation_max) || 0,
@@ -309,7 +310,8 @@ app.post('/api/monitors', async (req, res) => {
 
     res.status(201).json(monitor)
   } catch (error: any) {
-    res.status(500).json({ error: error.message })
+    console.error(error)
+    res.status(500).json({ error: '服务器内部错误' })
   }
 })
 
@@ -328,7 +330,8 @@ app.put('/api/monitors/reorder', (req, res) => {
 
     res.json({ success: true })
   } catch (error: any) {
-    res.status(500).json({ error: error.message })
+    console.error(error)
+    res.status(500).json({ error: '服务器内部错误' })
   }
 })
 
@@ -456,7 +459,7 @@ app.put('/api/monitors/:id', (req, res) => {
         body.is_active !== undefined ? body.is_active : 1,
         new Date().toISOString(),
         resetNextCheck,
-        body.feedback_linkage || body.check_type === 'feedback_linkage' ? 1 : 0,
+        (body.feedback_linkage === true || body.feedback_linkage === 1 || body.check_type === 'feedback_linkage') ? 1 : 0,
         parseFloat(body.feedback_threshold) || 0,
         parseFloat(body.feedback_fluctuation_min) || 0,
         parseFloat(body.feedback_fluctuation_max) || 0,
@@ -491,7 +494,8 @@ app.put('/api/monitors/:id', (req, res) => {
     const monitor = queryFirst('SELECT * FROM monitors WHERE id = ?', [id])
     res.json(monitor)
   } catch (error: any) {
-    res.status(500).json({ error: error.message })
+    console.error(error)
+    res.status(500).json({ error: '服务器内部错误' })
   }
 })
 
@@ -504,7 +508,8 @@ app.delete('/api/monitors/:id', (req, res) => {
     run('DELETE FROM email_rules WHERE id = ?', [id])
     res.json({ success: true })
   } catch (error: any) {
-    res.status(500).json({ error: error.message })
+    console.error(error)
+    res.status(500).json({ error: '服务器内部错误' })
   }
 })
 
@@ -522,7 +527,8 @@ app.get('/api/checks', (req, res) => {
 
     res.json(checks)
   } catch (error: any) {
-    res.status(500).json({ error: error.message })
+    console.error(error)
+    res.status(500).json({ error: '服务器内部错误' })
   }
 })
 
@@ -555,7 +561,8 @@ app.get('/api/stats', (req, res) => {
       average_response_time: avgResponseTime.avg || 0
     })
   } catch (error: any) {
-    res.status(500).json({ error: error.message })
+    console.error(error)
+    res.status(500).json({ error: '服务器内部错误' })
   }
 })
 
@@ -710,7 +717,8 @@ app.post('/api/test-webhook', async (req, res) => {
 
     res.json({ success: true, message: 'Test webhook sent' })
   } catch (error: any) {
-    res.status(500).json({ error: error.message })
+    console.error(error)
+    res.status(500).json({ error: '服务器内部错误' })
   }
 })
 
@@ -734,7 +742,8 @@ app.post('/api/check-now', async (req, res) => {
 
     res.json({ success: true, check: latestCheck })
   } catch (error: any) {
-    res.status(500).json({ error: error.message })
+    console.error(error)
+    res.status(500).json({ error: '服务器内部错误' })
   }
 })
 
@@ -771,13 +780,19 @@ app.post('/api/auth/verify', loginLimiter, async (req, res) => {
       res.status(401).json({ valid: false })
     }
   } catch (error: any) {
-    res.status(500).json({ error: error.message })
+    console.error(error)
+    res.status(500).json({ error: '服务器内部错误' })
   }
 })
 
 app.post('/api/auth/change-password', async (req, res) => {
   try {
     const { current_password, new_password } = req.body
+
+    if (!new_password || new_password.length < 8) {
+      return res.status(400).json({ error: '新密码长度不能少于 8 位' })
+    }
+
     const result = queryFirst('SELECT password_hash FROM admin_credentials LIMIT 1') as any
 
     if (!result) {
@@ -799,7 +814,8 @@ app.post('/api/auth/change-password', async (req, res) => {
 
     res.json({ success: true })
   } catch (error: any) {
-    res.status(500).json({ error: error.message })
+    console.error(error)
+    res.status(500).json({ error: '服务器内部错误' })
   }
 })
 
@@ -809,7 +825,8 @@ app.get('/api/settings/telegram', (req, res) => {
     const status = getTelegramBotStatus()
     res.json(status)
   } catch (error: any) {
-    res.status(500).json({ error: error.message })
+    console.error(error)
+    res.status(500).json({ error: '服务器内部错误' })
   }
 })
 
@@ -820,7 +837,8 @@ app.post('/api/settings/telegram', async (req, res) => {
     const result = await setTgBotToken(token || '')
     res.json(result)
   } catch (error: any) {
-    res.status(500).json({ error: error.message })
+    console.error(error)
+    res.status(500).json({ error: '服务器内部错误' })
   }
 })
 
@@ -831,7 +849,8 @@ app.post('/api/settings/telegram/test-chat', async (req, res) => {
     const result = await testChatConnection(chat_id)
     res.json(result)
   } catch (error: any) {
-    res.status(500).json({ error: error.message })
+    console.error(error)
+    res.status(500).json({ error: '服务器内部错误' })
   }
 })
 
@@ -852,7 +871,8 @@ app.get('/api/settings/webtask', (req, res) => {
       api_key: req.query.include_key === '1' ? apiKey?.value || '' : undefined
     })
   } catch (error: any) {
-    res.status(500).json({ error: error.message })
+    console.error(error)
+    res.status(500).json({ error: '服务器内部错误' })
   }
 })
 
@@ -874,7 +894,8 @@ app.post('/api/settings/webtask', (req, res) => {
 
     res.json({ success: true, message: 'WebTask 鉴权设置已保存' })
   } catch (error: any) {
-    res.status(500).json({ error: error.message })
+    console.error(error)
+    res.status(500).json({ error: '服务器内部错误' })
   }
 })
 
@@ -911,7 +932,7 @@ function authenticateWebtaskRequest(
   const queryKey = String(query.api_key || '')
   const bodyKey = String(body?.api_key || '')
   const provided = headerKey || bearerKey || queryKey || bodyKey
-  if (provided !== expected) {
+  if (!timingSafeTokenEqual(provided, expected)) {
     return { ok: false, error: 'Invalid API key' }
   }
   return { ok: true }
@@ -1057,11 +1078,12 @@ app.get('/api/backup/download', (req, res) => {
         }
     })
   } catch (error: any) {
-    res.status(500).json({ error: error.message })
+    console.error(error)
+    res.status(500).json({ error: '服务器内部错误' })
   }
 })
 
-app.post('/api/backup/restore', (req, res) => {
+app.post('/api/backup/restore', express.json({ limit: '100mb' }), (req, res) => {
   try {
     const base64Data = req.body?.data
     if (!base64Data) {
@@ -1069,7 +1091,12 @@ app.post('/api/backup/restore', (req, res) => {
     }
     
     const buffer = Buffer.from(base64Data, 'base64')
-    
+
+    const SQLITE_MAGIC = 'SQLite format 3\0'
+    if (buffer.length < 16 || buffer.subarray(0, 16).toString('ascii') !== SQLITE_MAGIC) {
+      return res.status(400).json({ error: '无效的数据库文件' })
+    }
+
     const dataDir = process.env.DATA_DIR || path.join(__dirname, '../data')
     const dbPath = path.join(dataDir, 'monitor.db')
     
@@ -1084,7 +1111,8 @@ app.post('/api/backup/restore', (req, res) => {
       process.exit(0)
     }, 1000)
   } catch (error: any) {
-    res.status(500).json({ error: error.message })
+    console.error(error)
+    res.status(500).json({ error: '服务器内部错误' })
   }
 })
 
@@ -1102,11 +1130,16 @@ app.get('/api/backup/settings', (req, res) => {
     const settings: Record<string, string> = {}
     for (const key of keys) {
       const row = queryFirst('SELECT value FROM system_settings WHERE key = ?', [key]) as any
-      settings[key] = row ? row.value : ''
+      if (key === 'backup_webdav_password') {
+        settings[key] = row?.value ? '********' : ''
+      } else {
+        settings[key] = row ? row.value : ''
+      }
     }
     res.json(settings)
   } catch (error: any) {
-    res.status(500).json({ error: error.message })
+    console.error(error)
+    res.status(500).json({ error: '服务器内部错误' })
   }
 })
 
@@ -1125,6 +1158,7 @@ app.post('/api/backup/settings', (req, res) => {
     
     for (const key of allowedKeys) {
       if (settings[key] !== undefined) {
+        if (key === 'backup_webdav_password' && settings[key] === '********') continue
         run("INSERT OR REPLACE INTO system_settings (key, value, updated_at) VALUES (?, ?, datetime('now'))", [key, String(settings[key])])
       }
     }
@@ -1133,7 +1167,8 @@ app.post('/api/backup/settings', (req, res) => {
     
     res.json({ success: true, message: 'Backup settings saved.' })
   } catch (error: any) {
-    res.status(500).json({ error: error.message })
+    console.error(error)
+    res.status(500).json({ error: '服务器内部错误' })
   }
 })
 
@@ -1146,7 +1181,8 @@ app.post('/api/backup/trigger', async (req, res) => {
       res.status(400).json({ error: result.message })
     }
   } catch (error: any) {
-    res.status(500).json({ error: error.message })
+    console.error(error)
+    res.status(500).json({ error: '服务器内部错误' })
   }
 })
 
@@ -1174,7 +1210,8 @@ app.post('/api/webhook/refresh', (req, res) => {
       clients: getClientCount()
     })
   } catch (error: any) {
-    res.status(500).json({ error: error.message })
+    console.error(error)
+    res.status(500).json({ error: '服务器内部错误' })
   }
 })
 
@@ -1220,7 +1257,8 @@ app.get('/api/settings/komari-notify', (req, res) => {
       webhook_token: webhookToken
     })
   } catch (error: any) {
-    res.status(500).json({ error: error.message })
+    console.error(error)
+    res.status(500).json({ error: '服务器内部错误' })
   }
 })
 
@@ -1248,7 +1286,8 @@ app.post('/api/settings/komari-notify', (req, res) => {
 
     res.json({ success: true, message: '配置已保存' })
   } catch (error: any) {
-    res.status(500).json({ error: error.message })
+    console.error(error)
+    res.status(500).json({ error: '服务器内部错误' })
   }
 })
 
@@ -1258,7 +1297,8 @@ app.post('/api/settings/komari-notify/regenerate-token', (req, res) => {
     setSettingValue('komari_notify_webhook_token', token)
     res.json({ webhook_token: token })
   } catch (error: any) {
-    res.status(500).json({ error: error.message })
+    console.error(error)
+    res.status(500).json({ error: '服务器内部错误' })
   }
 })
 
@@ -1549,7 +1589,8 @@ app.post('/api/komari-notify', async (req, res) => {
     }
   } catch (error: any) {
     console.error('❌ Komari 通知处理失败:', error)
-    res.status(500).json({ error: error.message })
+    console.error(error)
+    res.status(500).json({ error: '服务器内部错误' })
   }
 })
 
@@ -1652,7 +1693,8 @@ app.post('/api/webhook/komari', async (req, res) => {
     }
   } catch (error: any) {
     console.error('Webhook error:', error)
-    res.status(500).json({ error: error.message })
+    console.error(error)
+    res.status(500).json({ error: '服务器内部错误' })
   }
 })
 
@@ -1717,7 +1759,8 @@ app.get('/api/komari-status/:id', async (req, res) => {
 
     res.json({ servers })
   } catch (error: any) {
-    res.status(500).json({ error: error.message })
+    console.error(error)
+    res.status(500).json({ error: '服务器内部错误' })
   }
 })
 
@@ -1742,7 +1785,8 @@ app.get('/api/settings/nezha-notify', (req, res) => {
       webhook_token: webhookToken
     })
   } catch (error: any) {
-    res.status(500).json({ error: error.message })
+    console.error(error)
+    res.status(500).json({ error: '服务器内部错误' })
   }
 })
 
@@ -1762,7 +1806,8 @@ app.post('/api/settings/nezha-notify', (req, res) => {
 
     res.json({ success: true, message: '配置已保存' })
   } catch (error: any) {
-    res.status(500).json({ error: error.message })
+    console.error(error)
+    res.status(500).json({ error: '服务器内部错误' })
   }
 })
 
@@ -1772,7 +1817,8 @@ app.post('/api/settings/nezha-notify/regenerate-token', (req, res) => {
     setSettingValue('nezha_notify_webhook_token', token)
     res.json({ webhook_token: token })
   } catch (error: any) {
-    res.status(500).json({ error: error.message })
+    console.error(error)
+    res.status(500).json({ error: '服务器内部错误' })
   }
 })
 
@@ -1782,7 +1828,8 @@ app.get('/api/settings/feedback-callback', (req, res) => {
     const token = ensureSystemToken('feedback_callback_token')
     res.json({ webhook_token: token })
   } catch (error: any) {
-    res.status(500).json({ error: error.message })
+    console.error(error)
+    res.status(500).json({ error: '服务器内部错误' })
   }
 })
 
@@ -1792,7 +1839,8 @@ app.post('/api/settings/feedback-callback/regenerate-token', (req, res) => {
     setSettingValue('feedback_callback_token', token)
     res.json({ webhook_token: token })
   } catch (error: any) {
-    res.status(500).json({ error: error.message })
+    console.error(error)
+    res.status(500).json({ error: '服务器内部错误' })
   }
 })
 
@@ -2031,7 +2079,8 @@ app.post('/api/nezha-notify-v1', async (req, res) => {
     res.json({ success: true })
   } catch (error: any) {
     console.error('Nezha Webhook Error:', error)
-    res.status(500).json({ error: error.message })
+    console.error(error)
+    res.status(500).json({ error: '服务器内部错误' })
   }
 })
 
@@ -2060,7 +2109,8 @@ app.post('/api/callback', async (req, res) => {
 
     return handleFeedbackCallback(monitors[0], remaining_time, status, message, res)
   } catch (error: any) {
-    res.status(500).json({ error: error.message })
+    console.error(error)
+    res.status(500).json({ error: '服务器内部错误' })
   }
 })
 
@@ -2204,7 +2254,8 @@ async function handleFeedbackCallback(
     })
   } catch (error: any) {
     console.error('Error processing feedback callback:', error)
-    return res.status(500).json({ error: error.message })
+    console.error(error)
+    return res.status(500).json({ error: '服务器内部错误' })
   }
 }
 
@@ -2272,7 +2323,8 @@ app.post('/api/webtask/queue', (req, res) => {
     notifyTaskAvailable(targetClientId)
     res.json({ success: true, message: 'WebTask has been queued', job_id: String(inserted.id) })
   } catch (error: any) {
-    res.status(500).json({ error: error.message })
+    console.error(error)
+    res.status(500).json({ error: '服务器内部错误' })
   }
 })
 
@@ -2289,7 +2341,8 @@ app.get('/api/webtask/pending', (req, res) => {
 
     res.json(payload)
   } catch (error: any) {
-    res.status(500).json({ error: error.message })
+    console.error(error)
+    res.status(500).json({ error: '服务器内部错误' })
   }
 })
 
@@ -2319,7 +2372,8 @@ app.post('/api/webtask/heartbeat', (req, res) => {
     upsertWebtaskClient(clientId, true)
     return res.json({ success: true, lease_until: leaseUntil })
   } catch (error: any) {
-    return res.status(500).json({ error: error.message })
+    console.error(error)
+    return res.status(500).json({ error: '服务器内部错误' })
   }
 })
 
@@ -2479,7 +2533,8 @@ app.post('/api/webtask/report', async (req, res) => {
 
     res.json({ success: true, message: 'Report received and pushed to TG' })
   } catch (error: any) {
-    res.status(500).json({ error: error.message })
+    console.error(error)
+    res.status(500).json({ error: '服务器内部错误' })
   }
 })
 
