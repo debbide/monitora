@@ -137,7 +137,7 @@ export async function checkAllMonitors() {
   }
 }
 
-export async function checkMonitor(monitor: Monitor) {
+export async function checkMonitor(monitor: Monitor, manual = false) {
   const startTime = Date.now()
   let status: 'up' | 'down' = 'down'
   let statusCode = 0
@@ -270,6 +270,8 @@ export async function checkMonitor(monitor: Monitor) {
       }
     })
   }
+
+  if (manual) return
 
   // ---------------------------------------------------------
   // 关键改动：检查完成后，立即计算并持久化 下一次检查时间

@@ -740,7 +740,7 @@ app.post('/api/check-now', async (req, res) => {
       return res.status(404).json({ error: 'Monitor not found' })
     }
 
-    await checkMonitor(monitor)
+    await checkMonitor(monitor, true)
 
     const latestCheck = queryFirst(
       'SELECT * FROM monitor_checks WHERE monitor_id = ? ORDER BY checked_at DESC LIMIT 1',
