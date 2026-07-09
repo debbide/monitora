@@ -104,18 +104,7 @@ function requireWebhookToken(req: express.Request, res: express.Response, expect
 function ensureIncomingWebhookTokens(): void {
   ensureSystemToken('komari_notify_webhook_token')
   ensureSystemToken('nezha_notify_webhook_token')
-
-  const monitors = queryAll(
-    "SELECT id FROM monitors WHERE check_type = 'feedback_linkage' AND (feedback_callback_token IS NULL OR feedback_callback_token = '')"
-  ) as { id: string }[]
-
-  for (const monitor of monitors) {
-    run('UPDATE monitors SET feedback_callback_token = ?, updated_at = ? WHERE id = ?', [
-      generateWebhookToken(),
-      new Date().toISOString(),
-      monitor.id
-    ])
-  }
+  ensureSystemToken('feedback_callback_token')
 }
 
 function stripHtml(html: string): string {
@@ -160,7 +149,7 @@ app.use('/api', (req, res, next) => {
     '/webtask',
     '/sse/status'
   ]
-  const publicPrefixes = ['/callback/', '/komari-status/', '/webtask/']
+  const publicPrefixes = ['/komari-status/', '/webtask/']
 
   if (exactPublicPaths.includes(req.path) || publicPrefixes.some(p => req.path.startsWith(p))) {
     return next()
@@ -182,7 +171,6 @@ app.post('/api/monitors', async (req, res) => {
   try {
     const body = req.body
     const id = crypto.randomUUID()
-    const feedbackCallbackToken = body.check_type === 'feedback_linkage' ? generateWebhookToken() : null
 
     // 计算初始 next_check_at (延迟首次执行)
     const now = Date.now()
@@ -226,8 +214,8 @@ app.post('/api/monitors', async (req, res) => {
         tg_chat_id, tg_server_name, tg_offline_keywords, tg_online_keywords, tg_notify_chat_id,
         webhook_url, webhook_content_type, webhook_method, webhook_headers, webhook_body, webhook_username,
         next_check_at, is_active, feedback_linkage, feedback_threshold,
-        feedback_fluctuation_min, feedback_fluctuation_max, feedback_unit, feedback_callback_token
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        feedback_fluctuation_min, feedback_fluctuation_max, feedback_unit
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         id,
         body.name,
@@ -272,8 +260,7 @@ app.post('/api/monitors', async (req, res) => {
         parseFloat(body.feedback_threshold) || 0,
         parseFloat(body.feedback_fluctuation_min) || 0,
         parseFloat(body.feedback_fluctuation_max) || 0,
-        body.feedback_unit || 'hours',
-        feedbackCallbackToken
+        body.feedback_unit || 'hours'
       ]
     )
 
@@ -499,39 +486,8 @@ app.put('/api/monitors/:id', (req, res) => {
       run('DELETE FROM email_rules WHERE id = ?', [id])
     }
 
-    if (body.check_type === 'feedback_linkage') {
-      run(
-        "UPDATE monitors SET feedback_callback_token = ?, updated_at = ? WHERE id = ? AND (feedback_callback_token IS NULL OR feedback_callback_token = '')",
-        [generateWebhookToken(), new Date().toISOString(), id]
-      )
-    }
-
     const monitor = queryFirst('SELECT * FROM monitors WHERE id = ?', [id])
     res.json(monitor)
-  } catch (error: any) {
-    res.status(500).json({ error: error.message })
-  }
-})
-
-app.post('/api/monitors/:id/feedback-callback-token/regenerate', (req, res) => {
-  try {
-    const { id } = req.params
-    const monitor = queryFirst('SELECT * FROM monitors WHERE id = ?', [id]) as Monitor | null
-    if (!monitor) {
-      return res.status(404).json({ error: '监控项不存在' })
-    }
-    if (monitor.check_type !== 'feedback_linkage') {
-      return res.status(400).json({ error: '仅反馈联动监控支持回调 Token' })
-    }
-
-    run('UPDATE monitors SET feedback_callback_token = ?, updated_at = ? WHERE id = ?', [
-      generateWebhookToken(),
-      new Date().toISOString(),
-      id
-    ])
-
-    const updated = queryFirst('SELECT * FROM monitors WHERE id = ?', [id]) as Monitor
-    res.json(updated)
   } catch (error: any) {
     res.status(500).json({ error: error.message })
   }
@@ -1800,6 +1756,26 @@ app.post('/api/settings/nezha-notify/regenerate-token', (req, res) => {
   }
 })
 
+// 反馈联动回调 Token 设置
+app.get('/api/settings/feedback-callback', (req, res) => {
+  try {
+    const token = ensureSystemToken('feedback_callback_token')
+    res.json({ webhook_token: token })
+  } catch (error: any) {
+    res.status(500).json({ error: error.message })
+  }
+})
+
+app.post('/api/settings/feedback-callback/regenerate-token', (req, res) => {
+  try {
+    const token = generateWebhookToken()
+    setSettingValue('feedback_callback_token', token)
+    res.json({ webhook_token: token })
+  } catch (error: any) {
+    res.status(500).json({ error: error.message })
+  }
+})
+
 // Nezha 通知接收端点 (接收 JSON)
 app.post('/api/nezha-notify-v1', async (req, res) => {
   try {
@@ -2045,12 +2021,14 @@ app.post('/api/nezha-notify-v1', async (req, res) => {
 // 灵活用法：通用回调入口，通过 server_name 匹配监控项
 app.post('/api/callback', async (req, res) => {
   try {
+    const expectedToken = getSettingValue('feedback_callback_token')
+    if (!requireWebhookToken(req, res, expectedToken)) return
+
     const { server_name, remaining_time, status, message } = req.body
     if (!server_name) {
       return res.status(400).json({ error: '必须提供 server_name 以匹配监控项' })
     }
 
-    // 搜索匹配关键词的反馈联动监控项
     const monitors = queryAll(
       "SELECT * FROM monitors WHERE check_type = 'feedback_linkage' AND is_active = 1 AND (expected_keyword LIKE ? OR name = ?)",
       [`%${server_name}%`, server_name]
@@ -2060,34 +2038,7 @@ app.post('/api/callback', async (req, res) => {
       return res.status(404).json({ error: `未匹配到名称包含 "${server_name}" 的联动监控项` })
     }
 
-    const providedToken = extractWebhookToken(req)
-    const monitor = monitors.find(item => timingSafeTokenEqual(providedToken, item.feedback_callback_token || ''))
-    if (!monitor) {
-      return res.status(401).json({ error: 'Unauthorized webhook' })
-    }
-
-    return handleFeedbackCallback(monitor, remaining_time, status, message, res)
-  } catch (error: any) {
-    res.status(500).json({ error: error.message })
-  }
-})
-
-app.post('/api/callback/:monitorId', async (req, res) => {
-  try {
-    const { monitorId } = req.params
-    const { remaining_time, status, message } = req.body
-
-    const monitor = queryFirst(
-      "SELECT * FROM monitors WHERE id = ? AND check_type = 'feedback_linkage' AND is_active = 1",
-      [monitorId]
-    ) as Monitor | null
-    if (!monitor) {
-      return res.status(404).json({ error: '监控项不存在或不是启用中的反馈联动监控' })
-    }
-
-    if (!requireWebhookToken(req, res, monitor.feedback_callback_token || '')) return
-
-    return handleFeedbackCallback(monitor, remaining_time, status, message, res)
+    return handleFeedbackCallback(monitors[0], remaining_time, status, message, res)
   } catch (error: any) {
     res.status(500).json({ error: error.message })
   }

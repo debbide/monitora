@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { createMonitor, updateMonitor, Monitor, testTelegramChat } from '../lib/api'
+import { createMonitor, updateMonitor, Monitor, testTelegramChat, getFeedbackCallbackSettings } from '../lib/api'
 import { parseHeaderInput } from '../lib/headers'
 
 interface AddMonitorFormProps {
@@ -85,19 +85,23 @@ export default function AddMonitorForm({ onSuccess, onCancel, editMonitor }: Add
 
   const isEditMode = !!editMonitor
   const origin = `${window.location.protocol}//${window.location.host}`
-  const feedbackToken = editMonitor?.feedback_callback_token || ''
-  const feedbackMonitorCallbackUrl =
-    editMonitor?.id && feedbackToken
-      ? `${origin}/api/callback/${editMonitor.id}?token=${encodeURIComponent(feedbackToken)}`
-      : ''
-  const feedbackGenericCallbackUrl = feedbackToken
-    ? `${origin}/api/callback?token=${encodeURIComponent(feedbackToken)}`
+  const [feedbackGlobalToken, setFeedbackGlobalToken] = useState('')
+  const feedbackCallbackUrl = feedbackGlobalToken
+    ? `${origin}/api/callback?token=${encodeURIComponent(feedbackGlobalToken)}`
     : ''
 
   function copyToClipboard(text: string) {
     navigator.clipboard.writeText(text)
     alert('已复制到剪贴板')
   }
+
+  useEffect(() => {
+    if (checkType === 'feedback_linkage') {
+      getFeedbackCallbackSettings()
+        .then(r => setFeedbackGlobalToken(r.webhook_token))
+        .catch(() => {})
+    }
+  }, [checkType])
 
   useEffect(() => {
     if (editMonitor) {
@@ -876,41 +880,9 @@ export default function AddMonitorForm({ onSuccess, onCancel, editMonitor }: Add
             <h5 style={{ margin: '0 0 12px 0', fontSize: '1rem' }}>
               📡 脚本对接指引 (Callback Guide)
             </h5>
-            {feedbackMonitorCallbackUrl ? (
+            {feedbackCallbackUrl ? (
               <>
-                <label>特定监控 ID 接口（推荐）</label>
-                <div
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '8px',
-                    background: 'var(--bg-primary)',
-                    padding: '8px 12px',
-                    borderRadius: '6px',
-                    border: '1px solid var(--border-color)',
-                    marginBottom: '12px'
-                  }}
-                >
-                  <code
-                    style={{
-                      fontSize: '0.85rem',
-                      color: 'var(--accent-color)',
-                      wordBreak: 'break-all'
-                    }}
-                  >
-                    {feedbackMonitorCallbackUrl}
-                  </code>
-                  <button
-                    type="button"
-                    className="btn-text"
-                    onClick={() => copyToClipboard(feedbackMonitorCallbackUrl)}
-                    title="复制链接"
-                  >
-                    📋
-                  </button>
-                </div>
-
-                <label>通用回调接口 (通过关键词匹配)</label>
+                <label>回调接口 (通过 server_name 关键词匹配)</label>
                 <div
                   style={{
                     display: 'flex',
@@ -929,12 +901,12 @@ export default function AddMonitorForm({ onSuccess, onCancel, editMonitor }: Add
                       wordBreak: 'break-all'
                     }}
                   >
-                    {feedbackGenericCallbackUrl}
+                    {feedbackCallbackUrl}
                   </code>
                   <button
                     type="button"
                     className="btn-text"
-                    onClick={() => copyToClipboard(feedbackGenericCallbackUrl)}
+                    onClick={() => copyToClipboard(feedbackCallbackUrl)}
                     title="复制链接"
                   >
                     📋
@@ -943,7 +915,7 @@ export default function AddMonitorForm({ onSuccess, onCancel, editMonitor }: Add
               </>
             ) : (
               <div className="form-hint" style={{ marginTop: '8px' }}>
-                保存监控后会自动生成专属回调 Token，可在监控卡片或编辑页复制完整 URL。
+                正在加载回调 Token...
               </div>
             )}
 
@@ -1433,7 +1405,7 @@ export default function AddMonitorForm({ onSuccess, onCancel, editMonitor }: Add
 
             <div className="form-group" style={{ marginTop: '12px', marginBottom: 0 }}>
               <label>脚本回调 URL</label>
-              {feedbackMonitorCallbackUrl ? (
+              {feedbackCallbackUrl ? (
                 <div
                   style={{
                     display: 'flex',
@@ -1445,12 +1417,12 @@ export default function AddMonitorForm({ onSuccess, onCancel, editMonitor }: Add
                   }}
                 >
                   <code style={{ fontSize: '0.9rem', color: 'var(--accent-color)', wordBreak: 'break-all' }}>
-                    {feedbackMonitorCallbackUrl}
+                    {feedbackCallbackUrl}
                   </code>
                   <button
                     type="button"
                     className="btn-text"
-                    onClick={() => copyToClipboard(feedbackMonitorCallbackUrl)}
+                    onClick={() => copyToClipboard(feedbackCallbackUrl)}
                     title="复制链接"
                   >
                     📋
@@ -1458,7 +1430,7 @@ export default function AddMonitorForm({ onSuccess, onCancel, editMonitor }: Add
                 </div>
               ) : (
                 <span className="form-hint" style={{ marginTop: '8px' }}>
-                  保存监控后会自动生成专属回调 Token，可在监控卡片或编辑页复制完整 URL。
+                  正在加载回调 Token...
                 </span>
               )}
               <span className="form-hint" style={{ marginTop: '8px' }}>

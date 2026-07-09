@@ -134,7 +134,6 @@ export async function initDatabase(): Promise<Database> {
       feedback_fluctuation_min INTEGER DEFAULT 0,
       feedback_fluctuation_max INTEGER DEFAULT 0,
       feedback_unit TEXT DEFAULT 'hours',
-      feedback_callback_token TEXT,
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       updated_at TEXT NOT NULL DEFAULT (datetime('now'))
     )
@@ -160,7 +159,6 @@ export async function initDatabase(): Promise<Database> {
     { name: 'feedback_fluctuation_min', type: 'INTEGER' },
     { name: 'feedback_fluctuation_max', type: 'INTEGER' },
     { name: 'feedback_unit', type: "TEXT DEFAULT 'hours'" },
-    { name: 'feedback_callback_token', type: 'TEXT' },
     { name: 'email_site_key', type: 'TEXT' },
     { name: 'email_from_filter', type: 'TEXT' },
     { name: 'email_subject_keyword', type: 'TEXT' },

@@ -48,7 +48,6 @@ export interface Monitor {
   feedback_fluctuation_min: number | null
   feedback_fluctuation_max: number | null
   feedback_unit?: string | null
-  feedback_callback_token?: string | null
   created_at: string
   updated_at: string
 }
@@ -251,8 +250,12 @@ export async function updateMonitor(id: string, monitor: {
   })
 }
 
-export async function regenerateFeedbackCallbackToken(id: string): Promise<Monitor> {
-  return fetchAPI(`/api/monitors/${id}/feedback-callback-token/regenerate`, {
+export async function getFeedbackCallbackSettings(): Promise<{ webhook_token: string }> {
+  return fetchAPI('/api/settings/feedback-callback')
+}
+
+export async function regenerateFeedbackCallbackToken(): Promise<{ webhook_token: string }> {
+  return fetchAPI('/api/settings/feedback-callback/regenerate-token', {
     method: 'POST',
   })
 }
