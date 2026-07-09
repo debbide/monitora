@@ -1,5 +1,6 @@
 import express from 'express'
 import cors from 'cors'
+import helmet from 'helmet'
 import cron from 'node-cron'
 import path from 'path'
 import fs from 'fs'
@@ -10,7 +11,7 @@ import { WebSocketServer, WebSocket } from 'ws'
 import type { RawData } from 'ws'
 import type { IncomingMessage } from 'http'
 import { initDatabase, queryAll, queryFirst, run, saveNow, cleanOldData } from './db.js'
-import { generateToken, requireAuth } from './auth.js'
+import { generateToken, requireAuth, rotateJwtSecret } from './auth.js'
 import { Monitor, MonitorCheck } from './types.js'
 import {
   checkAllMonitors,
@@ -21,7 +22,8 @@ import {
   saveCheck,
   handleDownStatus,
   handleUpStatus,
-  calculateNextDailyWindowTime
+  calculateNextDailyWindowTime,
+  removeLatestCheck
 } from './monitor.js'
 import { getWebhookMethod, processWebhookBody, sendWebhookNotification } from './webhook-sender.js'
 import { normalizeHeadersForStorage, normalizeJsonForStorage, parseStoredHeaders } from './header-utils.js'
@@ -32,7 +34,8 @@ import {
   setTgBotToken,
   getTgBotToken,
   testChatConnection,
-  sendTgMessage
+  sendTgMessage,
+  cleanRecentChanges
 } from './telegram.js'
 import { addClient, broadcastRefresh, getClientCount, getClients, pollRefresh } from './sse.js'
 import { initBackupScheduler, performBackup } from './backup.js'
@@ -122,6 +125,9 @@ function stripHtml(html: string): string {
     .trim()
 }
 
+app.use(helmet({
+  contentSecurityPolicy: false
+}))
 app.use(cors())
 app.use(express.json({ limit: '2mb' }))
 
@@ -506,6 +512,7 @@ app.delete('/api/monitors/:id', (req, res) => {
     run('DELETE FROM incidents WHERE monitor_id = ?', [id])
     run('DELETE FROM monitors WHERE id = ?', [id])
     run('DELETE FROM email_rules WHERE id = ?', [id])
+    removeLatestCheck(id)
     res.json({ success: true })
   } catch (error: any) {
     console.error(error)
@@ -811,6 +818,8 @@ app.post('/api/auth/change-password', async (req, res) => {
       newHash,
       new Date().toISOString()
     ])
+
+    rotateJwtSecret()
 
     res.json({ success: true })
   } catch (error: any) {
@@ -2098,9 +2107,10 @@ app.post('/api/callback', async (req, res) => {
       return res.status(400).json({ error: '必须提供 server_name 以匹配监控项' })
     }
 
+    const escapedName = server_name.replace(/[%_]/g, '\\$&')
     const monitors = queryAll(
-      "SELECT * FROM monitors WHERE check_type = 'feedback_linkage' AND is_active = 1 AND (expected_keyword LIKE ? OR name = ?)",
-      [`%${server_name}%`, server_name]
+      "SELECT * FROM monitors WHERE check_type = 'feedback_linkage' AND is_active = 1 AND (expected_keyword LIKE ? ESCAPE '\\' OR name = ?)",
+      [`%${escapedName}%`, server_name]
     ) as Monitor[]
 
     if (monitors.length === 0) {
@@ -2567,7 +2577,8 @@ async function start() {
       new Date().toISOString()
     ])
     console.log('🔐 密码已通过环境变量 RESET_PASSWORD 重置')
-    console.log('⚠️  请移除 RESET_PASSWORD 环境变量后重启容器以确保安全')
+    delete process.env.RESET_PASSWORD
+    console.log('✅ 已从进程环境中清除 RESET_PASSWORD')
   }
 
   // 初始化 Telegram Bot（如果配置了 Token）
@@ -2686,12 +2697,19 @@ async function start() {
   // 优雅关闭
   process.on('SIGTERM', () => {
     stopTelegramBot()
+    saveNow()
+    process.exit(0)
+  })
+  process.on('SIGINT', () => {
+    stopTelegramBot()
+    saveNow()
     process.exit(0)
   })
 
   // 定时任务：每天凌晨 3 点自动清理超过 3 天的历史监控记录，控制数据库体积
   cron.schedule('0 3 * * *', () => {
     cleanOldData(3)
+    cleanRecentChanges()
   })
   
   // 启动时顺便执行一次清理

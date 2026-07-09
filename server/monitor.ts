@@ -17,6 +17,10 @@ export function getLatestCheck(monitorId: string): MonitorCheck | undefined {
   return latestChecks.get(monitorId)
 }
 
+export function removeLatestCheck(monitorId: string): void {
+  latestChecks.delete(monitorId)
+}
+
 // 生成随机间隔（分钟）
 function getRandomInterval(min: number, max: number): number {
   return Math.floor(Math.random() * (max - min + 1)) + min

@@ -23,6 +23,7 @@
     "express": "^4.21.1",
     "express-rate-limit": "^8.5.2",
     "framer-motion": "^12.23.25",
+    "helmet": "^8.2.0",
     "jsonwebtoken": "^9.0.3",
     "lucide-react": "^1.23.0",
     "node-cron": "^3.0.3",

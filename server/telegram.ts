@@ -20,6 +20,13 @@ const MAX_PROCESSED_MESSAGES = 1000
 const recentChanges = new Map<string, number>()
 const CHANGE_COOLDOWN = 60 // 1分钟冷却（单位：秒，与 TG msg.date 一致）
 
+export function cleanRecentChanges(): void {
+  const now = Math.floor(Date.now() / 1000)
+  for (const [key, ts] of recentChanges) {
+    if (now - ts > CHANGE_COOLDOWN * 10) recentChanges.delete(key)
+  }
+}
+
 /**
  * 获取存储的 TG Bot Token
  */
@@ -437,7 +444,7 @@ export function getTelegramBotStatus(): { enabled: boolean; connected: boolean; 
     return {
         enabled: !!token,
         connected: bot !== null,
-        token: token ? `${token.substring(0, 10)}...` : ''
+        token: token ? `${token.substring(0, 4)}****` : ''
     }
 }
 

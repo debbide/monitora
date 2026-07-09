@@ -18,6 +18,11 @@ function getJwtSecret(): string {
   return newSecret
 }
 
+export function rotateJwtSecret(): void {
+  const newSecret = crypto.randomBytes(64).toString('hex')
+  run("INSERT OR REPLACE INTO system_settings (key, value, updated_at) VALUES ('jwt_secret', ?, datetime('now'))", [newSecret])
+}
+
 // Generate token (expires in 24 hours)
 export function generateToken(): string {
   const secret = getJwtSecret()

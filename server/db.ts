@@ -43,18 +43,7 @@ export function saveNow() {
   }
 }
 
-// 优雅关闭处理
-function setupGracefulShutdown() {
-  const shutdown = () => {
-    console.log('\n🛑 正在关闭...')
-    saveNow()
-    process.exit(0)
-  }
-  process.on('SIGTERM', shutdown)
-  process.on('SIGINT', shutdown)
-}
 
-setupGracefulShutdown()
 
 export async function initDatabase(): Promise<Database> {
   const SQL = await initSqlJs()
@@ -374,7 +363,10 @@ export function cleanOldData(daysToKeep = 3) {
     
     // 清理已解决的旧 incidents
     db.run(`DELETE FROM incidents WHERE resolved_at IS NOT NULL AND resolved_at < ?`, [timeThreshold])
-    
+
+    // 清理已完成的旧 webtasks
+    db.run(`DELETE FROM webtasks WHERE status IN ('done', 'failed') AND created_at < ?`, [timeThreshold])
+
     // 执行 VACUUM，彻底释放删除数据留下的空白空间，压缩文件体积
     db.run('VACUUM')
     
