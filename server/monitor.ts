@@ -4,6 +4,7 @@ import { sendTgMessage } from './telegram.js'
 import { sendWebhookNotification } from './webhook-sender.js'
 import { parseStoredHeaders, redactHeaders } from './header-utils.js'
 import crypto from 'crypto'
+import bcrypt from 'bcryptjs'
 import { execFile } from 'child_process'
 import { promisify } from 'util'
 
@@ -706,12 +707,22 @@ export async function handleUpStatus(monitor: Monitor, check: MonitorCheck) {
 // Webhook Logic moved to ./webhook-sender.ts
 
 // 密码相关函数
-export async function hashPassword(password: string): Promise<string> {
-  const hash = crypto.createHash('sha256').update(password).digest('base64')
-  return hash
+export function isBcryptHash(hash: string): boolean {
+  return hash.startsWith('$2')
 }
 
-export async function verifyPassword(password: string, hash: string): Promise<boolean> {
-  const passwordHash = await hashPassword(password)
-  return passwordHash === hash
+function verifySha256(password: string, hash: string): boolean {
+  const computed = crypto.createHash('sha256').update(password).digest('base64')
+  return computed === hash
+}
+
+export async function hashPassword(password: string): Promise<string> {
+  return bcrypt.hash(password, 10)
+}
+
+export async function verifyPassword(password: string, storedHash: string): Promise<boolean> {
+  if (isBcryptHash(storedHash)) {
+    return bcrypt.compare(password, storedHash)
+  }
+  return verifySha256(password, storedHash)
 }

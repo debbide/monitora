@@ -5,6 +5,7 @@ import path from 'path'
 import fs from 'fs'
 import { fileURLToPath } from 'url'
 import crypto from 'crypto'
+import rateLimit from 'express-rate-limit'
 import { WebSocketServer, WebSocket } from 'ws'
 import type { RawData } from 'ws'
 import type { IncomingMessage } from 'http'
@@ -16,6 +17,7 @@ import {
   checkMonitor,
   hashPassword,
   verifyPassword,
+  isBcryptHash,
   saveCheck,
   handleDownStatus,
   handleUpStatus,
@@ -734,7 +736,15 @@ app.post('/api/check-now', async (req, res) => {
   }
 })
 
-app.post('/api/auth/verify', async (req, res) => {
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: '登录尝试过于频繁，请 15 分钟后再试' }
+})
+
+app.post('/api/auth/verify', loginLimiter, async (req, res) => {
   try {
     const { password } = req.body
     const result = queryFirst('SELECT password_hash FROM admin_credentials LIMIT 1') as any
@@ -746,6 +756,13 @@ app.post('/api/auth/verify', async (req, res) => {
     const isValid = await verifyPassword(password, result.password_hash)
 
     if (isValid) {
+      if (!isBcryptHash(result.password_hash)) {
+        const bcryptHash = await hashPassword(password)
+        run('UPDATE admin_credentials SET password_hash = ?, updated_at = ? WHERE id = 1', [
+          bcryptHash,
+          new Date().toISOString()
+        ])
+      }
       const token = generateToken()
       res.json({ valid: true, token })
     } else {
