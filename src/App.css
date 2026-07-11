@@ -1130,16 +1130,39 @@
 
 /* Responsive */
 @media (max-width: 768px) {
+  .header {
+    padding: calc(var(--spacing-unit) * 1.5) calc(var(--spacing-unit) * 2);
+  }
+
   .header-content {
     flex-direction: column;
-    gap: calc(var(--spacing-unit) * 2);
+    gap: calc(var(--spacing-unit) * 1.5);
     text-align: center;
+    padding-left: 0;
   }
 
   .header-actions {
     width: 100%;
     justify-content: center;
     flex-wrap: wrap;
+    gap: calc(var(--spacing-unit) * 1);
+  }
+
+  /* 触摸热区：移动端所有可点击按钮至少 44px 高 */
+  .btn-add-monitor,
+  .btn-logout,
+  .btn-view-mode,
+  .btn-telegram,
+  .btn-theme,
+  .btn-change-password {
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .btn-telegram {
+    margin-left: 0;
   }
 
   .form-row {
@@ -1156,6 +1179,77 @@
 
   .stat {
     min-width: 30%;
+  }
+
+  /* ===== 列表视图移动端降级：还原为纵向卡片布局 ===== */
+  .monitor-card.list-view {
+    flex-direction: column;
+    align-items: stretch;
+    padding: calc(var(--spacing-unit) * 1.75);
+    gap: calc(var(--spacing-unit) * 1.25);
+    height: auto;
+  }
+
+  /* 恢复 header 包装，取消 display:contents 造成的横排 */
+  .monitor-card.list-view .monitor-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0;
+    order: 0;
+  }
+
+  .monitor-card.list-view .monitor-status {
+    order: 0;
+    min-width: 0;
+  }
+
+  .monitor-card.list-view .monitor-info {
+    order: 0;
+    flex: initial;
+  }
+
+  .monitor-card.list-view .monitor-title-row {
+    justify-content: space-between;
+  }
+
+  /* 波形图恢复到卡片默认尺寸与位置 */
+  .monitor-card.list-view .monitor-chart {
+    order: 0;
+    flex: initial;
+    min-width: 0;
+    height: 60px !important;
+    margin-top: calc(var(--spacing-unit) * 0.5) !important;
+  }
+
+  /* footer 恢复左对齐块状 */
+  .monitor-card.list-view .monitor-footer {
+    order: 0;
+    flex: initial;
+    align-items: flex-start;
+    padding-top: calc(var(--spacing-unit) * 1);
+    border-top: 1px solid var(--color-border-dark);
+  }
+
+  /* 列表视图下操作按钮恢复正常间距与热区 */
+  .monitor-card.list-view .monitor-actions {
+    order: 0;
+    margin-left: 0;
+  }
+
+  /* 列表视图移动端还原被隐藏的卡片内容 */
+  .monitor-card.list-view .monitor-stats {
+    display: flex;
+  }
+
+  .monitor-card.list-view .komari-servers,
+  .monitor-card.list-view .monitor-error {
+    display: block;
+  }
+
+  .monitor-actions .btn-icon {
+    min-width: 40px;
+    min-height: 40px;
   }
 }
 
@@ -1174,6 +1268,40 @@
 
   .login-box {
     padding: calc(var(--spacing-unit) * 3);
+  }
+
+  /* 弹窗在小屏减小外边距，给内容更多空间 */
+  .modal-overlay {
+    padding: calc(var(--spacing-unit) * 1.5);
+  }
+
+  .modal-content {
+    padding: calc(var(--spacing-unit) * 2.5);
+  }
+
+  .modal-form .add-monitor-form {
+    max-height: 88vh;
+    padding: calc(var(--spacing-unit) * 2.5);
+  }
+
+  /* 顶部统计每行仅需保证可读，缩小内边距 */
+  .stat-card {
+    padding: calc(var(--spacing-unit) * 1.75);
+    gap: calc(var(--spacing-unit) * 1.25);
+  }
+
+  .stat-icon {
+    width: 40px;
+    height: 40px;
+  }
+
+  .stat-info .stat-value {
+    font-size: 1.25rem;
+  }
+
+  /* 添加/退出按钮文字在极窄屏不换行、缩小内边距 */
+  .header-actions {
+    gap: calc(var(--spacing-unit) * 0.75);
   }
 }
 
