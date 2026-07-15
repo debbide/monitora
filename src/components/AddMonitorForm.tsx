@@ -528,6 +528,83 @@ export default function AddMonitorForm({ onSuccess, onCancel, editMonitor }: Add
               <option value="feedback_linkage">反馈联动监控 (Feedback Linkage)</option>
             </select>
           </div>
+
+          {checkType === 'http' && (
+            <div className="form-group">
+              <label>HTTP 附加功能（可叠加）</label>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                {[
+                  {
+                    checked: httpUseApi,
+                    toggle: () => setHttpUseApi(v => !v),
+                    title: '高级检测规则',
+                    desc: '自定义方法 / Header / 状态码 / 关键词'
+                  },
+                  {
+                    checked: httpUseWebhook,
+                    toggle: () => setHttpUseWebhook(v => !v),
+                    title: '掉线报警 Webhook',
+                    desc: '不通时触发 Webhook（如 GitHub Actions）'
+                  }
+                ].map((opt, i) => (
+                  <div
+                    key={i}
+                    role="checkbox"
+                    aria-checked={opt.checked}
+                    tabIndex={0}
+                    onClick={opt.toggle}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault()
+                        opt.toggle()
+                      }
+                    }}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '10px',
+                      padding: '9px 12px',
+                      borderRadius: 'var(--border-radius-sm)',
+                      border: `1px solid ${opt.checked ? 'var(--color-primary, #7c6bff)' : 'var(--color-border)'}`,
+                      background: opt.checked
+                        ? 'var(--color-primary-soft, rgba(124,107,255,0.10))'
+                        : 'var(--color-surface-solid)',
+                      cursor: 'pointer',
+                      transition: 'var(--transition)'
+                    }}
+                  >
+                    <span
+                      style={{
+                        flexShrink: 0,
+                        width: '18px',
+                        height: '18px',
+                        borderRadius: '5px',
+                        border: `1.5px solid ${opt.checked ? 'var(--color-primary, #7c6bff)' : 'var(--color-border)'}`,
+                        background: opt.checked ? 'var(--color-primary, #7c6bff)' : 'transparent',
+                        color: '#fff',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontSize: '12px',
+                        lineHeight: 1
+                      }}
+                    >
+                      {opt.checked ? '✓' : ''}
+                    </span>
+                    <span style={{ lineHeight: 1.3 }}>
+                      <strong style={{ fontSize: '0.8125rem' }}>{opt.title}</strong>
+                      <span
+                        className="form-hint"
+                        style={{ display: 'block', marginTop: '2px', fontSize: '0.75rem' }}
+                      >
+                        {opt.desc}
+                      </span>
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -933,48 +1010,6 @@ export default function AddMonitorForm({ onSuccess, onCancel, editMonitor }: Add
         </div>
       )}
 
-      {checkType === 'http' && (
-        <div className="form-section">
-          <h4>HTTP 附加功能配置</h4>
-          <span className="form-hint" style={{ display: 'block', marginBottom: '12px' }}>
-            默认仅做基础存活检测。以下两项可按需<strong>各自勾选，也可同时启用</strong>（例如：自定义检测规则 + 掉线触发 GitHub Actions）。
-          </span>
-          <label
-            className="form-group"
-            style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', cursor: 'pointer' }}
-          >
-            <input
-              type="checkbox"
-              checked={httpUseApi}
-              onChange={e => setHttpUseApi(e.target.checked)}
-              style={{ marginTop: '3px' }}
-            />
-            <span>
-              <strong>高级检测规则</strong>
-              <span className="form-hint" style={{ display: 'block' }}>
-                自定义请求方法、Header/Cookie 鉴权、期望状态码、期望/禁止关键词（用于 API 接口或需要登录的页面）
-              </span>
-            </span>
-          </label>
-          <label
-            className="form-group"
-            style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', cursor: 'pointer' }}
-          >
-            <input
-              type="checkbox"
-              checked={httpUseWebhook}
-              onChange={e => setHttpUseWebhook(e.target.checked)}
-              style={{ marginTop: '3px' }}
-            />
-            <span>
-              <strong>掉线报警 Webhook</strong>
-              <span className="form-hint" style={{ display: 'block' }}>
-                链接不通时自动触发一个 Webhook（如 GitHub Actions dispatch），可用于自动重启 / 恢复
-              </span>
-            </span>
-          </label>
-        </div>
-      )}
 
       {(checkType === 'http' ||
         checkType === 'scheduled_webhook' ||
