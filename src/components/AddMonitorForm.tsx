@@ -59,7 +59,9 @@ export default function AddMonitorForm({ onSuccess, onCancel, editMonitor }: Add
   const [emailMaxAgeSeconds, setEmailMaxAgeSeconds] = useState('300')
 
   // Request Configuration (HTTP & Scheduled Webhook)
-  const [httpAdvancedMode, setHttpAdvancedMode] = useState<'none' | 'api' | 'webhook'>('none')
+  // HTTP 高级功能：两个独立开关，可同时启用（自定义检测规则 + 掉线报警 Webhook）
+  const [httpUseApi, setHttpUseApi] = useState(false)
+  const [httpUseWebhook, setHttpUseWebhook] = useState(false)
   const [checkContentType, setCheckContentType] = useState('application/json')
   const [checkHeaders, setCheckHeaders] = useState('')
   const [checkBody, setCheckBody] = useState('')
@@ -197,9 +199,9 @@ export default function AddMonitorForm({ onSuccess, onCancel, editMonitor }: Add
       );
       const hasWebhook = !!editMonitor.webhook_url;
 
-      if (hasApi) setHttpAdvancedMode('api')
-      else if (hasWebhook) setHttpAdvancedMode('webhook')
-      else setHttpAdvancedMode('none')
+      // 两个开关独立回填，互不影响（旧监控若同时具备也能正确展开两块）
+      setHttpUseApi(hasApi)
+      setHttpUseWebhook(hasWebhook)
 
       setTgChatId(editMonitor.tg_chat_id || '')
       setTgServerName(editMonitor.tg_server_name || '')
@@ -351,8 +353,8 @@ export default function AddMonitorForm({ onSuccess, onCancel, editMonitor }: Add
       const timeoutNum = parseInt(checkTimeout) || 30
       const thresholdNum = parseInt(komariOfflineThreshold) || 3
 
-      const useApiConfig = (checkType === 'http' && httpAdvancedMode === 'api') || checkType === 'scheduled_webhook' || checkType === 'feedback_linkage';
-      const useWebhookConfig = (checkType === 'http' && httpAdvancedMode === 'webhook') || checkType !== 'http';
+      const useApiConfig = (checkType === 'http' && httpUseApi) || checkType === 'scheduled_webhook' || checkType === 'feedback_linkage';
+      const useWebhookConfig = (checkType === 'http' && httpUseWebhook) || checkType !== 'http';
 
       const monitorData = {
         name: name.trim(),
@@ -934,23 +936,50 @@ export default function AddMonitorForm({ onSuccess, onCancel, editMonitor }: Add
       {checkType === 'http' && (
         <div className="form-section">
           <h4>HTTP 附加功能配置</h4>
-          <div className="form-group">
-            <select
-              value={httpAdvancedMode}
-              onChange={e => setHttpAdvancedMode(e.target.value as any)}
-            >
-              <option value="none">1. 普通网页 (无需配置鉴权，仅做基础存活检测)</option>
-              <option value="api">2. API 接口模式 (需展开 Header/Cookie 等高级鉴权参数)</option>
-              <option value="webhook">3. Webhook 报警模式 (需展开底部的 Webhook 通知配置)</option>
-            </select>
-          </div>
+          <span className="form-hint" style={{ display: 'block', marginBottom: '12px' }}>
+            默认仅做基础存活检测。以下两项可按需<strong>各自勾选，也可同时启用</strong>（例如：自定义检测规则 + 掉线触发 GitHub Actions）。
+          </span>
+          <label
+            className="form-group"
+            style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', cursor: 'pointer' }}
+          >
+            <input
+              type="checkbox"
+              checked={httpUseApi}
+              onChange={e => setHttpUseApi(e.target.checked)}
+              style={{ marginTop: '3px' }}
+            />
+            <span>
+              <strong>高级检测规则</strong>
+              <span className="form-hint" style={{ display: 'block' }}>
+                自定义请求方法、Header/Cookie 鉴权、期望状态码、期望/禁止关键词（用于 API 接口或需要登录的页面）
+              </span>
+            </span>
+          </label>
+          <label
+            className="form-group"
+            style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', cursor: 'pointer' }}
+          >
+            <input
+              type="checkbox"
+              checked={httpUseWebhook}
+              onChange={e => setHttpUseWebhook(e.target.checked)}
+              style={{ marginTop: '3px' }}
+            />
+            <span>
+              <strong>掉线报警 Webhook</strong>
+              <span className="form-hint" style={{ display: 'block' }}>
+                链接不通时自动触发一个 Webhook（如 GitHub Actions dispatch），可用于自动重启 / 恢复
+              </span>
+            </span>
+          </label>
         </div>
       )}
 
       {(checkType === 'http' ||
         checkType === 'scheduled_webhook' ||
         checkType === 'feedback_linkage') && (
-        <div className="form-section" style={{ display: (checkType !== 'http' || httpAdvancedMode === 'api') ? 'block' : 'none' }}>
+        <div className="form-section" style={{ display: (checkType !== 'http' || httpUseApi) ? 'block' : 'none' }}>
           <h4 style={{ margin: '0 0 16px 0' }}>高级配置 (Request Configuration)</h4>
               {(checkType === 'scheduled_webhook' || checkType === 'feedback_linkage') && (
             <div className="form-row">
@@ -1543,7 +1572,7 @@ export default function AddMonitorForm({ onSuccess, onCancel, editMonitor }: Add
         </div>
       )}
 
-      <div className="form-section" style={{ display: (checkType !== 'http' || httpAdvancedMode === 'webhook') ? 'block' : 'none' }}>
+      <div className="form-section" style={{ display: (checkType !== 'http' || httpUseWebhook) ? 'block' : 'none' }}>
         <h4>Webhook 通知 (报警联动, 可选)</h4>
 
         <div className="form-group">
