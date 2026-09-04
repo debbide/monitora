@@ -1,9 +1,10 @@
 import { verifyPassword as apiVerifyPassword } from './api'
+import type { LoginResponse } from './api'
 
 const AUTH_KEY = 'monitor_auth_token'
 const AUTH_EXPIRY = 'monitor_auth_expiry'
 
-export async function verifyPassword(password: string): Promise<{ valid: boolean, token?: string }> {
+export async function verifyPassword(password: string): Promise<LoginResponse> {
   return apiVerifyPassword(password)
 }
 

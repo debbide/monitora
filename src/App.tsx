@@ -54,16 +54,14 @@ function App() {
     }
   }, [authenticated])
 
-  async function handleLogin(password: string): Promise<boolean> {
-    const response = await verifyPassword(password)
-    if (response.valid && response.token) {
-      setAuthToken(response.token)
-      setAuthenticated(true)
-      toast.success('欢迎回来！')
-    } else {
-      toast.error('密码错误')
-    }
-    return response.valid
+  async function handleLogin(password: string) {
+    return verifyPassword(password)
+  }
+
+  function handleAuthenticated(token: string) {
+    setAuthToken(token)
+    setAuthenticated(true)
+    toast.success('欢迎回来！')
   }
 
   function handleLogout() {
@@ -200,7 +198,7 @@ function App() {
   }
 
   if (!authenticated) {
-    return <LoginForm onLogin={handleLogin} />
+    return <LoginForm onLogin={handleLogin} onAuthenticated={handleAuthenticated} />
   }
 
   return (
