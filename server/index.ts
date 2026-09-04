@@ -10,8 +10,25 @@ import rateLimit from 'express-rate-limit'
 import { WebSocketServer, WebSocket } from 'ws'
 import type { RawData } from 'ws'
 import type { IncomingMessage } from 'http'
-import { initDatabase, queryAll, queryFirst, run, saveNow, cleanOldData } from './db.js'
-import { generateToken, requireAuth, rotateJwtSecret } from './auth.js'
+import { initDatabase, queryAll, queryFirst, run, saveNow, cleanOldData, getTotpSecret, setTotpSecret } from './db.js'
+import {
+  generateToken,
+  requireAuth,
+  rotateJwtSecret,
+  issueLoginTicket,
+  consumeLoginTicket,
+  invalidateLoginTicket
+} from './auth.js'
+import { generateCode, verifyCode, otpauthUrl, generateSecret } from './totp.js'
+import {
+  listPasskeys,
+  hasAnyPasskey,
+  deletePasskeyById,
+  generateRegistrationOptionsData,
+  verifyRegistrationResponseData,
+  generateLoginChallengeOptions,
+  verifyLoginResponseData
+} from './webauthn.js'
 import { Monitor, MonitorCheck } from './types.js'
 import {
   checkAllMonitors,
@@ -149,6 +166,9 @@ app.get('/health', (req, res) => {
 app.use('/api', (req, res, next) => {
   const exactPublicPaths = [
     '/auth/verify',
+    '/auth/totp/verify',
+    '/auth/passkey/login/challenge',
+    '/auth/passkey/login/verify',
     '/komari-notify',
     '/webhook/komari',
     '/komari-status',
@@ -781,6 +801,14 @@ app.post('/api/auth/verify', loginLimiter, async (req, res) => {
           new Date().toISOString()
         ])
       }
+
+      // 若已开启 TOTP 两步验证：不直接发 JWT，先发票据，等第二步验码换 JWT
+      const totpSecret = getTotpSecret()
+      if (totpSecret) {
+        const ticket = issueLoginTicket(String(req.ip || ''))
+        return res.json({ valid: true, twoFactor: { required: true, ticket } })
+      }
+
       const token = generateToken()
       res.json({ valid: true, token })
     } else {
@@ -790,6 +818,188 @@ app.post('/api/auth/verify', loginLimiter, async (req, res) => {
     console.error(error)
     res.status(500).json({ error: '服务器内部错误' })
   }
+})
+
+async function verifyCurrentAdminPassword(password: unknown): Promise<boolean> {
+  if (typeof password !== 'string' || !password) return false
+  const result = queryFirst('SELECT password_hash FROM admin_credentials LIMIT 1') as
+    | { password_hash: string }
+    | null
+  return Boolean(result && (await verifyPassword(password, result.password_hash)))
+}
+
+const TWO_FACTOR_ACCESS_TTL_MS = 10 * 60 * 1000
+const twoFactorAccessTokens = new Map<string, { ip: string; expiresAt: number }>()
+const passkeyRegistrationAccess = new Map<string, string>()
+
+function issueTwoFactorAccess(req: express.Request): { token: string; expiresAt: number } {
+  const token = crypto.randomBytes(32).toString('hex')
+  const expiresAt = Date.now() + TWO_FACTOR_ACCESS_TTL_MS
+  twoFactorAccessTokens.set(token, { ip: String(req.ip || ''), expiresAt })
+  return { token, expiresAt }
+}
+
+function requireTwoFactorAccess(req: express.Request, res: express.Response): string | null {
+  const token = String(req.header('x-2fa-access-token') || '')
+  const access = twoFactorAccessTokens.get(token)
+
+  if (!access || access.expiresAt <= Date.now()) {
+    if (token) twoFactorAccessTokens.delete(token)
+    res.status(403).json({ error: '安全验证已过期，请重新输入当前密码', code: 'TWO_FACTOR_ACCESS_EXPIRED' })
+    return null
+  }
+
+  if (access.ip && access.ip !== String(req.ip || '')) {
+    twoFactorAccessTokens.delete(token)
+    res.status(403).json({ error: '安全验证无效，请重新输入当前密码', code: 'TWO_FACTOR_ACCESS_EXPIRED' })
+    return null
+  }
+
+  return token
+}
+
+setInterval(() => {
+  const now = Date.now()
+  for (const [token, access] of twoFactorAccessTokens) {
+    if (access.expiresAt <= now) twoFactorAccessTokens.delete(token)
+  }
+}, TWO_FACTOR_ACCESS_TTL_MS).unref()
+
+app.post('/api/auth/totp/verify', loginLimiter, (req, res) => {
+  const { ticket, code } = req.body || {}
+  const loginTicket = consumeLoginTicket(String(ticket || ''))
+  const secret = getTotpSecret()
+
+  if (!loginTicket || !secret) {
+    return res.status(401).json({ error: '验证已过期，请重新输入密码' })
+  }
+
+  if (loginTicket.ip && String(req.ip || '') !== loginTicket.ip) {
+    invalidateLoginTicket(String(ticket))
+    return res.status(401).json({ error: '验证请求无效，请重新登录' })
+  }
+
+  if (!verifyCode(secret, String(code || ''))) {
+    loginTicket.attempts += 1
+    if (loginTicket.attempts >= 5) {
+      invalidateLoginTicket(String(ticket))
+      return res.status(401).json({ error: '验证码错误次数过多，请重新登录' })
+    }
+    return res.status(401).json({ error: '动态验证码错误' })
+  }
+
+  invalidateLoginTicket(String(ticket))
+  return res.json({ valid: true, token: generateToken() })
+})
+
+app.post('/api/auth/2fa/access', loginLimiter, async (req, res) => {
+  if (!(await verifyCurrentAdminPassword(req.body?.password))) {
+    return res.status(400).json({ error: '当前密码错误' })
+  }
+
+  const access = issueTwoFactorAccess(req)
+  return res.json({ access_token: access.token, expires_at: new Date(access.expiresAt).toISOString() })
+})
+
+app.get('/api/auth/2fa/status', (req, res) => {
+  if (!requireTwoFactorAccess(req, res)) return
+  res.json({
+    totp_enabled: Boolean(getTotpSecret()),
+    passkeys: listPasskeys().map(passkey => ({
+      id: passkey.id,
+      name: passkey.name,
+      created_at: passkey.created_at
+    }))
+  })
+})
+
+app.post('/api/auth/2fa/totp/setup', (req, res) => {
+  if (!requireTwoFactorAccess(req, res)) return
+
+  const secret = generateSecret()
+  const setupToken = issueLoginTicket(`totp-setup:${secret}`)
+  return res.json({
+    secret,
+    setup_token: setupToken,
+    otpauth_url: otpauthUrl('CloudEye', 'admin', secret)
+  })
+})
+
+app.post('/api/auth/2fa/totp/confirm', (req, res) => {
+  if (!requireTwoFactorAccess(req, res)) return
+  const { setup_token, secret, code } = req.body || {}
+  const setupTicket = consumeLoginTicket(String(setup_token || ''))
+  const expectedMarker = `totp-setup:${String(secret || '')}`
+
+  if (!setupTicket || setupTicket.ip !== expectedMarker) {
+    return res.status(400).json({ error: '设置已过期，请重新开始' })
+  }
+  if (!verifyCode(String(secret || ''), String(code || ''))) {
+    return res.status(400).json({ error: '动态验证码错误' })
+  }
+
+  invalidateLoginTicket(String(setup_token))
+  setTotpSecret(String(secret))
+  return res.json({ success: true })
+})
+
+app.post('/api/auth/2fa/totp/disable', (req, res) => {
+  if (!requireTwoFactorAccess(req, res)) return
+  setTotpSecret(null)
+  return res.json({ success: true })
+})
+
+app.post('/api/auth/2fa/passkey/register/challenge', async (req, res) => {
+  const accessToken = requireTwoFactorAccess(req, res)
+  if (!accessToken) return
+  const options = await generateRegistrationOptionsData(req, String(req.body?.name || '通行密钥'))
+  passkeyRegistrationAccess.set(options.challenge, accessToken)
+  return res.json(options)
+})
+
+app.post('/api/auth/2fa/passkey/register/verify', async (req, res) => {
+  const accessToken = requireTwoFactorAccess(req, res)
+  if (!accessToken) return
+  const challenge = String(req.body?.challenge || '')
+  const challengeAccessToken = passkeyRegistrationAccess.get(challenge)
+  passkeyRegistrationAccess.delete(challenge)
+  if (challengeAccessToken !== accessToken) {
+    return res.status(400).json({ error: '通行密钥注册已过期，请重新开始' })
+  }
+  const result = await verifyRegistrationResponseData(
+    req,
+    challenge,
+    req.body?.response
+  )
+  if (!result.ok) return res.status(400).json({ error: result.message })
+  return res.json({ success: true })
+})
+
+app.delete('/api/auth/2fa/passkey/:id', (req, res) => {
+  if (!requireTwoFactorAccess(req, res)) return
+  const id = Number(req.params.id)
+  if (!Number.isInteger(id) || id <= 0) {
+    return res.status(400).json({ error: '通行密钥 ID 无效' })
+  }
+  deletePasskeyById(id)
+  return res.json({ success: true })
+})
+
+app.post('/api/auth/passkey/login/challenge', loginLimiter, async (req, res) => {
+  if (!hasAnyPasskey()) {
+    return res.status(404).json({ error: '尚未注册通行密钥' })
+  }
+  return res.json(await generateLoginChallengeOptions(req))
+})
+
+app.post('/api/auth/passkey/login/verify', loginLimiter, async (req, res) => {
+  const result = await verifyLoginResponseData(
+    req,
+    String(req.body?.challenge || ''),
+    req.body?.response
+  )
+  if (!result.ok) return res.status(401).json({ error: result.message })
+  return res.json({ valid: true, token: generateToken() })
 })
 
 app.post('/api/auth/change-password', async (req, res) => {

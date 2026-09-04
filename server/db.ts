@@ -302,6 +302,23 @@ export async function initDatabase(): Promise<Database> {
   db.run(`CREATE INDEX IF NOT EXISTS idx_webtasks_target ON webtasks(target_client_id, status)`)
   db.run(`CREATE INDEX IF NOT EXISTS idx_webtask_clients_seen ON webtask_clients(last_seen_at DESC)`)
 
+  // Passkey 通行密钥凭证表（WebAuthn）
+  // 单管理员模型：本表记录所有已注册的通行密钥，按 credential_id 定位。
+  db.run(`
+    CREATE TABLE IF NOT EXISTS passkeys (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      credential_id TEXT NOT NULL UNIQUE,
+      public_key TEXT NOT NULL,
+      counter INTEGER NOT NULL DEFAULT 0,
+      transports TEXT NOT NULL DEFAULT '[]',
+      user_handle TEXT NOT NULL DEFAULT '',
+      name TEXT NOT NULL DEFAULT '',
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    )
+  `)
+  db.run(`CREATE INDEX IF NOT EXISTS idx_passkeys_created ON passkeys(id ASC)`)
+
   // 保存数据库
   saveDatabase()
 
@@ -344,6 +361,23 @@ export function queryFirst(sql: string, params: any[] = []): any | null {
 export function run(sql: string, params: any[] = []) {
   db.run(sql, params)
   debouncedSave() // 使用防抖保存，减少磁盘 I/O
+}
+
+// ---------- TOTP 二步验证（单管理员，system_settings 存储） ----------
+
+export function getTotpSecret(): string {
+  const row = queryFirst("SELECT value FROM system_settings WHERE key = 'totp_secret'") as { value: string } | null
+  return row?.value || ''
+}
+
+export function setTotpSecret(secret: string | null): void {
+  if (!secret) {
+    run("DELETE FROM system_settings WHERE key = 'totp_secret'")
+  } else {
+    run("INSERT OR REPLACE INTO system_settings (key, value, updated_at) VALUES ('totp_secret', ?, datetime('now'))", [
+      secret
+    ])
+  }
 }
 
 // 自动清理过期数据

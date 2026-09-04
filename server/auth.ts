@@ -48,3 +48,45 @@ export function requireAuth(req: Request, res: Response, next: NextFunction) {
     return res.status(401).json({ error: 'Unauthorized: Invalid or expired token' })
   }
 }
+
+// ---------------------------------------------------------------------------
+// 登录票据（TOTP 二步验证用）
+// ---------------------------------------------------------------------------
+// 密码校验通过但开启了 TOTP 时，不直接发 JWT，先发票据。票据单次有效、
+// 2 分钟过期、连续输错 5 次即作废——作废后只能重新输密码换新票据。
+// 存内存 Map，重启即清空（与现有 JWT 无关，纯二步会话协调）。
+// ---------------------------------------------------------------------------
+
+const TICKET_TTL_MS = 2 * 60 * 1000
+const TICKET_MAX_ATTEMPTS = 5
+const loginTickets = new Map<string, { ip: string; expiresAt: number; attempts: number }>()
+
+export function issueLoginTicket(ip: string): string {
+  const ticket = crypto.randomBytes(32).toString('base64url')
+  loginTickets.set(ticket, { ip, expiresAt: Date.now() + TICKET_TTL_MS, attempts: 0 })
+  return ticket
+}
+
+// 只读取出，不删——验码成功/失败时由调用方决定去留（失败要留着累计次数）
+export function consumeLoginTicket(ticket: string): { ip: string; expiresAt: number; attempts: number } | null {
+  if (!ticket) return null
+  const rec = loginTickets.get(ticket)
+  if (!rec) return null
+  if (Date.now() > rec.expiresAt) {
+    loginTickets.delete(ticket)
+    return null
+  }
+  return rec
+}
+
+export function invalidateLoginTicket(ticket: string): void {
+  if (ticket) loginTickets.delete(ticket)
+}
+
+// 清理过期票据，防止 Map 无限增长
+setInterval(() => {
+  const now = Date.now()
+  for (const [key, rec] of loginTickets) {
+    if (now > rec.expiresAt) loginTickets.delete(key)
+  }
+}, 60 * 1000).unref()
