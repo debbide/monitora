@@ -1,3 +1,8 @@
+import type {
+  PublicKeyCredentialCreationOptionsJSON,
+  PublicKeyCredentialRequestOptionsJSON,
+} from '@simplewebauthn/browser'
+
 const API_URL = ''
 
 type HeaderInput = Record<string, string> | string
@@ -415,8 +420,11 @@ export async function disableTotp(accessToken: string): Promise<{ success: boole
   })
 }
 
-export async function beginPasskeyRegistration(accessToken: string, name: string) {
-  return fetchTwoFactorAPI('/api/auth/2fa/passkey/register/challenge', accessToken, {
+export async function beginPasskeyRegistration(
+  accessToken: string,
+  name: string
+): Promise<PublicKeyCredentialCreationOptionsJSON> {
+  return fetchTwoFactorAPI<PublicKeyCredentialCreationOptionsJSON>('/api/auth/2fa/passkey/register/challenge', accessToken, {
     method: 'POST',
     body: JSON.stringify({ name }),
   })
@@ -435,8 +443,8 @@ export async function deletePasskey(id: number, accessToken: string): Promise<{ 
   })
 }
 
-export async function beginPasskeyLogin() {
-  return fetchPublicAuthAPI<unknown>('/api/auth/passkey/login/challenge', {
+export async function beginPasskeyLogin(): Promise<PublicKeyCredentialRequestOptionsJSON> {
+  return fetchPublicAuthAPI<PublicKeyCredentialRequestOptionsJSON>('/api/auth/passkey/login/challenge', {
     method: 'POST',
   })
 }
