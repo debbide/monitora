@@ -18,6 +18,8 @@
     "type-check": "tsc --noEmit && tsc -p tsconfig.server.json --noEmit"
   },
   "dependencies": {
+    "@simplewebauthn/browser": "^14.0.0",
+    "@simplewebauthn/server": "^14.0.0",
     "bcryptjs": "^3.0.3",
     "cors": "^2.8.5",
     "express": "^4.21.1",
