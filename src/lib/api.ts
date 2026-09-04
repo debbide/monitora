@@ -118,6 +118,22 @@ async function fetchAPI(path: string, options?: RequestInit) {
   return response.json()
 }
 
+async function fetchPublicAuthAPI<T>(path: string, options?: RequestInit): Promise<T> {
+  const response = await fetch(`${API_URL}${path}`, {
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...(options?.headers as Record<string, string>),
+    },
+  })
+
+  const result = await response.json().catch(() => ({ error: 'Request failed' }))
+  if (!response.ok) {
+    throw new Error(result.error || 'Request failed')
+  }
+  return result as T
+}
+
 export async function downloadAPI(path: string, options?: RequestInit): Promise<Blob> {
   const token = localStorage.getItem('monitor_auth_token')
   const headers: Record<string, string> = {
@@ -282,16 +298,154 @@ export async function checkNow(monitorId: string): Promise<{ success: boolean; c
   })
 }
 
-export async function verifyPassword(password: string): Promise<{ valid: boolean, token?: string }> {
+export interface LoginResponse {
+  valid: boolean
+  token?: string
+  twoFactor?: {
+    required: boolean
+    ticket: string
+  }
+}
+
+export interface TwoFactorStatus {
+  totp_enabled: boolean
+  passkeys: Array<{
+    id: number
+    name: string
+    created_at: string
+  }>
+}
+
+export interface TotpSetupResponse {
+  secret: string
+  setup_token: string
+  otpauth_url: string
+}
+
+export interface TwoFactorAccessResponse {
+  access_token: string
+  expires_at: string
+}
+
+export class TwoFactorAccessError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = 'TwoFactorAccessError'
+  }
+}
+
+async function fetchTwoFactorAPI<T>(path: string, accessToken: string, options?: RequestInit): Promise<T> {
+  const token = localStorage.getItem('monitor_auth_token')
+  const response = await fetch(`${API_URL}${path}`, {
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      'X-2FA-Access-Token': accessToken,
+      ...(options?.headers as Record<string, string>),
+    },
+  })
+
+  const result = await response.json().catch(() => ({ error: 'Request failed' }))
+  if (response.status === 403 && result.code === 'TWO_FACTOR_ACCESS_EXPIRED') {
+    throw new TwoFactorAccessError(result.error || '安全验证已过期，请重新输入当前密码')
+  }
+  if (response.status === 401) {
+    localStorage.removeItem('monitor_auth_token')
+    localStorage.removeItem('monitor_auth_expiry')
+    window.location.reload()
+    throw new Error('Authentication expired')
+  }
+  if (!response.ok) {
+    throw new Error(result.error || 'Request failed')
+  }
+  return result as T
+}
+
+export async function verifyPassword(password: string): Promise<LoginResponse> {
   try {
-    const result = await fetchAPI('/api/auth/verify', {
+    return await fetchPublicAuthAPI<LoginResponse>('/api/auth/verify', {
       method: 'POST',
       body: JSON.stringify({ password }),
     })
-    return result
   } catch (error) {
     return { valid: false }
   }
+}
+
+export async function verifyTotpLogin(ticket: string, code: string): Promise<LoginResponse> {
+  return fetchPublicAuthAPI<LoginResponse>('/api/auth/totp/verify', {
+    method: 'POST',
+    body: JSON.stringify({ ticket, code }),
+  })
+}
+
+export async function unlockTwoFactorSettings(password: string): Promise<TwoFactorAccessResponse> {
+  return fetchAPI('/api/auth/2fa/access', {
+    method: 'POST',
+    body: JSON.stringify({ password }),
+  })
+}
+
+export async function getTwoFactorStatus(accessToken: string): Promise<TwoFactorStatus> {
+  return fetchTwoFactorAPI('/api/auth/2fa/status', accessToken)
+}
+
+export async function beginTotpSetup(accessToken: string): Promise<TotpSetupResponse> {
+  return fetchTwoFactorAPI('/api/auth/2fa/totp/setup', accessToken, {
+    method: 'POST',
+  })
+}
+
+export async function confirmTotpSetup(
+  accessToken: string,
+  setupToken: string,
+  secret: string,
+  code: string
+): Promise<{ success: boolean }> {
+  return fetchTwoFactorAPI('/api/auth/2fa/totp/confirm', accessToken, {
+    method: 'POST',
+    body: JSON.stringify({ setup_token: setupToken, secret, code }),
+  })
+}
+
+export async function disableTotp(accessToken: string): Promise<{ success: boolean }> {
+  return fetchTwoFactorAPI('/api/auth/2fa/totp/disable', accessToken, {
+    method: 'POST',
+  })
+}
+
+export async function beginPasskeyRegistration(accessToken: string, name: string) {
+  return fetchTwoFactorAPI('/api/auth/2fa/passkey/register/challenge', accessToken, {
+    method: 'POST',
+    body: JSON.stringify({ name }),
+  })
+}
+
+export async function finishPasskeyRegistration(accessToken: string, challenge: string, response: unknown) {
+  return fetchTwoFactorAPI('/api/auth/2fa/passkey/register/verify', accessToken, {
+    method: 'POST',
+    body: JSON.stringify({ challenge, response }),
+  })
+}
+
+export async function deletePasskey(id: number, accessToken: string): Promise<{ success: boolean }> {
+  return fetchTwoFactorAPI(`/api/auth/2fa/passkey/${id}`, accessToken, {
+    method: 'DELETE',
+  })
+}
+
+export async function beginPasskeyLogin() {
+  return fetchPublicAuthAPI<unknown>('/api/auth/passkey/login/challenge', {
+    method: 'POST',
+  })
+}
+
+export async function finishPasskeyLogin(challenge: string, response: unknown): Promise<LoginResponse> {
+  return fetchPublicAuthAPI<LoginResponse>('/api/auth/passkey/login/verify', {
+    method: 'POST',
+    body: JSON.stringify({ challenge, response }),
+  })
 }
 
 export async function changePassword(currentPassword: string, newPassword: string): Promise<void> {

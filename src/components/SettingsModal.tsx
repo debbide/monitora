@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { X, Shield, Bot, Radio, Key, Save, Settings } from 'lucide-react'
+import { X, Shield, ShieldCheck, Bot, Radio, Key, Save, Settings } from 'lucide-react'
 import './SettingsModal.css'
 
 import ChangePasswordModal from './ChangePasswordModal'
@@ -7,13 +7,14 @@ import TelegramSettings from './TelegramSettings'
 import ProbeNotifySettings from './ProbeNotifySettings'
 import WebtaskSettings from './WebtaskSettings'
 import BackupSettings from './BackupSettings'
+import TwoFactorSettings from './TwoFactorSettings'
 
 interface SettingsModalProps {
   onClose: () => void
 }
 
 export default function SettingsModal({ onClose }: SettingsModalProps) {
-  const [activeTab, setActiveTab] = useState<'password' | 'telegram' | 'probe' | 'webtask' | 'backup'>('telegram')
+  const [activeTab, setActiveTab] = useState<'password' | 'two-factor' | 'telegram' | 'probe' | 'webtask' | 'backup'>('telegram')
 
   const handlePasswordSuccess = () => {
     // When password is changed, log out the user
@@ -73,6 +74,12 @@ export default function SettingsModal({ onClose }: SettingsModalProps) {
               >
                 <Shield size={18} /> 修改密码
               </button>
+              <button
+                className={`settings-nav-item ${activeTab === 'two-factor' ? 'active' : ''}`}
+                onClick={() => setActiveTab('two-factor')}
+              >
+                <ShieldCheck size={18} /> 两步验证
+              </button>
             </div>
           </div>
           
@@ -82,6 +89,7 @@ export default function SettingsModal({ onClose }: SettingsModalProps) {
             {activeTab === 'webtask' && <WebtaskSettings onClose={onClose} />}
             {activeTab === 'backup' && <BackupSettings onClose={onClose} />}
             {activeTab === 'password' && <ChangePasswordModal onClose={onClose} onSuccess={handlePasswordSuccess} />}
+            {activeTab === 'two-factor' && <TwoFactorSettings />}
           </div>
         </div>
       </div>

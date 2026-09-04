@@ -1,0 +1,385 @@
+.two-factor-settings {
+  display: grid;
+  gap: 20px;
+  max-width: 680px;
+}
+
+.two-factor-entry-card {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 14px;
+  padding: 20px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--border-radius-lg);
+  background: var(--color-surface);
+}
+
+.two-factor-entry-card > div {
+  display: grid;
+  gap: 5px;
+}
+
+.two-factor-entry-card span,
+.two-factor-dialog-header p,
+.two-factor-unlock p,
+.two-factor-empty,
+.two-factor-browser-note {
+  margin: 0;
+  color: var(--color-text-secondary);
+  line-height: 1.5;
+}
+
+.two-factor-dialog-overlay {
+  position: fixed;
+  z-index: 1100;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(0, 0, 0, 0.62);
+  backdrop-filter: blur(4px);
+}
+
+.two-factor-dialog {
+  display: flex;
+  flex-direction: column;
+  width: min(720px, 100%);
+  max-height: min(820px, calc(100vh - 40px));
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  border-radius: var(--border-radius-lg);
+  background: var(--color-background);
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.4);
+}
+
+.two-factor-dialog-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px 20px;
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-surface);
+}
+
+.two-factor-dialog-header > div {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.two-factor-dialog-header h3,
+.two-factor-unlock h4 {
+  margin: 0;
+}
+
+.two-factor-dialog-header p {
+  margin-top: 3px;
+  font-size: 0.88rem;
+}
+
+.two-factor-dialog-close {
+  display: grid;
+  flex: 0 0 auto;
+  width: 44px;
+  height: 44px;
+  place-items: center;
+  color: var(--color-text-secondary);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--border-radius-sm);
+  cursor: pointer;
+}
+
+.two-factor-dialog-close:hover {
+  color: var(--color-text);
+  background: var(--color-surface-solid);
+  border-color: var(--color-border);
+}
+
+.two-factor-dialog-body {
+  display: grid;
+  gap: 16px;
+  padding: 20px;
+  overflow-y: auto;
+}
+
+.two-factor-unlock {
+  display: grid;
+  gap: 14px;
+  width: min(440px, 100%);
+  margin: 20px auto;
+  padding: 24px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--border-radius-lg);
+  background: var(--color-surface);
+}
+
+.two-factor-management {
+  display: grid;
+  gap: 16px;
+}
+
+.two-factor-heading,
+.two-factor-card-title {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.two-factor-heading h3,
+.two-factor-card h4 {
+  margin: 0;
+}
+
+.two-factor-heading p {
+  margin: 6px 0 0;
+  color: var(--color-text-secondary);
+  line-height: 1.55;
+}
+
+.two-factor-card {
+  display: grid;
+  gap: 16px;
+  padding: 20px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--border-radius-lg);
+  background: var(--color-surface);
+}
+
+.two-factor-card-title > div {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.two-factor-card-title span,
+.passkey-list span {
+  color: var(--color-text-secondary);
+  font-size: 0.85rem;
+}
+
+.two-factor-card-title .status-enabled {
+  color: #34d399;
+}
+
+.two-factor-card-title .status-disabled {
+  color: var(--color-text-tertiary);
+}
+
+.two-factor-settings label {
+  color: var(--color-text-secondary);
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.two-factor-settings input {
+  width: 100%;
+  min-height: 44px;
+  padding: 10px 12px;
+  color: var(--color-text);
+  background: var(--color-surface-solid);
+  border: 1px solid var(--color-border);
+  border-radius: var(--border-radius-sm);
+  font: inherit;
+}
+
+.two-factor-dialog input {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 44px;
+  padding: 10px 12px;
+  color: var(--color-text);
+  background: var(--color-surface-solid);
+  border: 1px solid var(--color-border);
+  border-radius: var(--border-radius-sm);
+  font: inherit;
+}
+
+.two-factor-settings input:focus-visible,
+.two-factor-settings button:focus-visible,
+.two-factor-dialog input:focus-visible,
+.two-factor-dialog button:focus-visible,
+.totp-setup a:focus-visible {
+  outline: 3px solid rgba(99, 102, 241, 0.4);
+  outline-offset: 2px;
+}
+
+.two-factor-alert {
+  padding: 12px 14px;
+  border-radius: var(--border-radius-sm);
+}
+
+.two-factor-alert.error {
+  color: #fca5a5;
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.two-factor-alert.success {
+  color: #6ee7b7;
+  background: rgba(16, 185, 129, 0.1);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.security-primary,
+.security-secondary,
+.security-danger {
+  min-height: 44px;
+  padding: 10px 16px;
+  border-radius: var(--border-radius-sm);
+  border: 1px solid transparent;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s, border-color 0.2s;
+}
+
+.security-primary {
+  color: #fff;
+  background: var(--color-primary);
+}
+
+.security-secondary {
+  color: var(--color-text);
+  background: transparent;
+  border-color: var(--color-border);
+}
+
+.security-danger {
+  color: #fecaca;
+  background: rgba(239, 68, 68, 0.12);
+  border-color: rgba(239, 68, 68, 0.35);
+}
+
+.security-primary:disabled,
+.security-secondary:disabled,
+.security-danger:disabled,
+.passkey-delete:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.totp-setup {
+  display: grid;
+  gap: 12px;
+}
+
+.totp-setup p {
+  margin: 0;
+  color: var(--color-text-secondary);
+  line-height: 1.5;
+}
+
+.totp-setup code {
+  overflow-wrap: anywhere;
+  padding: 12px;
+  background: var(--color-background);
+  border-radius: var(--border-radius-sm);
+  letter-spacing: 0.08em;
+}
+
+.totp-setup a {
+  color: var(--color-primary);
+}
+
+.two-factor-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.passkey-list {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.passkey-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px;
+  background: var(--color-background);
+  border-radius: var(--border-radius-sm);
+}
+
+.passkey-list li > div {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.passkey-delete {
+  width: 44px;
+  height: 44px;
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  color: #fca5a5;
+  background: transparent;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  border-radius: var(--border-radius-sm);
+  cursor: pointer;
+}
+
+.two-factor-password {
+  display: grid;
+  gap: 8px;
+  padding-top: 4px;
+}
+
+.two-factor-loading {
+  color: var(--color-text-secondary);
+}
+
+@media (max-width: 600px) {
+  .two-factor-entry-card {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .two-factor-entry-card .security-primary {
+    grid-column: 1 / -1;
+    width: 100%;
+  }
+
+  .two-factor-dialog-overlay {
+    align-items: end;
+    padding: 0;
+  }
+
+  .two-factor-dialog {
+    width: 100%;
+    max-height: 94vh;
+    border-right: 0;
+    border-bottom: 0;
+    border-left: 0;
+    border-radius: var(--border-radius-lg) var(--border-radius-lg) 0 0;
+  }
+
+  .two-factor-dialog-header,
+  .two-factor-dialog-body {
+    padding: 16px;
+  }
+
+  .two-factor-unlock {
+    margin: 0;
+    padding: 18px;
+  }
+
+  .two-factor-card {
+    padding: 16px;
+  }
+
+  .two-factor-card-title > div,
+  .two-factor-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+}
