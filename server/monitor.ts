@@ -177,11 +177,28 @@ export async function checkMonitor(monitor: Monitor) {
       statusCode = result.statusCode
 
       if (result.success) {
-        const expectedCodes = (monitor.expected_status_codes || '200,201,204,301,302')
+        const expectedStatusCodes = monitor.expected_status_codes || '200,201,204,301,302'
+        const expectedCodes = expectedStatusCodes
           .split(',')
           .map(c => parseInt(c.trim()))
+          .filter(Number.isFinite)
 
-        if (expectedCodes.includes(statusCode)) {
+        // 基础 HTTP 检测只判断目标是否可达。CF Tunnel 等入口即使返回
+        // 400/401/403/404，也说明域名、TLS 和 HTTP 服务均已连通，不应触发掉线 Webhook。
+        // 一旦配置了自定义请求或关键词，则恢复为严格状态码判定。
+        const isBasicReachabilityCheck =
+          (monitor.check_method || 'GET') === 'GET' &&
+          (monitor.http_client_mode || 'fetch') === 'fetch' &&
+          expectedStatusCodes === '200,201,204,301,302' &&
+          !monitor.check_headers &&
+          !monitor.check_body &&
+          !monitor.expected_keyword &&
+          !monitor.forbidden_keyword
+        const isExpectedStatus =
+          expectedCodes.includes(statusCode) ||
+          (isBasicReachabilityCheck && statusCode >= 100 && statusCode < 500)
+
+        if (isExpectedStatus) {
           if (monitor.forbidden_keyword && monitor.forbidden_keyword.trim()) {
             if (result.body && result.body.includes(monitor.forbidden_keyword)) {
               errorMessage = `检测到禁止关键词 "${monitor.forbidden_keyword}"`
